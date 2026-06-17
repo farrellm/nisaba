@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: nisaba-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nisaba
+      POSTGRES_PASSWORD: nisaba
+      POSTGRES_DB: nisaba
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nisaba -d nisaba"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
