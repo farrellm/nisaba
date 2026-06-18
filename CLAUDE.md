@@ -24,7 +24,7 @@ make frontend-build    # production build to frontend/dist/
 
 Install golang-migrate before running migrations:
 ```sh
-go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 ```
 
 ## Architecture

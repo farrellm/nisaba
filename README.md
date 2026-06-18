@@ -16,7 +16,7 @@ Web application skeleton: React + MUI frontend, Go backend, PostgreSQL database.
 - [Docker](https://docs.docker.com/get-docker/) (for Postgres)
 - [golang-migrate](https://github.com/golang-migrate/migrate):
   ```sh
-  go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+  go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
   ```
 
 ## Getting Started
