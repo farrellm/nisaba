@@ -32,11 +32,13 @@ go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@lat
 The app is split into three independent directories: `frontend/`, `backend/`, and `db/`.
 
 **Frontend** (`frontend/`) — Vite + React 18 + TypeScript + MUI v6. The Vite dev server proxies all `/api/*` requests to `http://localhost:8080`, so the browser never makes a cross-origin request during development. Production builds output to `frontend/dist/`.
+Routing uses `react-router-dom` (routes in `src/App.tsx`, providers in `src/main.tsx`). Call the API via `src/api/client.ts` (`api.get/post`, sends the session cookie) rather than raw `fetch`. Current user comes from `useAuth()` (`src/auth/AuthContext.tsx`); wrap protected routes in `RequireAuth`, which redirects to `/login`.
 
 **Backend** (`backend/`) — Go module `github.com/farrellm/nisaba`. Entry point is `cmd/server/main.go`. Internal packages:
 - `internal/config` — reads `ADDR`, `DATABASE_URL`, `CORS_ORIGINS` from env with local dev defaults
+- `internal/auth` — cookie-session helper (gorilla/sessions, signed, HttpOnly). `SESSION_SECRET` signs the cookie (dev default; prod must override); `SESSION_SECURE=true` sets the Secure flag for HTTPS
 - `internal/db` — opens a `pgxpool.Pool` and pings on startup to fail fast
-- `internal/handler` — `http.HandlerFunc` closures that accept the pool; add new handlers here
+- `internal/handler` — `http.HandlerFunc` closures; data-access handlers take `*store.Store` (built via `store.New(pool)` in main.go), auth-aware ones also take `*auth.Sessions`. Only `Health` still takes the raw pool. Auth flow lives in `auth.go`: `/api/auth/{register,login,logout,me}`, bcrypt-hashed passwords, generic 401 on bad login, 409 on duplicate username
 - `internal/model` — plain domain structs mirroring the DB schema (no data-access logic); JSON-tagged, aggregate-shaped for API bodies
 - `internal/store` — `Store` wraps the pool with raw-SQL CRUD methods over the models; returns `store.ErrNotFound` for missing rows. `GetDocument` loads the full aggregate (blocks → attributes/responses) with batched queries
 
