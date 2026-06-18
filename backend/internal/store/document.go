@@ -16,10 +16,10 @@ func (s *Store) CreateDocument(ctx context.Context, doc model.Document) (model.D
 		doc.Metadata = map[string]any{}
 	}
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO documents (user_id, selected_model, metadata, is_archived, url)
-		 VALUES ($1, $2, $3, $4, $5)
+		`INSERT INTO documents (user_id, title, selected_model, metadata, is_archived, url)
+		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING id, created_at, updated_at`,
-		doc.UserID, doc.SelectedModel, doc.Metadata, doc.IsArchived, doc.URL,
+		doc.UserID, doc.Title, doc.SelectedModel, doc.Metadata, doc.IsArchived, doc.URL,
 	).Scan(&doc.ID, &doc.CreatedAt, &doc.UpdatedAt)
 	return doc, err
 }
@@ -30,10 +30,10 @@ func (s *Store) CreateDocument(ctx context.Context, doc model.Document) (model.D
 func (s *Store) GetDocument(ctx context.Context, id int64) (model.Document, error) {
 	var d model.Document
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, user_id, created_at, updated_at, selected_model, metadata, is_archived, url
+		`SELECT id, user_id, created_at, updated_at, title, selected_model, metadata, is_archived, url
 		   FROM documents WHERE id = $1`, id,
 	).Scan(&d.ID, &d.UserID, &d.CreatedAt, &d.UpdatedAt,
-		&d.SelectedModel, &d.Metadata, &d.IsArchived, &d.URL)
+		&d.Title, &d.SelectedModel, &d.Metadata, &d.IsArchived, &d.URL)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return d, ErrNotFound
 	}
@@ -58,7 +58,7 @@ func (s *Store) GetDocument(ctx context.Context, id int64) (model.Document, erro
 // included only when includeArchived is true.
 func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived bool) ([]model.Document, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, user_id, created_at, updated_at, selected_model, metadata, is_archived, url
+		`SELECT id, user_id, created_at, updated_at, title, selected_model, metadata, is_archived, url
 		   FROM documents
 		  WHERE user_id = $1 AND ($2 OR NOT is_archived)
 		  ORDER BY updated_at DESC`,
@@ -72,7 +72,7 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 	for rows.Next() {
 		var d model.Document
 		if err := rows.Scan(&d.ID, &d.UserID, &d.CreatedAt, &d.UpdatedAt,
-			&d.SelectedModel, &d.Metadata, &d.IsArchived, &d.URL); err != nil {
+			&d.Title, &d.SelectedModel, &d.Metadata, &d.IsArchived, &d.URL); err != nil {
 			return nil, err
 		}
 		docs = append(docs, d)
@@ -88,10 +88,10 @@ func (s *Store) UpdateDocument(ctx context.Context, doc model.Document) (model.D
 	}
 	err := s.pool.QueryRow(ctx,
 		`UPDATE documents
-		    SET selected_model = $2, metadata = $3, is_archived = $4, url = $5, updated_at = NOW()
+		    SET title = $2, selected_model = $3, metadata = $4, is_archived = $5, url = $6, updated_at = NOW()
 		  WHERE id = $1
 		 RETURNING user_id, created_at, updated_at`,
-		doc.ID, doc.SelectedModel, doc.Metadata, doc.IsArchived, doc.URL,
+		doc.ID, doc.Title, doc.SelectedModel, doc.Metadata, doc.IsArchived, doc.URL,
 	).Scan(&doc.UserID, &doc.CreatedAt, &doc.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return doc, ErrNotFound
