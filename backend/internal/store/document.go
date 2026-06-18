@@ -151,6 +151,29 @@ func (s *Store) ReplaceDocumentAttributes(ctx context.Context, documentID int64,
 	return tx.Commit(ctx)
 }
 
+// MergeDocumentAttributes upserts each given key/value into a document's
+// attributes without touching keys not present in attrs. Unlike
+// ReplaceDocumentAttributes it does not wipe the shared namespace, so values set
+// by other modes survive.
+func (s *Store) MergeDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	for k, v := range attrs {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO document_attributes (document_id, key, value)
+			 VALUES ($1, $2, $3)
+			 ON CONFLICT (document_id, key) DO UPDATE SET value = EXCLUDED.value`,
+			documentID, k, v); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 // documentAttributes loads a document's key/value attributes.
 func (s *Store) documentAttributes(ctx context.Context, documentID int64) (map[string]string, error) {
 	rows, err := s.pool.Query(ctx,

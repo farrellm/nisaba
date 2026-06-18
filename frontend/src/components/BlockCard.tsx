@@ -22,9 +22,11 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun }: B
   })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [copying, setCopying] = useState(false)
   const [running, setRunning] = useState(false)
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
+  const busy = saving || copying || running
 
   async function handleSave() {
     setError(null)
@@ -42,12 +44,30 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun }: B
     }
   }
 
+  async function handleCopy() {
+    setError(null)
+    setCopying(true)
+    try {
+      const updated = await api.post<Block>(
+        `/api/documents/${block.documentId}/blocks/${block.id}/copy`,
+        { attributes: values },
+      )
+      onBlockUpdated(updated)
+      onAfterRun()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not copy. Try again.')
+    } finally {
+      setCopying(false)
+    }
+  }
+
   async function handleRun() {
     setError(null)
     setRunning(true)
     try {
       const updated = await api.post<Block>(
         `/api/documents/${block.documentId}/blocks/${block.id}/run`,
+        { attributes: values },
       )
       onBlockUpdated(updated)
       onAfterRun()
@@ -90,10 +110,13 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun }: B
       )}
 
       <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || saving}>
+        <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || busy}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
-        <Button variant="contained" size="small" onClick={handleRun} disabled={running}>
+        <Button variant="outlined" size="small" onClick={handleCopy} disabled={busy}>
+          {copying ? 'Copying…' : 'Copy to document'}
+        </Button>
+        <Button variant="contained" size="small" onClick={handleRun} disabled={busy}>
           {running ? 'Running…' : 'Run'}
         </Button>
       </Stack>

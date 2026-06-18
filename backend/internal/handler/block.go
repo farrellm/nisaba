@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -121,6 +122,22 @@ type updateBlock struct {
 	Attributes map[string]string `json:"attributes"`
 }
 
+// mergedBlockAttrs builds the block's attribute map for the mode's fixed key
+// set, taking each key from body when present and otherwise from the block's
+// existing value. Keys outside the mode's key set are dropped, so the result
+// always matches the mode.
+func mergedBlockAttrs(block model.Block, m mode.Mode, body map[string]string) map[string]string {
+	attrs := make(map[string]string, len(m.Keys))
+	for _, key := range m.Keys {
+		if v, present := body[key]; present {
+			attrs[key] = v
+		} else {
+			attrs[key] = block.Attributes[key]
+		}
+	}
+	return attrs
+}
+
 // UpdateBlock replaces a block's key/values. Keys outside the mode's fixed key
 // set are ignored, so the stored attributes always match the mode.
 func UpdateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
@@ -145,14 +162,7 @@ func UpdateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
 			return
 		}
-		attrs := make(map[string]string, len(m.Keys))
-		for _, key := range m.Keys {
-			if v, present := body.Attributes[key]; present {
-				attrs[key] = v
-			} else {
-				attrs[key] = block.Attributes[key]
-			}
-		}
+		attrs := mergedBlockAttrs(block, m, body.Attributes)
 		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not update block")
 			return
@@ -167,9 +177,57 @@ func UpdateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	}
 }
 
-// RunBlock renders the mode's mustache template against the block's key/values
-// to build a prompt, "runs" it, saves the result as a response, and writes the
-// result back into the document's attributes under the mode's output key.
+// CopyBlock saves the block's key/values and promotes them into the document's
+// shared attributes (merging, so values set by other blocks survive). It accepts
+// the same body shape as UpdateBlock so the caller's on-screen edits are saved
+// before they're copied up.
+func CopyBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, ok := ownedDocument(w, r, st, sess)
+		if !ok {
+			return
+		}
+		block, ok := findBlock(w, r, doc)
+		if !ok {
+			return
+		}
+
+		var body updateBlock
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		m, ok := mode.Get(block.Mode)
+		if !ok {
+			writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
+			return
+		}
+		attrs := mergedBlockAttrs(block, m, body.Attributes)
+		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update block")
+			return
+		}
+		if err := st.MergeDocumentAttributes(r.Context(), doc.ID, attrs); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update document")
+			return
+		}
+
+		hydrated, err := st.GetBlock(r.Context(), block.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load block")
+			return
+		}
+		writeJSON(w, http.StatusOK, hydrated)
+	}
+}
+
+// RunBlock saves the block's key/values, promotes them into the document's
+// shared attributes, renders the mode's mustache template against them to build
+// a prompt, runs it, saves the result as a response, and writes the result back
+// into the document's attributes under the mode's output key. It accepts the
+// same optional body as UpdateBlock so the caller's on-screen edits are saved
+// before the run.
 func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st, sess)
@@ -192,7 +250,24 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		prompt, err := mustache.Render(m.Template, block.Attributes)
+		// Save the caller's edits (empty body falls back to existing values) and
+		// promote them into the document's shared attributes before running.
+		var body updateBlock
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		attrs := mergedBlockAttrs(block, m, body.Attributes)
+		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update block")
+			return
+		}
+		if err := st.MergeDocumentAttributes(r.Context(), doc.ID, attrs); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update document")
+			return
+		}
+
+		prompt, err := mustache.Render(m.Template, attrs)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not render prompt")
 			return
