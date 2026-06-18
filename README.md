@@ -1,6 +1,8 @@
 # Nisaba
 
-Web application skeleton: React + MUI frontend, Go backend, PostgreSQL database.
+Nisaba is a tool for **writing with LLMs**. A document is built from **blocks**, and every block is created in one of a fixed set of **modes**. Each mode has a fixed set of keys and a mustache prompt template. When you add a block its values are seeded from the document's shared key/values; when you **run** it, the template renders those values into a prompt, the prompt goes to the document's selected model, and the response is saved to the block and fed back into the document's key/values. (The actual model call is not yet implemented — see the `RunBlock` stub.)
+
+Built on a React + MUI frontend, Go backend, and PostgreSQL database.
 
 ## Stack
 
@@ -88,3 +90,12 @@ The backend reads configuration from environment variables with development defa
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/healthz` | Returns API and database status |
+| POST | `/api/auth/{register,login,logout}` | Session auth |
+| GET | `/api/auth/me` | Current user |
+| GET | `/api/modes` | The fixed set of writing modes (name, keys, output) |
+| GET | `/api/documents` | List the user's documents (`?archived=true` to include archived) |
+| POST | `/api/documents` | Create a document |
+| GET | `/api/documents/{id}` | Get a document with its blocks, attributes, and responses |
+| POST | `/api/documents/{id}/blocks` | Add a block (choose a mode); seeds attributes from the document |
+| PUT | `/api/documents/{id}/blocks/{blockId}` | Update a block's key/values |
+| POST | `/api/documents/{id}/blocks/{blockId}/run` | Render the prompt and run the block (model call stubbed) |

@@ -49,7 +49,9 @@ func (s *Store) GetBlock(ctx context.Context, id int64) (model.Block, error) {
 	if err != nil {
 		return b, err
 	}
-	b.Responses = responses[id]
+	if b.Responses = responses[id]; b.Responses == nil {
+		b.Responses = []model.Response{}
+	}
 	return b, nil
 }
 
@@ -180,7 +182,7 @@ func (s *Store) documentBlocks(ctx context.Context, documentID int64) ([]model.B
 		return nil, err
 	}
 
-	var blocks []model.Block
+	blocks := []model.Block{}
 	var ids []int64
 	for rows.Next() {
 		var b model.Block
@@ -212,7 +214,11 @@ func (s *Store) documentBlocks(ctx context.Context, documentID int64) ([]model.B
 		if a := attrs[blocks[i].ID]; a != nil {
 			blocks[i].Attributes = a
 		}
-		blocks[i].Responses = responses[blocks[i].ID]
+		if r := responses[blocks[i].ID]; r != nil {
+			blocks[i].Responses = r
+		} else {
+			blocks[i].Responses = []model.Response{}
+		}
 	}
 	return blocks, nil
 }

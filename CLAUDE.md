@@ -19,28 +19,45 @@ make backend-test    # go test ./...
 # Frontend
 make frontend-install  # npm install (first time only)
 make frontend          # vite dev server (port 5173)
-make frontend-build    # production build to frontend/dist/
+make frontend-build    # production build to frontend/dist/ (runs tsc first — also the typecheck)
 ```
+
+Quick checks: `gofmt -l backend/` (format), `cd frontend && npx tsc --noEmit` (typecheck only). There is no separate frontend lint step.
 
 Install golang-migrate before running migrations:
 ```sh
 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 ```
 
+## Core Concept: Modes & Blocks
+
+Nisaba is a tool for **writing with LLMs**. A **document** holds an ordered list of **blocks** plus its own key/value **attributes** (a shared namespace) and a **selected model**.
+
+There is a **fixed, code-defined set of modes** (`backend/internal/mode`). Each mode declares a fixed set of input **keys**, an **output** key, and a **mustache template**. The set is fixed at build time — there is no runtime CRUD.
+
+The lifecycle:
+1. **Add block** — the user picks a mode. The new block's attributes are seeded from the document's attributes for that mode's keys (empty string where the document has no value).
+2. **Edit** — the user edits the block's key/values.
+3. **Run** — the mode's mustache template is rendered against the block's key/values to produce a **prompt**; the prompt is sent to the document's selected model; the **response** is appended to the block's responses and written back into the document's attributes under the mode's `output` key.
+
+**The actual LLM call is intentionally not implemented.** `RunBlock` in `internal/handler/block.go` assembles the prompt and runs the full save/update pipeline, but the model call is a clearly-marked `// TODO` stub that echoes the prompt as a placeholder response. Wire the real model call there.
+
 ## Architecture
 
 The app is split into three independent directories: `frontend/`, `backend/`, and `db/`.
 
 **Frontend** (`frontend/`) — Vite + React 18 + TypeScript + MUI v6. The Vite dev server proxies all `/api/*` requests to `http://localhost:8080`, so the browser never makes a cross-origin request during development. Production builds output to `frontend/dist/`.
-Routing uses `react-router-dom` (routes in `src/App.tsx`, providers in `src/main.tsx`). Call the API via `src/api/client.ts` (`api.get/post`, sends the session cookie) rather than raw `fetch`. Current user comes from `useAuth()` (`src/auth/AuthContext.tsx`); wrap protected routes in `RequireAuth`, which redirects to `/login`.
+Routing uses `react-router-dom` (routes in `src/App.tsx`, providers in `src/main.tsx`). Call the API via `src/api/client.ts` (`api.get/post/put`, sends the session cookie) rather than raw `fetch`. Frontend API types are in `src/api/types.ts` (`Document`, `DocumentDetail`, `Block`, `Response`, `Mode`); treat any array from the API as possibly `null` and guard with `?? []`. Current user comes from `useAuth()` (`src/auth/AuthContext.tsx`); wrap protected routes in `RequireAuth`, which redirects to `/login`. The document view (`pages/DocumentPage.tsx`) renders blocks via `components/BlockCard.tsx` and adds them via `components/AddBlockDialog.tsx`.
 
 **Backend** (`backend/`) — Go module `github.com/farrellm/nisaba`. Entry point is `cmd/server/main.go`. Internal packages:
 - `internal/config` — reads `ADDR`, `DATABASE_URL`, `CORS_ORIGINS` from env with local dev defaults
 - `internal/auth` — cookie-session helper (gorilla/sessions, signed, HttpOnly). `SESSION_SECRET` signs the cookie (dev default; prod must override); `SESSION_SECURE=true` sets the Secure flag for HTTPS
 - `internal/db` — opens a `pgxpool.Pool` and pings on startup to fail fast
-- `internal/handler` — `http.HandlerFunc` closures; data-access handlers take `*store.Store` (built via `store.New(pool)` in main.go), auth-aware ones also take `*auth.Sessions`. Only `Health` still takes the raw pool. Auth flow lives in `auth.go`: `/api/auth/{register,login,logout,me}`, bcrypt-hashed passwords, generic 401 on bad login, 409 on duplicate username. Document CRUD lives in `document.go`: `/api/documents` (list/create) and `/api/documents/{id}` (get); list takes `?archived=true`. Conventions: resources owned by another user return **404, not 403** (don't leak existence); list endpoints guard `nil` slices so the JSON body is `[]`, never `null`
+- `internal/handler` — `http.HandlerFunc` closures; data-access handlers take `*store.Store` (built via `store.New(pool)` in main.go), auth-aware ones also take `*auth.Sessions`. Only `Health` still takes the raw pool. Auth flow lives in `auth.go`: `/api/auth/{register,login,logout,me}`, bcrypt-hashed passwords, generic 401 on bad login, 409 on duplicate username. Document CRUD lives in `document.go`: `/api/documents` (list/create) and `/api/documents/{id}` (get); list takes `?archived=true`. Block flow lives in `block.go`: `POST /api/documents/{id}/blocks` (add, seeds attrs from the document), `PUT .../blocks/{blockId}` (edit key/values), `POST .../blocks/{blockId}/run` (assemble prompt + stubbed model call); `mode.go` serves `GET /api/modes`. Shared helpers `ownedDocument`/`findBlock` enforce ownership. Conventions: resources owned by another user return **404, not 403** (don't leak existence); list endpoints guard `nil` slices so the JSON body is `[]`, never `null`
+- `internal/mode` — the fixed mode registry: `Mode{Name, Label, Keys, Output, Template}`, with mustache templates embedded from `templates/*.mustache` via `go:embed`. `All()` / `Get(name)`. The `Template` field is `json:"-"` so it stays server-side. Add a mode by adding an entry plus its template file
 - `internal/model` — plain domain structs mirroring the DB schema (no data-access logic); JSON-tagged, aggregate-shaped for API bodies
 - `internal/store` — `Store` wraps the pool with raw-SQL CRUD methods over the models; returns `store.ErrNotFound` for missing rows. `GetDocument` loads the full aggregate (blocks → attributes/responses) with batched queries
+- **Empty Go slices marshal to JSON `null`, not `[]`** — embedded aggregate slices (`Document.Blocks`/`Labels`, `Block.Responses`) must be defaulted to an empty slice in the store, or the frontend crashes on `.length`/`.map`. `GetDocument`/`GetBlock` guard `Blocks`/`Responses`; `Labels` is not yet guarded, so guard slice access with `?? []` on the frontend too
 
 Routing uses `go-chi/chi`. Handlers are plain `http.HandlerFunc` (no framework-specific types). CORS is handled by `rs/cors` middleware — it's unused during local dev (covered by the Vite proxy) but activates in production.
 
@@ -51,5 +68,6 @@ Domain tables use `BIGSERIAL` ids and `ON DELETE CASCADE` FKs. String key/value 
 
 1. Add a handler function in `backend/internal/handler/` returning `http.HandlerFunc`
 2. For user-scoped data, read the caller via `sess.UserID(r)` (401 if absent) and scope/own-check on it — see `document.go`
-3. Register the route in `backend/cmd/server/main.go` inside the `/api` route group
-4. Call it from `frontend/src/` using a relative `/api/...` path
+3. For resources nested under a document (`/documents/{id}/...`), reuse the `ownedDocument`/`findBlock` helpers in `block.go` and register inside the nested `r.Route("/{id}", ...)` group rather than re-checking ownership
+4. Register the route in `backend/cmd/server/main.go` inside the `/api` route group
+5. Call it from `frontend/src/` using a relative `/api/...` path
