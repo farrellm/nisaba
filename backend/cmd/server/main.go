@@ -50,6 +50,12 @@ func main() {
 			r.Post("/logout", handler.Logout(sess))
 			r.Get("/me", handler.Me(st, sess))
 		})
+
+		r.Route("/documents", func(r chi.Router) {
+			r.Get("/", handler.ListDocuments(st, sess))
+			r.Post("/", handler.CreateDocument(st, sess))
+			r.Get("/{id}", handler.GetDocument(st, sess))
+		})
 	})
 
 	slog.Info("server listening", "addr", cfg.Addr)

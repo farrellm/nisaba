@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box, Button, Container, Divider, Stack, Typography } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import { fonts } from '../theme'
@@ -95,6 +95,16 @@ export default function IndexPage() {
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 480 }}>
           Your documents will live here. Nothing's been written yet — this is where it begins.
         </Typography>
+
+        <Button
+          component={RouterLink}
+          to="/documents"
+          variant="contained"
+          size="large"
+          sx={{ mt: 3 }}
+        >
+          Open your documents
+        </Button>
 
         {/* Status ledger */}
         <Box sx={{ mt: 8, maxWidth: 520 }}>
