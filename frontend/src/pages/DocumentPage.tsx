@@ -7,6 +7,7 @@ import type { Block, DocumentDetail, Mode } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import AddBlockDialog from '../components/AddBlockDialog'
 import BlockCard from '../components/BlockCard'
+import ModelSelector from '../components/ModelSelector'
 import { fonts } from '../theme'
 
 // DocumentPage loads a document via GET /api/documents/:id and renders its
@@ -102,9 +103,6 @@ export default function DocumentPage() {
           <Typography sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}>Loading…</Typography>
         ) : (
           <>
-            <Typography variant="overline" sx={{ color: 'primary.main', display: 'block', mb: 2 }}>
-              {doc.selectedModel || 'No model selected'}
-            </Typography>
             <Typography variant="h1" sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)', mb: 4 }}>
               {doc.title || 'Untitled'}
             </Typography>
@@ -128,6 +126,7 @@ export default function DocumentPage() {
         )}
       </Container>
 
+      {doc && <ModelSelector doc={doc} onChange={setDoc} />}
       <Fab
         color="primary"
         aria-label="Add block"

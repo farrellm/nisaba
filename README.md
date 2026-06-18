@@ -1,6 +1,6 @@
 # Nisaba
 
-Nisaba is a tool for **writing with LLMs**. A document is built from **blocks**, and every block is created in one of a fixed set of **modes**. Each mode has a fixed set of keys and a mustache prompt template. When you add a block its values are seeded from the document's shared key/values; when you **run** it, the template renders those values into a prompt, the prompt goes to the document's selected model, and the response is saved to the block and fed back into the document's key/values. (The actual model call is not yet implemented — see the `RunBlock` stub.)
+Nisaba is a tool for **writing with LLMs**. A document is built from **blocks**, and every block is created in one of a fixed set of **modes**. Each mode has a fixed set of keys and a mustache prompt template. When you add a block its values are seeded from the document's shared key/values; when you **run** it, the template renders those values into a prompt, the prompt goes to the document's selected model, and the response is saved to the block and fed back into the document's key/values. The model call is provider-agnostic (via `dragon-born/go-llm`), and the model is chosen per document from a fixed, cross-provider list.
 
 Built on a React + MUI frontend, Go backend, and PostgreSQL database.
 
@@ -65,6 +65,16 @@ The backend reads configuration from environment variables with development defa
 | `DATABASE_URL` | `postgres://nisaba:nisaba@localhost:5432/nisaba?sslmode=disable` | Postgres connection string |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 
+### LLM provider
+
+The LLM call is provider-agnostic via [`dragon-born/go-llm`](https://gopkg.in/dragon-born/go-llm.v1), wrapped in `backend/internal/llm`. Requests route through go-llm's default gateway (OpenRouter), so a single key reaches every model in the fixed list (Anthropic, OpenAI, Google, …). Set it before running a block:
+
+```sh
+export OPENROUTER_API_KEY=...
+```
+
+go-llm also supports per-provider keys directly (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, …) if you switch the default provider.
+
 ## Project Structure
 
 ```
@@ -93,9 +103,11 @@ The backend reads configuration from environment variables with development defa
 | POST | `/api/auth/{register,login,logout}` | Session auth |
 | GET | `/api/auth/me` | Current user |
 | GET | `/api/modes` | The fixed set of writing modes (name, keys, output) |
+| GET | `/api/models` | The fixed, cross-provider list of selectable models |
 | GET | `/api/documents` | List the user's documents (`?archived=true` to include archived) |
 | POST | `/api/documents` | Create a document |
 | GET | `/api/documents/{id}` | Get a document with its blocks, attributes, and responses |
+| PUT | `/api/documents/{id}` | Update the document's selected model |
 | POST | `/api/documents/{id}/blocks` | Add a block (choose a mode); seeds attributes from the document |
 | PUT | `/api/documents/{id}/blocks/{blockId}` | Update a block's key/values |
-| POST | `/api/documents/{id}/blocks/{blockId}/run` | Render the prompt and run the block (model call stubbed) |
+| POST | `/api/documents/{id}/blocks/{blockId}/run` | Render the prompt, send it to the selected model, and save the response |

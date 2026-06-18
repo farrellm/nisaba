@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/llm"
 	"github.com/farrellm/nisaba/internal/model"
 	"github.com/farrellm/nisaba/internal/store"
 )
@@ -116,5 +117,43 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, doc)
+	}
+}
+
+type updateDocument struct {
+	SelectedModel string `json:"selectedModel"`
+}
+
+// UpdateDocument changes a document's selected model and returns the refreshed,
+// fully-populated document. Only the selected model is settable for now.
+func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, ok := ownedDocument(w, r, st, sess)
+		if !ok {
+			return
+		}
+
+		var body updateDocument
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		if !llm.Valid(body.SelectedModel) {
+			writeError(w, http.StatusBadRequest, "Unknown model")
+			return
+		}
+
+		doc.SelectedModel = body.SelectedModel
+		if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update document")
+			return
+		}
+
+		updated, err := st.GetDocument(r.Context(), doc.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load document")
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
 	}
 }

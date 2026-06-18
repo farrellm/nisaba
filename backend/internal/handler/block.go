@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/llm"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
 	"github.com/farrellm/nisaba/internal/store"
@@ -186,16 +187,22 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
+		if doc.SelectedModel == "" {
+			writeError(w, http.StatusBadRequest, "No model selected")
+			return
+		}
+
 		prompt, err := mustache.Render(m.Template, block.Attributes)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not render prompt")
 			return
 		}
 
-		// TODO: send `prompt` to doc.SelectedModel and capture the model's reply.
-		// The LLM integration is intentionally not implemented yet; until then we
-		// echo the assembled prompt so the rest of the pipeline can be exercised.
-		output := "[stubbed response]\n\n--- prompt ---\n" + prompt
+		output, err := llm.Generate(r.Context(), doc.SelectedModel, prompt)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Model request failed")
+			return
+		}
 
 		if _, err := st.CreateResponse(r.Context(), model.Response{
 			BlockID:  block.ID,

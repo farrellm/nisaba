@@ -52,6 +52,7 @@ func main() {
 		})
 
 		r.Get("/modes", handler.ListModes())
+		r.Get("/models", handler.ListModels())
 
 		r.Route("/documents", func(r chi.Router) {
 			r.Get("/", handler.ListDocuments(st, sess))
@@ -59,6 +60,7 @@ func main() {
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", handler.GetDocument(st, sess))
+				r.Put("/", handler.UpdateDocument(st, sess))
 
 				r.Route("/blocks", func(r chi.Router) {
 					r.Post("/", handler.CreateBlock(st, sess))
