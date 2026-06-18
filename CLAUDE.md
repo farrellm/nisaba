@@ -37,10 +37,12 @@ The app is split into three independent directories: `frontend/`, `backend/`, an
 - `internal/config` — reads `ADDR`, `DATABASE_URL`, `CORS_ORIGINS` from env with local dev defaults
 - `internal/db` — opens a `pgxpool.Pool` and pings on startup to fail fast
 - `internal/handler` — `http.HandlerFunc` closures that accept the pool; add new handlers here
+- `internal/model` — plain domain structs mirroring the DB schema (no data-access logic); JSON-tagged, aggregate-shaped for API bodies
 
 Routing uses `go-chi/chi`. Handlers are plain `http.HandlerFunc` (no framework-specific types). CORS is handled by `rs/cors` middleware — it's unused during local dev (covered by the Vite proxy) but activates in production.
 
 **Database** (`db/migrations/`) — plain SQL files managed by `golang-migrate`. Naming convention: `000001_<name>.up.sql` / `000001_<name>.down.sql`. Local credentials: `nisaba/nisaba/nisaba` (user/password/db).
+Domain tables use `BIGSERIAL` ids and `ON DELETE CASCADE` FKs. String key/value attributes live in normalized child tables with `PRIMARY KEY (parent_id, key)` for uniqueness; free-form `metadata` is a `JSONB` column.
 
 ## Adding a New API Endpoint
 

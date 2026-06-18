@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS document_labels;
+DROP TABLE IF EXISTS labels;
+DROP TABLE IF EXISTS responses;
+DROP TABLE IF EXISTS block_attributes;
+DROP TABLE IF EXISTS blocks;
+DROP TABLE IF EXISTS document_attributes;
+DROP TABLE IF EXISTS documents;
+DROP TABLE IF EXISTS users;
