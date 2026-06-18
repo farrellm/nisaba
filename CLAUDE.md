@@ -38,6 +38,7 @@ The app is split into three independent directories: `frontend/`, `backend/`, an
 - `internal/db` — opens a `pgxpool.Pool` and pings on startup to fail fast
 - `internal/handler` — `http.HandlerFunc` closures that accept the pool; add new handlers here
 - `internal/model` — plain domain structs mirroring the DB schema (no data-access logic); JSON-tagged, aggregate-shaped for API bodies
+- `internal/store` — `Store` wraps the pool with raw-SQL CRUD methods over the models; returns `store.ErrNotFound` for missing rows. `GetDocument` loads the full aggregate (blocks → attributes/responses) with batched queries
 
 Routing uses `go-chi/chi`. Handlers are plain `http.HandlerFunc` (no framework-specific types). CORS is handled by `rs/cors` middleware — it's unused during local dev (covered by the Vite proxy) but activates in production.
 
