@@ -10,6 +10,7 @@ type Document struct {
 	UserID        int64             `json:"userId"`
 	CreatedAt     time.Time         `json:"createdAt"`
 	UpdatedAt     time.Time         `json:"updatedAt"`
+	Title         string            `json:"title"`
 	SelectedModel string            `json:"selectedModel"`
 	Metadata      map[string]any    `json:"metadata"`
 	IsArchived    bool              `json:"isArchived"`
