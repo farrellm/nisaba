@@ -37,6 +37,14 @@ export interface Mode {
   output: string
 }
 
+// LLMModel mirrors llm.Model as returned by /api/models — one selectable model
+// in the fixed, cross-provider list.
+export interface LLMModel {
+  id: string
+  label: string
+  provider: string
+}
+
 // DocumentDetail is the fully-populated document returned by
 // GET /api/documents/:id (the summary plus its nested data).
 export interface DocumentDetail extends Document {
