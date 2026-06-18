@@ -3,6 +3,9 @@ import RequireAuth from './auth/RequireAuth'
 import IndexPage from './pages/IndexPage'
 import LoginPage from './pages/LoginPage'
 import CreateUserPage from './pages/CreateUserPage'
+import DocumentsPage from './pages/DocumentsPage'
+import DocumentPage from './pages/DocumentPage'
+import ArchivePage from './pages/ArchivePage'
 
 export default function App() {
   return (
@@ -14,6 +17,30 @@ export default function App() {
         element={
           <RequireAuth>
             <IndexPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/documents"
+        element={
+          <RequireAuth>
+            <DocumentsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/documents/:id"
+        element={
+          <RequireAuth>
+            <DocumentPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/archive"
+        element={
+          <RequireAuth>
+            <ArchivePage />
           </RequireAuth>
         }
       />
