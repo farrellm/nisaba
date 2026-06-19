@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Box, Button, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, InputAdornment, Stack, TextField, Typography } from '@mui/material'
+import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api, ApiError } from '../api/client'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
@@ -22,6 +23,11 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
   })
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  function reveal(key: string) {
+    setExpanded((prev) => new Set(prev).add(key))
+  }
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (attributes[key] ?? ''))
 
@@ -61,16 +67,42 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         </Typography>
       ) : (
         <Stack spacing={2}>
-          {keys.map((key) => (
-            <TextField
-              key={key}
-              label={key}
-              value={values[key] ?? ''}
-              onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-              multiline
-              minRows={1}
-            />
-          ))}
+          {keys.map((key) => {
+            const value = values[key] ?? ''
+            const collapsed = !expanded.has(key) && value.length > 30
+            if (collapsed) {
+              return (
+                <TextField
+                  key={key}
+                  label={key}
+                  value={`${value.slice(0, 28)}…`}
+                  onClick={() => reveal(key)}
+                  InputProps={{
+                    readOnly: true,
+                    endAdornment: (
+                      <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
+                        <UnfoldMore fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      cursor: 'pointer',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                    },
+                  }}
+                />
+              )
+            }
+            return (
+              <TextField
+                key={key}
+                label={key}
+                value={value}
+                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                multiline
+                minRows={1}
+              />
+            )
+          })}
         </Stack>
       )}
 
