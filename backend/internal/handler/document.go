@@ -121,11 +121,13 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 }
 
 type updateDocument struct {
-	SelectedModel string `json:"selectedModel"`
+	SelectedModel *string            `json:"selectedModel"`
+	Attributes    *map[string]string `json:"attributes"`
 }
 
-// UpdateDocument changes a document's selected model and returns the refreshed,
-// fully-populated document. Only the selected model is settable for now.
+// UpdateDocument changes a document's selected model and/or its attribute values
+// and returns the refreshed, fully-populated document. Each field is optional;
+// only the fields present in the request are applied.
 func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st, sess)
@@ -138,15 +140,24 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
-		if !llm.Valid(body.SelectedModel) {
-			writeError(w, http.StatusBadRequest, "Unknown model")
-			return
+
+		if body.SelectedModel != nil {
+			if !llm.Valid(*body.SelectedModel) {
+				writeError(w, http.StatusBadRequest, "Unknown model")
+				return
+			}
+			doc.SelectedModel = *body.SelectedModel
+			if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
+				writeError(w, http.StatusInternalServerError, "Could not update document")
+				return
+			}
 		}
 
-		doc.SelectedModel = body.SelectedModel
-		if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update document")
-			return
+		if body.Attributes != nil {
+			if err := st.MergeDocumentAttributes(r.Context(), doc.ID, *body.Attributes); err != nil {
+				writeError(w, http.StatusInternalServerError, "Could not update document")
+				return
+			}
 		}
 
 		updated, err := st.GetDocument(r.Context(), doc.ID)

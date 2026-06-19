@@ -7,6 +7,7 @@ import type { Block, DocumentDetail, Mode } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import AddBlockDialog from '../components/AddBlockDialog'
 import BlockCard from '../components/BlockCard'
+import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
 import { fonts } from '../theme'
 
@@ -122,6 +123,8 @@ export default function DocumentPage() {
                 />
               ))
             )}
+
+            <DocumentAttributes doc={doc} onChange={setDoc} />
           </>
         )}
       </Container>
