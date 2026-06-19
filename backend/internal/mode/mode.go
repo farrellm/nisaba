@@ -6,6 +6,8 @@ package mode
 
 import (
 	_ "embed"
+	"os"
+	"path/filepath"
 )
 
 // Mode is one entry in the fixed registry.
@@ -46,4 +48,44 @@ func Get(name string) (Mode, bool) {
 		}
 	}
 	return Mode{}, false
+}
+
+// TemplatesBaseDir is the on-disk path to the default templates directory.
+// Per-user overrides live in siblings named "<TemplatesBaseDir>-<username>".
+var TemplatesBaseDir = "internal/mode/templates"
+
+// TemplateFor returns the mustache template for mode m, preferring a per-user
+// override at "<TemplatesBaseDir>-<username>/<m.Name>.mustache" when it exists
+// and is readable, otherwise the embedded default (m.Template). The fallback is
+// per-file, so a user may override only some modes.
+func TemplateFor(username string, m Mode) string {
+	if !safeUsername(username) {
+		return m.Template
+	}
+	path := filepath.Join(TemplatesBaseDir+"-"+username, m.Name+".mustache")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return m.Template
+	}
+	return string(b)
+}
+
+// safeUsername reports whether username is safe to use as a path component.
+// Usernames are free-form user input, so we allow only [A-Za-z0-9_-] to keep a
+// crafted name (e.g. containing "/" or "..") from escaping the base directory.
+func safeUsername(username string) bool {
+	if username == "" {
+		return false
+	}
+	for _, r := range username {
+		switch {
+		case r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r >= '0' && r <= '9',
+			r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }

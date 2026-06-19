@@ -6,10 +6,11 @@ import (
 )
 
 type Config struct {
-	Addr          string
-	DatabaseURL   string
-	CORSOrigins   []string
-	SessionSecret string
+	Addr             string
+	DatabaseURL      string
+	CORSOrigins      []string
+	SessionSecret    string
+	ModeTemplatesDir string
 }
 
 func Load() Config {
@@ -35,10 +36,19 @@ func Load() Config {
 		sessionSecret = "dev-insecure-session-secret-change-me"
 	}
 
+	// modeTemplatesDir is the base templates directory; per-user overrides live
+	// in siblings named "<modeTemplatesDir>-<username>". The default matches the
+	// `make backend` working directory (backend/).
+	modeTemplatesDir := os.Getenv("MODE_TEMPLATES_DIR")
+	if modeTemplatesDir == "" {
+		modeTemplatesDir = "internal/mode/templates"
+	}
+
 	return Config{
-		Addr:          addr,
-		DatabaseURL:   dbURL,
-		CORSOrigins:   strings.Split(originsEnv, ","),
-		SessionSecret: sessionSecret,
+		Addr:             addr,
+		DatabaseURL:      dbURL,
+		CORSOrigins:      strings.Split(originsEnv, ","),
+		SessionSecret:    sessionSecret,
+		ModeTemplatesDir: modeTemplatesDir,
 	}
 }

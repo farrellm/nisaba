@@ -267,7 +267,14 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		prompt, err := mustache.Render(m.Template, attrs)
+		// Resolve a per-user template override (falls back to the embedded
+		// default when the user has none); a lookup failure degrades gracefully.
+		username := ""
+		if u, err := st.GetUser(r.Context(), doc.UserID); err == nil {
+			username = u.Username
+		}
+
+		prompt, err := mustache.Render(mode.TemplateFor(username, m), attrs)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not render prompt")
 			return
