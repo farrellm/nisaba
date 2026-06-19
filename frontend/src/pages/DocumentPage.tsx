@@ -113,13 +113,14 @@ export default function DocumentPage() {
                 No blocks yet. Add one to get started.
               </Typography>
             ) : (
-              (doc.blocks ?? []).map((block) => (
+              (doc.blocks ?? []).map((block, i, arr) => (
                 <BlockCard
                   key={block.id}
                   block={block}
                   mode={modesByName.get(block.mode)}
                   onBlockUpdated={replaceBlock}
                   onAfterRun={reloadDocument}
+                  defaultOpen={i === arr.length - 1}
                 />
               ))
             )}

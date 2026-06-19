@@ -9,11 +9,13 @@ interface BlockCardProps {
   mode: Mode | undefined
   onBlockUpdated: (block: Block) => void
   onAfterRun: () => void
+  defaultOpen?: boolean
 }
 
 // BlockCard renders one block: its mode, editable key/values, a run action, and
-// the responses produced so far.
-export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun }: BlockCardProps) {
+// the responses produced so far. The body is a collapsible <details>; the mode
+// header is the always-visible <summary>.
+export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun, defaultOpen }: BlockCardProps) {
   const keys = mode?.keys ?? Object.keys(block.attributes)
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
@@ -79,74 +81,91 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun }: B
   }
 
   return (
-    <Box component="section" sx={{ py: 4, borderBottom: '1px dotted', borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, mb: 2 }}>
-        <Typography
-          variant="overline"
-          sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
+    <Box component="section" sx={{ pt: 4 }}>
+      <Box
+        component="details"
+        {...(defaultOpen ? { open: true } : {})}
+        sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
+      >
+        <Box
+          component="summary"
+          sx={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 2,
+            mb: 2,
+            cursor: 'pointer',
+            listStyle: 'none',
+            '&::-webkit-details-marker': { display: 'none' },
+          }}
         >
-          {mode?.label ?? block.mode}
-        </Typography>
-        <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
-      </Box>
+          <Typography
+            variant="overline"
+            sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
+          >
+            {mode?.label ?? block.mode}
+          </Typography>
+          <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
+        </Box>
 
-      <Stack spacing={2}>
-        {keys.map((key) => (
-          <TextField
-            key={key}
-            label={key}
-            value={values[key] ?? ''}
-            onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-            multiline
-            minRows={1}
-          />
-        ))}
-      </Stack>
-
-      {error && (
-        <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
-          {error}
-        </Typography>
-      )}
-
-      <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || busy}>
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
-        <Button variant="outlined" size="small" onClick={handleCopy} disabled={busy}>
-          {copying ? 'Copying…' : 'Copy to document'}
-        </Button>
-        <Button variant="contained" size="small" onClick={handleRun} disabled={busy}>
-          {running ? 'Running…' : 'Run'}
-        </Button>
-      </Stack>
-
-      {(block.responses ?? []).length > 0 && (
-        <Stack spacing={1.5} sx={{ mt: 3 }}>
-          {(block.responses ?? []).map((response) => (
-            <Box key={response.id}>
-              <Typography
-                variant="overline"
-                sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
-              >
-                {response.model || 'no model'}
-              </Typography>
-              <Typography
-                sx={{
-                  fontFamily: fonts.mono,
-                  fontSize: '0.85rem',
-                  whiteSpace: 'pre-wrap',
-                  bgcolor: 'action.hover',
-                  borderRadius: 2,
-                  p: 2,
-                }}
-              >
-                {response.value}
-              </Typography>
-            </Box>
+        <Stack spacing={2}>
+          {keys.map((key) => (
+            <TextField
+              key={key}
+              label={key}
+              value={values[key] ?? ''}
+              onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+              multiline
+              minRows={1}
+            />
           ))}
         </Stack>
-      )}
+
+        {error && (
+          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
+            {error}
+          </Typography>
+        )}
+
+        <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
+          <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || busy}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+          <Button variant="outlined" size="small" onClick={handleCopy} disabled={busy}>
+            {copying ? 'Copying…' : 'Copy to document'}
+          </Button>
+          <Button variant="contained" size="small" onClick={handleRun} disabled={busy}>
+            {running ? 'Running…' : 'Run'}
+          </Button>
+        </Stack>
+
+        {(block.responses ?? []).length > 0 && (
+          <Stack spacing={1.5} sx={{ mt: 3 }}>
+            {(block.responses ?? []).map((response) => (
+              <Box key={response.id}>
+                <Typography
+                  variant="overline"
+                  sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
+                >
+                  {response.model || 'no model'}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontFamily: fonts.mono,
+                    fontSize: '0.85rem',
+                    whiteSpace: 'pre-wrap',
+                    bgcolor: 'action.hover',
+                    borderRadius: 2,
+                    p: 2,
+                  }}
+                >
+                  {response.value}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </Box>
     </Box>
   )
 }
