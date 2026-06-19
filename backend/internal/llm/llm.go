@@ -17,6 +17,21 @@ import (
 // preamble or meta-commentary that would pollute the block response.
 const systemPrompt = "You are a writing assistant. Produce only the requested text. Do not add preamble, explanations, or meta-commentary."
 
+// maxToolIterations bounds the agentic tool-call loop in Generate so a model
+// that keeps requesting tools can't spin forever.
+const maxToolIterations = 5
+
+// ToolDef is a tool/function a mode can attach to its LLM calls. It carries the
+// function name, description, a JSON-schema Parameters map, and a Handler that
+// executes the call. Aliased to go-llm's type so callers (e.g. internal/mode)
+// configure tools without importing the vendor library directly.
+type ToolDef = ai.ToolDef
+
+// Params returns a fluent builder for a tool's JSON-schema Parameters map, e.g.
+// llm.Params().String("q", "query", true).Build(). Re-exported from go-llm so
+// callers stay vendor-agnostic.
+var Params = ai.Params
+
 // Model is one selectable model in the fixed list. ID is the go-llm model
 // identifier stored in documents.selected_model.
 type Model struct {
@@ -52,6 +67,18 @@ func Valid(id string) bool {
 
 // Generate sends prompt to the given model and returns its text reply. The
 // model id must be one from Models(); routing/auth is handled by go-llm.
-func Generate(ctx context.Context, model, prompt string) (string, error) {
-	return ai.New(ai.Model(model)).System(systemPrompt).Ask(prompt)
+//
+// When tools is non-empty, each tool's definition and handler are attached and
+// the request runs through go-llm's agentic loop (RunTools): the model may
+// invoke tools, whose results are fed back, until it returns a final text reply
+// or maxToolIterations is reached. With no tools it uses the plain ask path.
+func Generate(ctx context.Context, model, prompt string, tools []ToolDef) (string, error) {
+	b := ai.New(ai.Model(model)).System(systemPrompt)
+	if len(tools) == 0 {
+		return b.Ask(prompt)
+	}
+	for _, t := range tools {
+		b = b.ToolDef(t)
+	}
+	return b.User(prompt).RunTools(maxToolIterations)
 }
