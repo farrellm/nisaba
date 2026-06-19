@@ -296,9 +296,17 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		// Feed the result back into the document's shared key/values.
+		// Feed the result back into the document's shared key/values. Top-level
+		// XML tags in the response each populate a document attribute (any tag
+		// name; nested tags stay verbatim in the value). When the mode declares
+		// an output key, the full response is also saved under it — set last so
+		// it wins over a same-named tag.
+		updates := parseTopLevelTags(output)
 		if m.Output != "" {
-			if err := st.SetDocumentAttribute(r.Context(), doc.ID, m.Output, output); err != nil {
+			updates[m.Output] = output
+		}
+		if len(updates) > 0 {
+			if err := st.MergeDocumentAttributes(r.Context(), doc.ID, updates); err != nil {
 				writeError(w, http.StatusInternalServerError, "Could not update document")
 				return
 			}
