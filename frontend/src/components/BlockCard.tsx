@@ -141,14 +141,24 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun, def
 
         {(block.responses ?? []).length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 3 }}>
-            {(block.responses ?? []).map((response) => (
-              <Box key={response.id}>
-                <Typography
-                  variant="overline"
-                  sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
+            {(block.responses ?? []).slice().reverse().map((response, idx) => (
+              <Box key={response.id} component="details" {...(idx === 0 ? { open: true } : {})}>
+                <Box
+                  component="summary"
+                  sx={{
+                    cursor: 'pointer',
+                    listStyle: 'none',
+                    '&::-webkit-details-marker': { display: 'none' },
+                    mb: 1,
+                  }}
                 >
-                  {response.model || 'no model'}
-                </Typography>
+                  <Typography
+                    variant="overline"
+                    sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
+                  >
+                    {response.model || 'no model'}
+                  </Typography>
+                </Box>
                 <Typography
                   sx={{
                     fontFamily: fonts.mono,
