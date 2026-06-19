@@ -280,7 +280,7 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		output, err := llm.Generate(r.Context(), doc.SelectedModel, prompt)
+		output, err := llm.Generate(r.Context(), doc.SelectedModel, prompt, m.Tools)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, "Model request failed")
 			return

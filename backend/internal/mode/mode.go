@@ -8,15 +8,18 @@ import (
 	_ "embed"
 	"os"
 	"path/filepath"
+
+	"github.com/farrellm/nisaba/internal/llm"
 )
 
 // Mode is one entry in the fixed registry.
 type Mode struct {
-	Name     string   `json:"name"`   // stable id, stored in blocks.mode
-	Label    string   `json:"label"`  // human-facing name for the UI
-	Keys     []string `json:"keys"`   // input attribute keys (fixed per mode)
-	Output   string   `json:"output"` // document attribute key the response populates
-	Template string   `json:"-"`      // mustache prompt; server-side only
+	Name     string        `json:"name"`   // stable id, stored in blocks.mode
+	Label    string        `json:"label"`  // human-facing name for the UI
+	Keys     []string      `json:"keys"`   // input attribute keys (fixed per mode)
+	Output   string        `json:"output"` // document attribute key the response populates
+	Template string        `json:"-"`      // mustache prompt; server-side only
+	Tools    []llm.ToolDef `json:"-"`      // tool functions attached to the LLM call; server-side only
 }
 
 //go:embed templates/brainstorm.mustache
