@@ -1,3 +1,7 @@
+# Per-user template overrides
+backend/internal/mode/templates-*/
+templates-*
+
 # Go
 backend/bin/
 *.exe

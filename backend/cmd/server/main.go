@@ -14,11 +14,13 @@ import (
 	"github.com/farrellm/nisaba/internal/config"
 	"github.com/farrellm/nisaba/internal/db"
 	"github.com/farrellm/nisaba/internal/handler"
+	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/store"
 )
 
 func main() {
 	cfg := config.Load()
+	mode.TemplatesBaseDir = cfg.ModeTemplatesDir
 
 	pool, err := db.Connect(context.Background(), cfg.DatabaseURL)
 	if err != nil {
