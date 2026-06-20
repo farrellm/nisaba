@@ -1,9 +1,13 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/farrellm/nisaba/internal/auth"
@@ -15,8 +19,77 @@ import (
 // handler indefinitely.
 var redditClient = &http.Client{Timeout: 10 * time.Second}
 
-// redditListing mirrors the shape of Reddit's /new.json response (only the fields
-// we use).
+// redditUserAgent identifies this app to Reddit. Reddit requires a descriptive
+// User-Agent on every request, including the OAuth token exchange.
+const redditUserAgent = "nisaba/1.0 (writing prompt importer)"
+
+// redditAuth fetches and caches an application-only OAuth token (the
+// client_credentials grant), which Reddit requires now that anonymous JSON
+// access is blocked. The token is shared across requests and refreshed shortly
+// before it expires.
+type redditAuth struct {
+	clientID     string
+	clientSecret string
+
+	mu      sync.Mutex
+	token   string
+	expires time.Time
+}
+
+// invalidate forces the next accessToken call to fetch a fresh token (e.g. after
+// Reddit rejects the current one with 401).
+func (a *redditAuth) invalidate() {
+	a.mu.Lock()
+	a.token = ""
+	a.mu.Unlock()
+}
+
+func (a *redditAuth) accessToken(ctx context.Context) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.token != "" && time.Now().Before(a.expires) {
+		return a.token, nil
+	}
+
+	form := url.Values{"grant_type": {"client_credentials"}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://www.reddit.com/api/v1/access_token", strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(a.clientID, a.clientSecret)
+	req.Header.Set("User-Agent", redditUserAgent)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := redditClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("reddit token request returned %d", resp.StatusCode)
+	}
+
+	var body struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", err
+	}
+	if body.AccessToken == "" {
+		return "", fmt.Errorf("reddit token response missing access_token")
+	}
+
+	a.token = body.AccessToken
+	// Refresh a minute before expiry to avoid racing the boundary.
+	a.expires = time.Now().Add(time.Duration(body.ExpiresIn-60) * time.Second)
+	return a.token, nil
+}
+
+// redditListing mirrors the shape of Reddit's /new listing response (only the
+// fields we use). The OAuth endpoint returns the same structure as the old
+// /new.json endpoint.
 type redditListing struct {
 	Data struct {
 		Children []struct {
@@ -35,13 +108,20 @@ type redditPost struct {
 }
 
 // ListRedditPosts fetches the newest posts from the logged-in user's configured
-// subreddit and returns their titles and permalink URLs. Reddit is the app's only
-// outbound HTTP dependency, so failures are mapped to clear status codes.
-func ListRedditPosts(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+// subreddit via Reddit's application-only OAuth API and returns their titles and
+// permalink URLs. Anonymous access is blocked by Reddit, so clientID/secret from
+// a registered app are required.
+func ListRedditPosts(st *store.Store, sess *auth.Sessions, clientID, clientSecret string) http.HandlerFunc {
+	ra := &redditAuth{clientID: clientID, clientSecret: clientSecret}
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := sess.UserID(r)
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+		if clientID == "" || clientSecret == "" {
+			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
 			return
 		}
 
@@ -51,16 +131,22 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
+		token, err := ra.accessToken(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+			return
+		}
+
 		// The subreddit is read server-side and escaped as defense in depth, even
 		// though it is validated on save.
-		endpoint := "https://www.reddit.com/r/" + url.PathEscape(user.Subreddit) + "/new.json?limit=25"
+		endpoint := "https://oauth.reddit.com/r/" + url.PathEscape(user.Subreddit) + "/new?limit=25"
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not build request")
 			return
 		}
-		// Reddit rate-limits or rejects requests with a generic/empty User-Agent.
-		req.Header.Set("User-Agent", "nisaba/1.0 (writing prompt importer)")
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("User-Agent", redditUserAgent)
 
 		resp, err := redditClient.Do(req)
 		if err != nil {
@@ -78,8 +164,13 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		case http.StatusTooManyRequests:
 			writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
 			return
+		case http.StatusUnauthorized:
+			// Cached token may be stale; drop it so the next attempt refreshes.
+			ra.invalidate()
+			writeError(w, http.StatusBadGateway, "Reddit rejected the request; try again")
+			return
 		default:
-			writeError(w, http.StatusBadGateway, "Could not reach Reddit")
+			writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", resp.StatusCode))
 			return
 		}
 
