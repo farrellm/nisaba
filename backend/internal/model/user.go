@@ -10,4 +10,5 @@ type User struct {
 	ID        int64     `json:"id"`
 	Username  string    `json:"username"`
 	CreatedAt time.Time `json:"createdAt"`
+	Subreddit string    `json:"subreddit"`
 }

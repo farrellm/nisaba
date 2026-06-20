@@ -6,6 +6,8 @@ import CreateUserPage from './pages/CreateUserPage'
 import DocumentsPage from './pages/DocumentsPage'
 import DocumentPage from './pages/DocumentPage'
 import ArchivePage from './pages/ArchivePage'
+import RedditPostsPage from './pages/RedditPostsPage'
+import SettingsPage from './pages/SettingsPage'
 
 export default function App() {
   return (
@@ -41,6 +43,22 @@ export default function App() {
         element={
           <RequireAuth>
             <ArchivePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/reddit"
+        element={
+          <RequireAuth>
+            <RedditPostsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <SettingsPage />
           </RequireAuth>
         }
       />

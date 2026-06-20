@@ -6,11 +6,13 @@ import (
 )
 
 type Config struct {
-	Addr             string
-	DatabaseURL      string
-	CORSOrigins      []string
-	SessionSecret    string
-	ModeTemplatesDir string
+	Addr               string
+	DatabaseURL        string
+	CORSOrigins        []string
+	SessionSecret      string
+	ModeTemplatesDir   string
+	RedditClientID     string
+	RedditClientSecret string
 }
 
 func Load() Config {
@@ -44,11 +46,16 @@ func Load() Config {
 		modeTemplatesDir = "internal/mode/templates"
 	}
 
+	// Reddit application-only OAuth credentials, from a registered app at
+	// https://www.reddit.com/prefs/apps. Without these the Reddit posts endpoint
+	// reports that the integration is not configured.
 	return Config{
-		Addr:             addr,
-		DatabaseURL:      dbURL,
-		CORSOrigins:      strings.Split(originsEnv, ","),
-		SessionSecret:    sessionSecret,
-		ModeTemplatesDir: modeTemplatesDir,
+		Addr:               addr,
+		DatabaseURL:        dbURL,
+		CORSOrigins:        strings.Split(originsEnv, ","),
+		SessionSecret:      sessionSecret,
+		ModeTemplatesDir:   modeTemplatesDir,
+		RedditClientID:     os.Getenv("REDDIT_CLIENT_ID"),
+		RedditClientSecret: os.Getenv("REDDIT_CLIENT_SECRET"),
 	}
 }

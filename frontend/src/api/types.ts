@@ -8,6 +8,13 @@ export interface Document {
   isArchived: boolean
 }
 
+// RedditPost is one newest post from the user's subreddit, as returned by
+// GET /api/reddit/posts. url is the permalink to the Reddit post.
+export interface RedditPost {
+  title: string
+  url: string
+}
+
 // Response mirrors model.Response — one generated answer attached to a block.
 export interface Response {
   id: number

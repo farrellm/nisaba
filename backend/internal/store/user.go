@@ -16,9 +16,9 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string) (
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO users (username, password_hash)
 		 VALUES ($1, $2)
-		 RETURNING id, username, created_at`,
+		 RETURNING id, username, created_at, subreddit`,
 		username, passwordHash,
-	).Scan(&u.ID, &u.Username, &u.CreatedAt)
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit)
 	return u, err
 }
 
@@ -26,8 +26,23 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string) (
 func (s *Store) GetUser(ctx context.Context, id int64) (model.User, error) {
 	var u model.User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, username, created_at FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Username, &u.CreatedAt)
+		`SELECT id, username, created_at, subreddit FROM users WHERE id = $1`, id,
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return u, ErrNotFound
+	}
+	return u, err
+}
+
+// UpdateUserSubreddit sets the user's configured subreddit and returns the
+// refreshed record, or ErrNotFound if no such user exists.
+func (s *Store) UpdateUserSubreddit(ctx context.Context, id int64, subreddit string) (model.User, error) {
+	var u model.User
+	err := s.pool.QueryRow(ctx,
+		`UPDATE users SET subreddit = $2 WHERE id = $1
+		 RETURNING id, username, created_at, subreddit`,
+		id, subreddit,
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return u, ErrNotFound
 	}

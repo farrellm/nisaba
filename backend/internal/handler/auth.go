@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -14,6 +15,12 @@ import (
 )
 
 const minPasswordLen = 8
+
+const defaultSubreddit = "WritingPrompts"
+
+// subredditPattern matches Reddit's allowed subreddit names (3-21 chars of
+// letters, digits, and underscores).
+var subredditPattern = regexp.MustCompile(`^[A-Za-z0-9_]{3,21}$`)
 
 type credentials struct {
 	Username string `json:"username"`
@@ -120,6 +127,45 @@ func Logout(sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// UpdateMe updates the logged-in user's settings (currently the subreddit) and
+// returns the refreshed user.
+func UpdateMe(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := sess.UserID(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+
+		var body struct {
+			Subreddit string `json:"subreddit"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		subreddit := strings.TrimSpace(body.Subreddit)
+		if subreddit == "" {
+			subreddit = defaultSubreddit
+		} else if !subredditPattern.MatchString(subreddit) {
+			writeError(w, http.StatusBadRequest, "Invalid subreddit")
+			return
+		}
+
+		user, err := st.UpdateUserSubreddit(r.Context(), id, subreddit)
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, http.StatusUnauthorized, "Not logged in")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "Could not update settings")
+			return
+		}
+		writeJSON(w, http.StatusOK, user)
 	}
 }
 
