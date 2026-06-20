@@ -31,6 +31,9 @@ var outlineTmpl string
 //go:embed templates/draft.mustache
 var draftTmpl string
 
+//go:embed templates/system.mustache
+var systemTmpl string
+
 // modes is the registry, ordered for display.
 var modes = []Mode{
 	{Name: "brainstorm", Label: "Brainstorm", Keys: []string{"topic", "audience"}, Output: "ideas", Template: brainstormTmpl},
@@ -62,13 +65,26 @@ var TemplatesBaseDir = "internal/mode/templates"
 // and is readable, otherwise the embedded default (m.Template). The fallback is
 // per-file, so a user may override only some modes.
 func TemplateFor(username string, m Mode) string {
+	return override(username, m.Name, m.Template)
+}
+
+// SystemPrompt returns the mustache template for the LLM system prompt,
+// preferring a per-user override at "<TemplatesBaseDir>-<username>/system.mustache"
+// (the same dir as mode overrides) when present, otherwise the embedded default.
+func SystemPrompt(username string) string {
+	return override(username, "system", systemTmpl)
+}
+
+// override returns the per-user override file
+// "<TemplatesBaseDir>-<username>/<name>.mustache" when it exists and is readable,
+// otherwise fallback. A non-safe username always yields fallback.
+func override(username, name, fallback string) string {
 	if !safeUsername(username) {
-		return m.Template
+		return fallback
 	}
-	path := filepath.Join(TemplatesBaseDir+"-"+username, m.Name+".mustache")
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Join(TemplatesBaseDir+"-"+username, name+".mustache"))
 	if err != nil {
-		return m.Template
+		return fallback
 	}
 	return string(b)
 }
