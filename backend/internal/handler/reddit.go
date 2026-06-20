@@ -190,3 +190,95 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions, clientID, clientSecre
 		writeJSON(w, http.StatusOK, posts)
 	}
 }
+
+// GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
+// OAuth API and returns its title and normalized permalink URL. It lets users
+// import a specific post that isn't in the subreddit's newest listing.
+func GetRedditPost(st *store.Store, sess *auth.Sessions, clientID, clientSecret string) http.HandlerFunc {
+	ra := &redditAuth{clientID: clientID, clientSecret: clientSecret}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := sess.UserID(r); !ok {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+		if clientID == "" || clientSecret == "" {
+			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
+			return
+		}
+
+		raw := r.URL.Query().Get("url")
+		if raw == "" {
+			writeError(w, http.StatusBadRequest, "Missing url")
+			return
+		}
+		parsed, err := url.Parse(raw)
+		if err != nil || parsed.Path == "" {
+			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
+			return
+		}
+		host := strings.ToLower(parsed.Hostname())
+		if host != "reddit.com" && !strings.HasSuffix(host, ".reddit.com") {
+			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
+			return
+		}
+
+		token, err := ra.accessToken(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+			return
+		}
+
+		path := strings.TrimRight(parsed.Path, "/")
+		endpoint := "https://oauth.reddit.com" + path + "?raw_json=1&limit=1"
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not build request")
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("User-Agent", redditUserAgent)
+
+		resp, err := redditClient.Do(req)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Could not reach Reddit")
+			return
+		}
+		defer resp.Body.Close()
+
+		switch resp.StatusCode {
+		case http.StatusOK:
+			// fall through to decode
+		case http.StatusNotFound:
+			writeError(w, http.StatusNotFound, "Post not found")
+			return
+		case http.StatusTooManyRequests:
+			writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
+			return
+		case http.StatusUnauthorized:
+			ra.invalidate()
+			writeError(w, http.StatusBadGateway, "Reddit rejected the request; try again")
+			return
+		default:
+			writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", resp.StatusCode))
+			return
+		}
+
+		// The comments endpoint returns a 2-element array: [post listing, comments].
+		var listings []redditListing
+		if err := json.NewDecoder(resp.Body).Decode(&listings); err != nil {
+			writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
+			return
+		}
+		if len(listings) == 0 || len(listings[0].Data.Children) == 0 {
+			writeError(w, http.StatusNotFound, "Post not found")
+			return
+		}
+
+		data := listings[0].Data.Children[0].Data
+		writeJSON(w, http.StatusOK, redditPost{
+			Title: data.Title,
+			URL:   "https://www.reddit.com" + data.Permalink,
+		})
+	}
+}
