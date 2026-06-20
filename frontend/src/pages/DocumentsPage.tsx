@@ -20,7 +20,6 @@ export default function DocumentsPage() {
 
   return (
     <DocumentList
-      eyebrow="Your documents"
       heading="Documents"
       documents={documents}
       loading={documents === null && error === null}

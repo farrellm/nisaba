@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Box, Container, Fab, Link as MuiLink, Stack, Typography } from '@mui/material'
+import { Box, Container, Fab, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import { Link as RouterLink, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Block, DocumentDetail, Mode } from '../api/types'
-import AccountMenu from '../components/AccountMenu'
+import Masthead from '../components/Masthead'
 import AddBlockDialog from '../components/AddBlockDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
@@ -51,37 +51,7 @@ export default function DocumentPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Box
-        component="header"
-        sx={{
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          px: { xs: 3, md: 5 },
-          py: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Stack direction="row" spacing={3} alignItems="baseline">
-          <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
-            <Typography
-              sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}
-            >
-              Nisaba
-            </Typography>
-          </MuiLink>
-          <MuiLink
-            component={RouterLink}
-            to="/documents"
-            underline="hover"
-            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-          >
-            Documents
-          </MuiLink>
-        </Stack>
-        <AccountMenu />
-      </Box>
+      <Masthead />
 
       <Container maxWidth="md" sx={{ pt: { xs: 7, md: 12 }, pb: 12 }}>
         {error ? (

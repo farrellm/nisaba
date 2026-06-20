@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react'
-import { Box, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
+import { Box, Container, Divider, Link as MuiLink, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { timeAgo } from '../lib/relativeTime'
 import { fonts } from '../theme'
-import AccountMenu from './AccountMenu'
+import Masthead from './Masthead'
 import type { Document } from '../api/types'
 
 interface DocumentListProps {
-  eyebrow: string
   heading: string
   documents: Document[] | null
   loading: boolean
@@ -21,7 +20,6 @@ interface DocumentListProps {
 // DocumentList renders the masthead and a ledger-style list of documents shared
 // by the Documents and Archive pages.
 export default function DocumentList({
-  eyebrow,
   heading,
   documents,
   loading,
@@ -31,51 +29,9 @@ export default function DocumentList({
 }: DocumentListProps) {
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Masthead bar */}
-      <Box
-        component="header"
-        sx={{
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          px: { xs: 3, md: 5 },
-          py: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Stack direction="row" spacing={3} alignItems="baseline">
-          <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
-            <Typography
-              sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}
-            >
-              Nisaba
-            </Typography>
-          </MuiLink>
-          <MuiLink
-            component={RouterLink}
-            to={active === 'documents' ? '/archive' : '/documents'}
-            underline="hover"
-            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-          >
-            {active === 'documents' ? 'Archive' : 'Documents'}
-          </MuiLink>
-          <MuiLink
-            component={RouterLink}
-            to="/reddit"
-            underline="hover"
-            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-          >
-            Prompts
-          </MuiLink>
-        </Stack>
-        <AccountMenu />
-      </Box>
+      <Masthead active={active} />
 
       <Container maxWidth="md" sx={{ pt: { xs: 5, md: 8 }, pb: 12 }}>
-        <Typography variant="overline" sx={{ color: 'primary.main', display: 'block', mb: 2 }}>
-          {eyebrow}
-        </Typography>
         <Typography variant="h1" sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)', mb: 4 }}>
           {heading}
         </Typography>
