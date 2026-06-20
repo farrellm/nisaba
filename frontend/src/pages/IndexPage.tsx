@@ -1,52 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Box, Button, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
+import { Box, Button, Container, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
-import { api } from '../api/client'
 import { fonts } from '../theme'
 import AccountMenu from '../components/AccountMenu'
 
-interface HealthResponse {
-  status: string
-  db: string
-}
-
-// One row of the status ledger: a mono label, a hairline rule, and the value
-// with a small state dot.
-function LedgerRow({ label, value, ok }: { label: string; value: string; ok: boolean }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, py: 1.5 }}>
-      <Typography variant="overline" sx={{ color: 'text.secondary', minWidth: 96 }}>
-        {label}
-      </Typography>
-      <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Box
-          sx={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            bgcolor: ok ? 'primary.main' : 'warning.main',
-          }}
-        />
-        <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem' }}>{value}</Typography>
-      </Box>
-    </Box>
-  )
-}
-
 export default function IndexPage() {
-  const { user } = useAuth()
-  const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    api
-      .get<HealthResponse>('/api/healthz')
-      .then(setHealth)
-      .catch((e: unknown) => setError(String(e)))
-  }, [])
-
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Masthead bar */}
@@ -62,67 +19,26 @@ export default function IndexPage() {
           justifyContent: 'space-between',
         }}
       >
-        <Stack direction="row" spacing={3} alignItems="baseline">
-          <Typography
-            sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}
-          >
-            Nisaba
-          </Typography>
-          <MuiLink
-            component={RouterLink}
-            to="/reddit"
-            underline="hover"
-            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-          >
-            Prompts
-          </MuiLink>
-        </Stack>
+        <Typography
+          sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}
+        >
+          Nisaba
+        </Typography>
         <AccountMenu />
       </Box>
 
       <Container maxWidth="md" sx={{ pt: { xs: 7, md: 12 }, pb: 8 }}>
-        <Typography variant="overline" sx={{ color: 'primary.main', display: 'block', mb: 2 }}>
-          The scribe's table
-        </Typography>
-        <Typography
-          variant="h1"
-          sx={{ fontSize: 'clamp(2.75rem, 7vw, 4.5rem)', mb: 2 }}
-        >
-          Good to see you,
-          <br />
-          {user?.username}.
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 480 }}>
-          Your documents will live here. Nothing's been written yet — this is where it begins.
-        </Typography>
-
-        <Button
-          component={RouterLink}
-          to="/documents"
-          variant="contained"
-          size="large"
-          sx={{ mt: 3 }}
-        >
-          Open your documents
-        </Button>
-
-        {/* Status ledger */}
-        <Box sx={{ mt: 8, maxWidth: 520 }}>
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            System status
-          </Typography>
-          <Divider sx={{ mt: 1, mb: 1 }} />
-          {error ? (
-            <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}>
-              {error}
-            </Typography>
-          ) : (
-            <>
-              <LedgerRow label="API" value={health?.status ?? '…'} ok={health?.status === 'ok'} />
-              <LedgerRow label="Database" value={health?.db ?? '…'} ok={health?.db === 'ok'} />
-            </>
-          )}
-        </Box>
+        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 2 }}>
+          <Button component={RouterLink} to="/documents" variant="contained" size="large">
+            Documents
+          </Button>
+          <Button component={RouterLink} to="/archive" variant="outlined" size="large">
+            Archive
+          </Button>
+          <Button component={RouterLink} to="/reddit" variant="outlined" size="large">
+            Prompts
+          </Button>
+        </Stack>
       </Container>
     </Box>
   )

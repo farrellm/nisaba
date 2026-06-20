@@ -16,7 +16,6 @@ export default function ArchivePage() {
 
   return (
     <DocumentList
-      eyebrow="Everything, including archived"
       heading="Archive"
       documents={documents}
       loading={documents === null && error === null}
