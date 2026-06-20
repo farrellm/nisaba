@@ -51,10 +51,12 @@ func main() {
 			r.Post("/login", handler.Login(st, sess))
 			r.Post("/logout", handler.Logout(sess))
 			r.Get("/me", handler.Me(st, sess))
+			r.Put("/me", handler.UpdateMe(st, sess))
 		})
 
 		r.Get("/modes", handler.ListModes())
 		r.Get("/models", handler.ListModels())
+		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess))
 
 		r.Route("/documents", func(r chi.Router) {
 			r.Get("/", handler.ListDocuments(st, sess))

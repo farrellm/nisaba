@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Container, Divider, Stack, Typography } from '@mui/material'
+import { Box, Button, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
@@ -67,9 +67,29 @@ export default function IndexPage() {
           justifyContent: 'space-between',
         }}
       >
-        <Typography sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}>
-          Nisaba
-        </Typography>
+        <Stack direction="row" spacing={3} alignItems="baseline">
+          <Typography
+            sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}
+          >
+            Nisaba
+          </Typography>
+          <MuiLink
+            component={RouterLink}
+            to="/reddit"
+            underline="hover"
+            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+          >
+            Prompts
+          </MuiLink>
+          <MuiLink
+            component={RouterLink}
+            to="/settings"
+            underline="hover"
+            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+          >
+            Settings
+          </MuiLink>
+        </Stack>
         <Stack direction="row" spacing={2} alignItems="center">
           <Typography variant="overline" sx={{ color: 'text.secondary' }}>
             {user?.username}
