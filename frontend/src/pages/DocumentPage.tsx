@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Container, Fab, Link as MuiLink, Stack, Typography } from '@mui/material'
+import { Box, Container, Fab, Link as MuiLink, Stack, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
+import { Link as RouterLink, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Block, DocumentDetail, Mode } from '../api/types'
-import { useAuth } from '../auth/AuthContext'
+import AccountMenu from '../components/AccountMenu'
 import AddBlockDialog from '../components/AddBlockDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
@@ -16,8 +16,6 @@ import { fonts } from '../theme'
 // run them.
 export default function DocumentPage() {
   const { id } = useParams()
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
 
   const [doc, setDoc] = useState<DocumentDetail | null>(null)
   const [modes, setModes] = useState<Mode[]>([])
@@ -31,11 +29,6 @@ export default function DocumentPage() {
       .catch((e: unknown) => setError(String(e)))
     api.get<Mode[]>('/api/modes').then(setModes).catch(() => setModes([]))
   }, [id])
-
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
 
   async function createBlock(mode: string): Promise<Block> {
     const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
@@ -87,14 +80,7 @@ export default function DocumentPage() {
             Documents
           </MuiLink>
         </Stack>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            {user?.username}
-          </Typography>
-          <Button variant="text" size="small" onClick={handleLogout} sx={{ color: 'text.primary' }}>
-            Log out
-          </Button>
-        </Stack>
+        <AccountMenu />
       </Box>
 
       <Container maxWidth="md" sx={{ pt: { xs: 7, md: 12 }, pb: 12 }}>

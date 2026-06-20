@@ -10,10 +10,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api, ApiError } from '../api/client'
 import { fonts } from '../theme'
+import AccountMenu from '../components/AccountMenu'
 
 const navLinkSx = {
   fontFamily: fonts.mono,
@@ -26,8 +27,7 @@ const navLinkSx = {
 // /api/auth/me and refreshes the auth context so the canonical value (which the
 // server may have defaulted) is reflected everywhere.
 export default function SettingsPage() {
-  const { user, logout, refresh } = useAuth()
-  const navigate = useNavigate()
+  const { user, refresh } = useAuth()
   const [subreddit, setSubreddit] = useState(user?.subreddit ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -38,11 +38,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) setSubreddit(user.subreddit)
   }, [user])
-
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -90,14 +85,7 @@ export default function SettingsPage() {
             Documents
           </MuiLink>
         </Stack>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            {user?.username}
-          </Typography>
-          <Button variant="text" size="small" onClick={handleLogout} sx={{ color: 'text.primary' }}>
-            Log out
-          </Button>
-        </Stack>
+        <AccountMenu />
       </Box>
 
       <Container maxWidth="sm" sx={{ pt: { xs: 5, md: 8 }, pb: 12 }}>

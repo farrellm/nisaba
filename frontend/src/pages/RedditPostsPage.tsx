@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Box, Button, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Box, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
+import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import { fonts } from '../theme'
 import type { RedditPost } from '../api/types'
+import AccountMenu from '../components/AccountMenu'
 import RedditPromptDialog from '../components/RedditPromptDialog'
 
 const navLinkSx = {
@@ -17,8 +18,7 @@ const navLinkSx = {
 // RedditPostsPage lists the newest posts from the user's configured subreddit.
 // Clicking a title opens a dialog that turns the post into a new document.
 export default function RedditPostsPage() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [posts, setPosts] = useState<RedditPost[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<RedditPost | null>(null)
@@ -30,11 +30,6 @@ export default function RedditPostsPage() {
       .then(setPosts)
       .catch((e: unknown) => setError(String(e)))
   }, [])
-
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
 
   function openPost(post: RedditPost) {
     setSelected(post)
@@ -69,18 +64,8 @@ export default function RedditPostsPage() {
           <MuiLink component={RouterLink} to="/documents" underline="hover" sx={navLinkSx}>
             Documents
           </MuiLink>
-          <MuiLink component={RouterLink} to="/settings" underline="hover" sx={navLinkSx}>
-            Settings
-          </MuiLink>
         </Stack>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            {user?.username}
-          </Typography>
-          <Button variant="text" size="small" onClick={handleLogout} sx={{ color: 'text.primary' }}>
-            Log out
-          </Button>
-        </Stack>
+        <AccountMenu />
       </Box>
 
       <Container maxWidth="md" sx={{ pt: { xs: 5, md: 8 }, pb: 12 }}>

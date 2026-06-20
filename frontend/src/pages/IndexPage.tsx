@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Box, Button, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import { fonts } from '../theme'
+import AccountMenu from '../components/AccountMenu'
 
 interface HealthResponse {
   status: string
@@ -35,8 +36,7 @@ function LedgerRow({ label, value, ok }: { label: string; value: string; ok: boo
 }
 
 export default function IndexPage() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,11 +46,6 @@ export default function IndexPage() {
       .then(setHealth)
       .catch((e: unknown) => setError(String(e)))
   }, [])
-
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -81,23 +76,8 @@ export default function IndexPage() {
           >
             Prompts
           </MuiLink>
-          <MuiLink
-            component={RouterLink}
-            to="/settings"
-            underline="hover"
-            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-          >
-            Settings
-          </MuiLink>
         </Stack>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            {user?.username}
-          </Typography>
-          <Button variant="text" size="small" onClick={handleLogout} sx={{ color: 'text.primary' }}>
-            Log out
-          </Button>
-        </Stack>
+        <AccountMenu />
       </Box>
 
       <Container maxWidth="md" sx={{ pt: { xs: 7, md: 12 }, pb: 8 }}>
