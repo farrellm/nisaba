@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
-import { Box, Button, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
+import { Box, Container, Divider, Link as MuiLink, Stack, Typography } from '@mui/material'
+import { Link as RouterLink } from 'react-router-dom'
 import { timeAgo } from '../lib/relativeTime'
 import { fonts } from '../theme'
+import AccountMenu from './AccountMenu'
 import type { Document } from '../api/types'
 
 interface DocumentListProps {
@@ -29,14 +29,6 @@ export default function DocumentList({
   active,
   children,
 }: DocumentListProps) {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
-
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
-
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Masthead bar */}
@@ -76,23 +68,8 @@ export default function DocumentList({
           >
             Prompts
           </MuiLink>
-          <MuiLink
-            component={RouterLink}
-            to="/settings"
-            underline="hover"
-            sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-          >
-            Settings
-          </MuiLink>
         </Stack>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-            {user?.username}
-          </Typography>
-          <Button variant="text" size="small" onClick={handleLogout} sx={{ color: 'text.primary' }}>
-            Log out
-          </Button>
-        </Stack>
+        <AccountMenu />
       </Box>
 
       <Container maxWidth="md" sx={{ pt: { xs: 5, md: 8 }, pb: 12 }}>
