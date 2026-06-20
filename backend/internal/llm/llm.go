@@ -13,10 +13,6 @@ import (
 	ai "gopkg.in/dragon-born/go-llm.v1"
 )
 
-// systemPrompt keeps the model's reply to just the requested writing — no
-// preamble or meta-commentary that would pollute the block response.
-const systemPrompt = "You are a writing assistant. Produce only the requested text. Do not add preamble, explanations, or meta-commentary."
-
 // maxToolIterations bounds the agentic tool-call loop in Generate so a model
 // that keeps requesting tools can't spin forever.
 const maxToolIterations = 5
@@ -65,15 +61,16 @@ func Valid(id string) bool {
 	return false
 }
 
-// Generate sends prompt to the given model and returns its text reply. The
-// model id must be one from Models(); routing/auth is handled by go-llm.
+// Generate sends prompt to the given model under the given system prompt and
+// returns its text reply. The model id must be one from Models(); routing/auth
+// is handled by go-llm.
 //
 // When tools is non-empty, each tool's definition and handler are attached and
 // the request runs through go-llm's agentic loop (RunTools): the model may
 // invoke tools, whose results are fed back, until it returns a final text reply
 // or maxToolIterations is reached. With no tools it uses the plain ask path.
-func Generate(ctx context.Context, model, prompt string, tools []ToolDef) (string, error) {
-	b := ai.New(ai.Model(model)).System(systemPrompt)
+func Generate(ctx context.Context, model, system, prompt string, tools []ToolDef) (string, error) {
+	b := ai.New(ai.Model(model)).System(system)
 	if len(tools) == 0 {
 		return b.Ask(prompt)
 	}
