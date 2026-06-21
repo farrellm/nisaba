@@ -56,8 +56,9 @@ func main() {
 
 		r.Get("/modes", handler.ListModes())
 		r.Get("/models", handler.ListModels())
-		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, cfg.RedditClientID, cfg.RedditClientSecret))
-		r.Get("/reddit/post", handler.GetRedditPost(st, sess, cfg.RedditClientID, cfg.RedditClientSecret))
+		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret)
+		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))
+		r.Get("/reddit/post", handler.GetRedditPost(sess, redditAuth))
 
 		r.Route("/documents", func(r chi.Router) {
 			r.Get("/", handler.ListDocuments(st, sess))

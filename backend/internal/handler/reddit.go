@@ -107,20 +107,29 @@ type redditPost struct {
 	URL   string `json:"url"`
 }
 
+// NewRedditAuth creates a shared OAuth token holder for the Reddit handlers, so
+// the listing and single-post endpoints reuse one cached application-only token.
+func NewRedditAuth(clientID, clientSecret string) *redditAuth {
+	return &redditAuth{clientID: clientID, clientSecret: clientSecret}
+}
+
+// configured reports whether Reddit credentials were supplied.
+func (a *redditAuth) configured() bool {
+	return a.clientID != "" && a.clientSecret != ""
+}
+
 // ListRedditPosts fetches the newest posts from the logged-in user's configured
 // subreddit via Reddit's application-only OAuth API and returns their titles and
 // permalink URLs. Anonymous access is blocked by Reddit, so clientID/secret from
 // a registered app are required.
-func ListRedditPosts(st *store.Store, sess *auth.Sessions, clientID, clientSecret string) http.HandlerFunc {
-	ra := &redditAuth{clientID: clientID, clientSecret: clientSecret}
-
+func ListRedditPosts(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := sess.UserID(r)
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		if clientID == "" || clientSecret == "" {
+		if !ra.configured() {
 			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
 			return
 		}
@@ -194,26 +203,29 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions, clientID, clientSecre
 // GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
 // OAuth API and returns its title and normalized permalink URL. It lets users
 // import a specific post that isn't in the subreddit's newest listing.
-func GetRedditPost(st *store.Store, sess *auth.Sessions, clientID, clientSecret string) http.HandlerFunc {
-	ra := &redditAuth{clientID: clientID, clientSecret: clientSecret}
-
+func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := sess.UserID(r); !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		if clientID == "" || clientSecret == "" {
+		if !ra.configured() {
 			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
 			return
 		}
 
-		raw := r.URL.Query().Get("url")
+		raw := strings.TrimSpace(r.URL.Query().Get("url"))
 		if raw == "" {
 			writeError(w, http.StatusBadRequest, "Missing url")
 			return
 		}
+		// Tolerate URLs pasted without a scheme (e.g. "www.reddit.com/r/…"),
+		// which url.Parse would otherwise treat as a path with no host.
+		if !strings.Contains(raw, "://") {
+			raw = "https://" + raw
+		}
 		parsed, err := url.Parse(raw)
-		if err != nil || parsed.Path == "" {
+		if err != nil || parsed.Host == "" {
 			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
 			return
 		}
