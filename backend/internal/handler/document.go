@@ -123,6 +123,7 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 type updateDocument struct {
 	SelectedModel *string            `json:"selectedModel"`
 	Attributes    *map[string]string `json:"attributes"`
+	IsArchived    *bool              `json:"isArchived"`
 }
 
 // UpdateDocument changes a document's selected model and/or its attribute values
@@ -141,12 +142,17 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		if body.SelectedModel != nil {
-			if !llm.Valid(*body.SelectedModel) {
-				writeError(w, http.StatusBadRequest, "Unknown model")
-				return
+		if body.SelectedModel != nil || body.IsArchived != nil {
+			if body.SelectedModel != nil {
+				if !llm.Valid(*body.SelectedModel) {
+					writeError(w, http.StatusBadRequest, "Unknown model")
+					return
+				}
+				doc.SelectedModel = *body.SelectedModel
 			}
-			doc.SelectedModel = *body.SelectedModel
+			if body.IsArchived != nil {
+				doc.IsArchived = *body.IsArchived
+			}
 			if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
 				writeError(w, http.StatusInternalServerError, "Could not update document")
 				return
@@ -166,5 +172,26 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, updated)
+	}
+}
+
+// DeleteDocument removes a document the logged-in user owns, cascading to its
+// blocks, attributes, and label taggings. Returns 404 if it does not exist or
+// belongs to someone else.
+func DeleteDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, ok := ownedDocument(w, r, st, sess)
+		if !ok {
+			return
+		}
+		if err := st.DeleteDocument(r.Context(), doc.ID); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, http.StatusNotFound, "Document not found")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "Could not delete document")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
