@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Box,
-  Button,
   CircularProgress,
   IconButton,
   Stack,
@@ -9,8 +8,11 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import { api, ApiError } from '../api/client'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
@@ -196,16 +198,52 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
           </Typography>
         )}
 
-        <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-          <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || busy}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-          <Button variant="outlined" size="small" onClick={handleCopy} disabled={busy}>
-            {copying ? 'Copying…' : 'Copy to document'}
-          </Button>
-          <Button variant="contained" size="small" onClick={handleRun} disabled={busy}>
-            {running ? 'Running…' : 'Run'}
-          </Button>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>
+          <Tooltip title="Save">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleSave}
+                disabled={!dirty || busy}
+                aria-label="Save"
+                sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+              >
+                {saving ? <CircularProgress size={18} /> : <SaveOutlinedIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Copy to document">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleCopy}
+                disabled={busy}
+                aria-label="Copy to document"
+                sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+              >
+                {copying ? <CircularProgress size={18} /> : <ContentCopyIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Box sx={{ flexGrow: 1 }} />
+          <Tooltip title="Run">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleRun}
+                disabled={busy}
+                aria-label="Run"
+                sx={{
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' },
+                }}
+              >
+                {running ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
         </Stack>
 
         {(block.responses ?? []).length > 0 && (
