@@ -67,6 +67,7 @@ func main() {
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", handler.GetDocument(st, sess))
 				r.Put("/", handler.UpdateDocument(st, sess))
+				r.Delete("/", handler.DeleteDocument(st, sess))
 
 				r.Route("/blocks", func(r chi.Router) {
 					r.Post("/", handler.CreateBlock(st, sess))
