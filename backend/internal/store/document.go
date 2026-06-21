@@ -131,6 +131,7 @@ func (s *Store) DeleteDocumentAttribute(ctx context.Context, documentID int64, k
 
 // ReplaceDocumentAttributes atomically replaces all of a document's attributes.
 func (s *Store) ReplaceDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error {
+	attrs = trimAttrs(attrs)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -156,6 +157,7 @@ func (s *Store) ReplaceDocumentAttributes(ctx context.Context, documentID int64,
 // ReplaceDocumentAttributes it does not wipe the shared namespace, so values set
 // by other modes survive.
 func (s *Store) MergeDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error {
+	attrs = trimAttrs(attrs)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err

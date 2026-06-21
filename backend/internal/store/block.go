@@ -106,6 +106,7 @@ func (s *Store) DeleteBlockAttribute(ctx context.Context, blockID int64, key str
 
 // ReplaceBlockAttributes atomically replaces all of a block's attributes.
 func (s *Store) ReplaceBlockAttributes(ctx context.Context, blockID int64, attrs map[string]string) error {
+	attrs = trimAttrs(attrs)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
