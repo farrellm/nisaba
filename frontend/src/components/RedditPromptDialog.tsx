@@ -20,9 +20,10 @@ interface RedditPromptDialogProps {
 }
 
 // RedditPromptDialog turns a Reddit post into a new document: the title starts
-// empty and the prompt is seeded from the post title. On submit it creates the
-// document (url = the post permalink), merges in the "prompt" attribute, then
-// redirects to the new document.
+// empty and the prompt is seeded from the post title (with any "[WP]" tag
+// stripped and the result trimmed). On submit it creates the document
+// (url = the post permalink), merges in the "prompt" attribute, then redirects
+// to the new document.
 export default function RedditPromptDialog({ open, post, onClose }: RedditPromptDialogProps) {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
@@ -31,10 +32,11 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
   const [submitting, setSubmitting] = useState(false)
 
   // Seed the prompt from the post title (and clear the title) whenever the
-  // dialog opens for a different post.
+  // dialog opens for a different post. Strip any "[WP]" tag (case-insensitive)
+  // and trim surrounding whitespace.
   useEffect(() => {
     setTitle('')
-    setPrompt(post?.title ?? '')
+    setPrompt((post?.title ?? '').replace(/\[wp\]/gi, '').trim())
     setError(null)
   }, [post])
 
