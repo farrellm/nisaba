@@ -1,5 +1,16 @@
-import { useState } from 'react'
-import { Box, Button, Stack, TextField, Typography } from '@mui/material'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Box,
+  Button,
+  CircularProgress,
+  IconButton,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material'
+import DeleteIcon from '@mui/icons-material/Delete'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { api, ApiError } from '../api/client'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
@@ -8,6 +19,7 @@ interface BlockCardProps {
   block: Block
   mode: Mode | undefined
   onBlockUpdated: (block: Block) => void
+  onBlockDeleted: (id: number) => void
   onAfterRun: () => void
   defaultOpen?: boolean
 }
@@ -15,7 +27,7 @@ interface BlockCardProps {
 // BlockCard renders one block: its mode, editable key/values, a run action, and
 // the responses produced so far. The body is a collapsible <details>; the mode
 // header is the always-visible <summary>.
-export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun, defaultOpen }: BlockCardProps) {
+export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted, onAfterRun, defaultOpen }: BlockCardProps) {
   const keys = mode?.keys ?? Object.keys(block.attributes)
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
@@ -26,9 +38,15 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun, def
   const [saving, setSaving] = useState(false)
   const [copying, setCopying] = useState(false)
   const [running, setRunning] = useState(false)
+  const [armed, setArmed] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const armedTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
-  const busy = saving || copying || running
+  const busy = saving || copying || running || deleting
+
+  // Clear the pending revert timer if the card unmounts.
+  useEffect(() => () => clearTimeout(armedTimer.current), [])
 
   async function handleSave() {
     setError(null)
@@ -60,6 +78,32 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun, def
       setError(err instanceof ApiError ? err.message : 'Could not copy. Try again.')
     } finally {
       setCopying(false)
+    }
+  }
+
+  // Deleting is a two-step action: the first click arms the control (and starts
+  // a timer to disarm it), the second confirms. Both clicks must not toggle the
+  // surrounding <details>, so the caller stops propagation.
+  function handleDeleteClick() {
+    if (!armed) {
+      setArmed(true)
+      armedTimer.current = setTimeout(() => setArmed(false), 4000)
+      return
+    }
+    clearTimeout(armedTimer.current)
+    handleDelete()
+  }
+
+  async function handleDelete() {
+    setError(null)
+    setDeleting(true)
+    try {
+      await api.del(`/api/documents/${block.documentId}/blocks/${block.id}`)
+      onBlockDeleted(block.id)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not delete. Try again.')
+      setArmed(false)
+      setDeleting(false)
     }
   }
 
@@ -106,6 +150,31 @@ export default function BlockCard({ block, mode, onBlockUpdated, onAfterRun, def
             {mode?.label ?? block.mode}
           </Typography>
           <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
+          <Tooltip title={deleting ? '' : armed ? 'Click again to confirm' : 'Delete block'}>
+            <span>
+              <IconButton
+                size="small"
+                edge="end"
+                color={armed ? 'error' : undefined}
+                disabled={busy && !deleting}
+                aria-label={armed ? 'Confirm delete' : 'Delete block'}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleDeleteClick()
+                }}
+                sx={{ transform: 'translateY(-2px)', ...(armed ? {} : { color: 'text.disabled', '&:hover': { color: 'error.main' } }) }}
+              >
+                {deleting ? (
+                  <CircularProgress size={18} color="error" />
+                ) : armed ? (
+                  <DeleteIcon fontSize="small" />
+                ) : (
+                  <DeleteOutlineIcon fontSize="small" />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
         </Box>
 
         <Stack spacing={2}>

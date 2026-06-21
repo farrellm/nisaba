@@ -71,6 +71,7 @@ func main() {
 				r.Route("/blocks", func(r chi.Router) {
 					r.Post("/", handler.CreateBlock(st, sess))
 					r.Put("/{blockId}", handler.UpdateBlock(st, sess))
+					r.Delete("/{blockId}", handler.DeleteBlock(st, sess))
 					r.Post("/{blockId}/copy", handler.CopyBlock(st, sess))
 					r.Post("/{blockId}/run", handler.RunBlock(st, sess))
 				})

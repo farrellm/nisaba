@@ -42,6 +42,10 @@ export default function DocumentPage() {
     )
   }
 
+  function removeBlock(id: number) {
+    setDoc((d) => (d ? { ...d, blocks: (d.blocks ?? []).filter((b) => b.id !== id) } : d))
+  }
+
   // Running a block mutates the document's shared attributes, so reload it.
   function reloadDocument() {
     api.get<DocumentDetail>(`/api/documents/${id}`).then(setDoc).catch(() => {})
@@ -75,6 +79,7 @@ export default function DocumentPage() {
                   block={block}
                   mode={modesByName.get(block.mode)}
                   onBlockUpdated={replaceBlock}
+                  onBlockDeleted={removeBlock}
                   onAfterRun={reloadDocument}
                   defaultOpen={i === arr.length - 1}
                 />
