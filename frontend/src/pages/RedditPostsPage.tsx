@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Box, Container, Divider, Typography } from '@mui/material'
+import { Box, Container, Divider, Fab, Typography } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import { fonts } from '../theme'
 import type { RedditPost } from '../api/types'
 import Masthead from '../components/Masthead'
 import RedditPromptDialog from '../components/RedditPromptDialog'
+import RedditUrlDialog from '../components/RedditUrlDialog'
 
 // RedditPostsPage lists the newest posts from the user's configured subreddit.
 // Clicking a title opens a dialog that turns the post into a new document.
@@ -15,6 +17,7 @@ export default function RedditPostsPage() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<RedditPost | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [urlDialogOpen, setUrlDialogOpen] = useState(false)
 
   useEffect(() => {
     api
@@ -76,6 +79,24 @@ export default function RedditPostsPage() {
           </Typography>
         )}
       </Container>
+
+      <Fab
+        color="primary"
+        aria-label="Import from URL"
+        onClick={() => setUrlDialogOpen(true)}
+        sx={{ position: 'fixed', bottom: 32, right: 32, borderRadius: '50%' }}
+      >
+        <AddIcon />
+      </Fab>
+
+      <RedditUrlDialog
+        open={urlDialogOpen}
+        onClose={() => setUrlDialogOpen(false)}
+        onResolved={(post) => {
+          setUrlDialogOpen(false)
+          openPost(post)
+        }}
+      />
 
       <RedditPromptDialog open={dialogOpen} post={selected} onClose={() => setDialogOpen(false)} />
     </Box>

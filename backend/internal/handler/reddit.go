@@ -107,20 +107,29 @@ type redditPost struct {
 	URL   string `json:"url"`
 }
 
+// NewRedditAuth creates a shared OAuth token holder for the Reddit handlers, so
+// the listing and single-post endpoints reuse one cached application-only token.
+func NewRedditAuth(clientID, clientSecret string) *redditAuth {
+	return &redditAuth{clientID: clientID, clientSecret: clientSecret}
+}
+
+// configured reports whether Reddit credentials were supplied.
+func (a *redditAuth) configured() bool {
+	return a.clientID != "" && a.clientSecret != ""
+}
+
 // ListRedditPosts fetches the newest posts from the logged-in user's configured
 // subreddit via Reddit's application-only OAuth API and returns their titles and
 // permalink URLs. Anonymous access is blocked by Reddit, so clientID/secret from
 // a registered app are required.
-func ListRedditPosts(st *store.Store, sess *auth.Sessions, clientID, clientSecret string) http.HandlerFunc {
-	ra := &redditAuth{clientID: clientID, clientSecret: clientSecret}
-
+func ListRedditPosts(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := sess.UserID(r)
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		if clientID == "" || clientSecret == "" {
+		if !ra.configured() {
 			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
 			return
 		}
@@ -188,5 +197,108 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions, clientID, clientSecre
 			})
 		}
 		writeJSON(w, http.StatusOK, posts)
+	}
+}
+
+// GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
+// OAuth API and returns its title and normalized permalink URL. It lets users
+// import a specific post that isn't in the subreddit's newest listing.
+func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := sess.UserID(r); !ok {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+		if !ra.configured() {
+			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
+			return
+		}
+
+		raw := strings.TrimSpace(r.URL.Query().Get("url"))
+		if raw == "" {
+			writeError(w, http.StatusBadRequest, "Missing url")
+			return
+		}
+		// Tolerate URLs pasted without a scheme (e.g. "www.reddit.com/r/…"),
+		// which url.Parse would otherwise treat as a path with no host.
+		if !strings.Contains(raw, "://") {
+			raw = "https://" + raw
+		}
+		parsed, err := url.Parse(raw)
+		if err != nil || parsed.Host == "" {
+			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
+			return
+		}
+		host := strings.ToLower(parsed.Hostname())
+		if host != "reddit.com" && !strings.HasSuffix(host, ".reddit.com") {
+			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
+			return
+		}
+		// Only a post permalink (…/comments/<id>/…) returns the 2-element array we
+		// decode below. Reject subreddit/user/home URLs up front with a clear
+		// message instead of letting the decode fail with a generic 502.
+		if !strings.Contains(parsed.Path, "/comments/") {
+			writeError(w, http.StatusBadRequest, "Not a Reddit post URL")
+			return
+		}
+
+		token, err := ra.accessToken(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+			return
+		}
+
+		// Use the escaped path so reserved characters survive the round-trip.
+		path := strings.TrimRight(parsed.EscapedPath(), "/")
+		endpoint := "https://oauth.reddit.com" + path + "?raw_json=1&limit=1"
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not build request")
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("User-Agent", redditUserAgent)
+
+		resp, err := redditClient.Do(req)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Could not reach Reddit")
+			return
+		}
+		defer resp.Body.Close()
+
+		switch resp.StatusCode {
+		case http.StatusOK:
+			// fall through to decode
+		case http.StatusNotFound:
+			writeError(w, http.StatusNotFound, "Post not found")
+			return
+		case http.StatusTooManyRequests:
+			writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
+			return
+		case http.StatusUnauthorized:
+			ra.invalidate()
+			writeError(w, http.StatusBadGateway, "Reddit rejected the request; try again")
+			return
+		default:
+			writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", resp.StatusCode))
+			return
+		}
+
+		// The comments endpoint returns a 2-element array: [post listing, comments].
+		var listings []redditListing
+		if err := json.NewDecoder(resp.Body).Decode(&listings); err != nil {
+			writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
+			return
+		}
+		if len(listings) == 0 || len(listings[0].Data.Children) == 0 {
+			writeError(w, http.StatusNotFound, "Post not found")
+			return
+		}
+
+		data := listings[0].Data.Children[0].Data
+		writeJSON(w, http.StatusOK, redditPost{
+			Title: data.Title,
+			URL:   "https://www.reddit.com" + data.Permalink,
+		})
 	}
 }
