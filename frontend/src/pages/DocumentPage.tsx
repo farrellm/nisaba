@@ -48,14 +48,20 @@ export default function DocumentPage() {
     clearTimeout(armedTimer.current)
   }
 
-  async function handleArchive() {
+  async function handleToggleArchive() {
+    if (!doc) return
+    const archive = !doc.isArchived
     setBusy(true)
     setError(null)
     try {
-      await api.put(`/api/documents/${id}`, { isArchived: true })
-      navigate('/documents')
+      await api.put(`/api/documents/${id}`, { isArchived: archive })
+      navigate(archive ? '/documents' : '/archive')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not archive. Try again.')
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : `Could not ${archive ? 'archive' : 'unarchive'}. Try again.`,
+      )
       setBusy(false)
       closeMenu()
     }
@@ -149,8 +155,8 @@ export default function DocumentPage() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
-                <MenuItem onClick={handleArchive} disabled={busy}>
-                  <ListItemText>Archive</ListItemText>
+                <MenuItem onClick={handleToggleArchive} disabled={busy}>
+                  <ListItemText>{doc.isArchived ? 'Unarchive' : 'Archive'}</ListItemText>
                 </MenuItem>
                 <MenuItem onClick={handleDeleteClick} disabled={busy}>
                   <ListItemText sx={armed ? { color: 'error.main' } : undefined}>
