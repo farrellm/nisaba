@@ -22,24 +22,11 @@ type Mode struct {
 	Tools    []llm.ToolDef `json:"-"`      // tool functions attached to the LLM call; server-side only
 }
 
-//go:embed templates/brainstorm.mustache
-var brainstormTmpl string
-
-//go:embed templates/outline.mustache
-var outlineTmpl string
-
-//go:embed templates/draft.mustache
-var draftTmpl string
-
 //go:embed templates/system.mustache
 var systemTmpl string
 
 // modes is the registry, ordered for display.
-var modes = []Mode{
-	{Name: "brainstorm", Label: "Brainstorm", Keys: []string{"topic", "audience"}, Output: "ideas", Template: brainstormTmpl},
-	{Name: "outline", Label: "Outline", Keys: []string{"topic", "ideas"}, Output: "outline", Template: outlineTmpl},
-	{Name: "draft", Label: "Draft", Keys: []string{"topic", "outline", "tone"}, Output: "draft", Template: draftTmpl},
-}
+var modes = []Mode{}
 
 // All returns the modes in display order.
 func All() []Mode {
