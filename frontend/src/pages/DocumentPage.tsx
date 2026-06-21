@@ -4,6 +4,7 @@ import {
   Container,
   Fab,
   IconButton,
+  Link as MuiLink,
   ListItemText,
   Menu,
   MenuItem,
@@ -143,12 +144,33 @@ export default function DocumentPage() {
         ) : (
           <>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 4 }}>
-              <Typography
-                variant="h1"
-                sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)', flexGrow: 1 }}
-              >
-                {doc.title || 'Untitled'}
-              </Typography>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography
+                  variant="h1"
+                  sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)' }}
+                >
+                  {doc.title || 'Untitled'}
+                </Typography>
+                {doc.url && (
+                  <MuiLink
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    variant="overline"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      mt: 1.5,
+                      color: 'primary.main',
+                      textDecoration: 'none',
+                      '&:hover': { textDecoration: 'underline' },
+                    }}
+                  >
+                    Original post ↗
+                  </MuiLink>
+                )}
+              </Box>
               <IconButton
                 onClick={(e) => setAnchorEl(e.currentTarget)}
                 aria-label="Document menu"
