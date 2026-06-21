@@ -77,20 +77,20 @@ var storyReviseTmpl string
 // back into document attributes — so downstream modes consume them via Keys and
 // Output stays empty.
 var modes = []Mode{
-	{Name: "generic", Label: "Generic", Keys: []string{"prompt"}, Template: genericTmpl},
 	{Name: "brainstorm-1", Label: "Brainstorm (one-act)", Keys: []string{"prompt"}, Template: brainstorm1Tmpl},
 	{Name: "brainstorm-2", Label: "Brainstorm (two-act)", Keys: []string{"prompt"}, Template: brainstorm2Tmpl},
 	{Name: "brainstorm-creative-2", Label: "Brainstorm (creative, two-act)", Keys: []string{"prompt"}, Template: brainstormCreative2Tmpl},
 	{Name: "brainstorm-tools-1", Label: "Brainstorm (tools, one-act)", Keys: []string{"prompt"}, Template: brainstormTools1Tmpl, Tools: []llm.ToolDef{llm.GenerateNameTool}},
 	{Name: "brainstorm-tools-2", Label: "Brainstorm (tools, two-act)", Keys: []string{"prompt"}, Template: brainstormTools2Tmpl, Tools: []llm.ToolDef{llm.GenerateNameTool}},
-	{Name: "authors", Label: "Suggest authors", Keys: []string{"outline", "characters"}, Template: authorsTmpl},
 	{Name: "revise-outline-1", Label: "Revise outline (one-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline1Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
 	{Name: "revise-outline-2", Label: "Revise outline (two-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline2Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
-	{Name: "scp-outline", Label: "SCP outline", Keys: []string{"prompt"}, Template: scpOutlineTmpl},
+	{Name: "authors", Label: "Suggest authors", Keys: []string{"outline", "characters"}, Template: authorsTmpl},
 	{Name: "story", Label: "Story", Keys: []string{"characters", "author", "outline"}, Template: storyTmpl},
 	{Name: "story-sequel", Label: "Sequel", Keys: []string{"story", "characters", "author", "style_analysis", "sequel_outline"}, Template: storySequelTmpl},
 	{Name: "story-edit", Label: "Edit story", Keys: []string{"story", "edit"}, Template: storyEditTmpl, Renames: map[string]string{"rewritten_story": "story"}},
 	{Name: "story-revise", Label: "Revise story", Keys: []string{"story"}, Template: storyReviseTmpl, Renames: map[string]string{"rewritten_story": "story"}},
+	{Name: "scp-outline", Label: "SCP outline", Keys: []string{"prompt"}, Template: scpOutlineTmpl},
+	{Name: "generic", Label: "Generic", Keys: []string{"prompt"}, Template: genericTmpl},
 }
 
 // All returns the modes in display order.
