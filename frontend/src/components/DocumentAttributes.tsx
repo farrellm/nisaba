@@ -48,20 +48,38 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
 
   return (
     <Box component="section" sx={{ py: 4, borderTop: '1px dotted', borderColor: 'divider', mt: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, mb: 3 }}>
-        <Typography
-          variant="overline"
-          sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
+      <Box
+        component="details"
+        sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
+      >
+        <Box
+          component="summary"
+          sx={{
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 2,
+            mb: 3,
+            cursor: 'pointer',
+            listStyle: 'none',
+            '&::-webkit-details-marker': { display: 'none' },
+          }}
         >
-          Attributes
-        </Typography>
-        <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
-        <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
-      </Box>
+          <Typography
+            variant="overline"
+            sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
+          >
+            Attributes
+          </Typography>
+          <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
+        </Box>
 
-      {keys.length === 0 ? (
+        <Stack direction="row" spacing={1.5} sx={{ mb: 3 }}>
+          <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </Stack>
+
+        {keys.length === 0 ? (
         <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
           No attributes yet.
         </Typography>
@@ -106,11 +124,12 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         </Stack>
       )}
 
-      {error && (
-        <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
-          {error}
-        </Typography>
-      )}
+        {error && (
+          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
+            {error}
+          </Typography>
+        )}
+      </Box>
     </Box>
   )
 }
