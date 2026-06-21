@@ -54,8 +54,18 @@ export default function DocumentPage() {
     setBusy(true)
     setError(null)
     try {
-      await api.put(`/api/documents/${id}`, { isArchived: archive })
-      navigate(archive ? '/documents' : '/archive')
+      const updated = await api.put<DocumentDetail>(`/api/documents/${id}`, {
+        isArchived: archive,
+      })
+      // Archiving removes the doc from the active list, so leave for it.
+      // Unarchiving keeps you on the page; just reflect the new state.
+      if (archive) {
+        navigate('/documents')
+      } else {
+        setDoc(updated)
+        setBusy(false)
+        closeMenu()
+      }
     } catch (err) {
       setError(
         err instanceof ApiError
