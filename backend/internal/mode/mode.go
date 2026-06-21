@@ -20,25 +20,77 @@ type Mode struct {
 	Output   string        `json:"output"` // document attribute key the response populates
 	Template string        `json:"-"`      // mustache prompt; server-side only
 	Tools    []llm.ToolDef `json:"-"`      // tool functions attached to the LLM call; server-side only
+
+	// Renames maps a produced top-level tag name to the document attribute key it
+	// should populate, so a mode's output chains into the next mode's input
+	// (e.g. "revised_outline" -> "outline"). Server-side only.
+	Renames map[string]string `json:"-"`
 }
-
-//go:embed templates/brainstorm.mustache
-var brainstormTmpl string
-
-//go:embed templates/outline.mustache
-var outlineTmpl string
-
-//go:embed templates/draft.mustache
-var draftTmpl string
 
 //go:embed templates/system.mustache
 var systemTmpl string
 
-// modes is the registry, ordered for display.
+//go:embed templates/generic.mustache
+var genericTmpl string
+
+//go:embed templates/brainstorm-1.mustache
+var brainstorm1Tmpl string
+
+//go:embed templates/brainstorm-2.mustache
+var brainstorm2Tmpl string
+
+//go:embed templates/brainstorm-creative-2.mustache
+var brainstormCreative2Tmpl string
+
+//go:embed templates/brainstorm-tools-1.mustache
+var brainstormTools1Tmpl string
+
+//go:embed templates/brainstorm-tools-2.mustache
+var brainstormTools2Tmpl string
+
+//go:embed templates/authors.mustache
+var authorsTmpl string
+
+//go:embed templates/revise-outline-1.mustache
+var reviseOutline1Tmpl string
+
+//go:embed templates/revise-outline-2.mustache
+var reviseOutline2Tmpl string
+
+//go:embed templates/scp-outline.mustache
+var scpOutlineTmpl string
+
+//go:embed templates/story.mustache
+var storyTmpl string
+
+//go:embed templates/story-sequel.mustache
+var storySequelTmpl string
+
+//go:embed templates/story-edit.mustache
+var storyEditTmpl string
+
+//go:embed templates/story-revise.mustache
+var storyReviseTmpl string
+
+// modes is the registry, ordered for display. Each mode's response carries its
+// products in top-level XML tags (e.g. <characters>, <outline>), which are parsed
+// back into document attributes — so downstream modes consume them via Keys and
+// Output stays empty.
 var modes = []Mode{
-	{Name: "brainstorm", Label: "Brainstorm", Keys: []string{"topic", "audience"}, Output: "ideas", Template: brainstormTmpl},
-	{Name: "outline", Label: "Outline", Keys: []string{"topic", "ideas"}, Output: "outline", Template: outlineTmpl},
-	{Name: "draft", Label: "Draft", Keys: []string{"topic", "outline", "tone"}, Output: "draft", Template: draftTmpl},
+	{Name: "generic", Label: "Generic", Keys: []string{"prompt"}, Template: genericTmpl},
+	{Name: "brainstorm-1", Label: "Brainstorm", Keys: []string{"prompt"}, Template: brainstorm1Tmpl},
+	{Name: "brainstorm-2", Label: "Brainstorm (two-act)", Keys: []string{"prompt"}, Template: brainstorm2Tmpl},
+	{Name: "brainstorm-creative-2", Label: "Brainstorm (creative, two-act)", Keys: []string{"prompt"}, Template: brainstormCreative2Tmpl},
+	{Name: "brainstorm-tools-1", Label: "Brainstorm (tools)", Keys: []string{"prompt"}, Template: brainstormTools1Tmpl, Tools: []llm.ToolDef{llm.GenerateNameTool}},
+	{Name: "brainstorm-tools-2", Label: "Brainstorm (tools, two-act)", Keys: []string{"prompt"}, Template: brainstormTools2Tmpl, Tools: []llm.ToolDef{llm.GenerateNameTool}},
+	{Name: "authors", Label: "Suggest authors", Keys: []string{"outline", "characters"}, Template: authorsTmpl},
+	{Name: "revise-outline-1", Label: "Revise outline", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline1Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
+	{Name: "revise-outline-2", Label: "Revise outline (two-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline2Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
+	{Name: "scp-outline", Label: "SCP outline", Keys: []string{"prompt"}, Template: scpOutlineTmpl},
+	{Name: "story", Label: "Story", Keys: []string{"characters", "author", "outline"}, Template: storyTmpl},
+	{Name: "story-sequel", Label: "Sequel", Keys: []string{"story", "characters", "author", "style_analysis", "sequel_outline"}, Template: storySequelTmpl},
+	{Name: "story-edit", Label: "Edit story", Keys: []string{"story", "edit"}, Template: storyEditTmpl, Renames: map[string]string{"rewritten_story": "story"}},
+	{Name: "story-revise", Label: "Revise story", Keys: []string{"story"}, Template: storyReviseTmpl, Renames: map[string]string{"rewritten_story": "story"}},
 }
 
 // All returns the modes in display order.

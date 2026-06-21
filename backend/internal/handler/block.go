@@ -308,6 +308,7 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		// an output key, the full response is also saved under it — set last so
 		// it wins over a same-named tag.
 		updates := parseTopLevelTags(output)
+		applyRenames(updates, m.Renames)
 		if m.Output != "" {
 			updates[m.Output] = output
 		}

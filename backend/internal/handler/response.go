@@ -64,6 +64,19 @@ func parseTopLevelTags(s string) map[string]string {
 	return out
 }
 
+// applyRenames rewrites keys in updates according to renames (from -> to), using
+// move semantics: when a "from" key is present its value is reassigned to "to"
+// (overwriting any existing "to") and the original "from" key is removed. Keys
+// not named in renames are untouched.
+func applyRenames(updates map[string]string, renames map[string]string) {
+	for from, to := range renames {
+		if v, ok := updates[from]; ok {
+			updates[to] = v
+			delete(updates, from)
+		}
+	}
+}
+
 // findMatchingClose returns the index where the closing tag for name begins and
 // the index just past that closing tag, starting the search at from. It counts
 // nested start tags of the same name so the outermost close is matched. Returns
