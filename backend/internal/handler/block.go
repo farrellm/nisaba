@@ -330,3 +330,27 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, hydrated)
 	}
 }
+
+// DeleteBlock removes a block from a document. Its attributes and responses are
+// removed by the database via ON DELETE CASCADE.
+func DeleteBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, ok := ownedDocument(w, r, st, sess)
+		if !ok {
+			return
+		}
+		block, ok := findBlock(w, r, doc)
+		if !ok {
+			return
+		}
+		if err := st.DeleteBlock(r.Context(), block.ID); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, http.StatusNotFound, "Block not found")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "Could not delete block")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
