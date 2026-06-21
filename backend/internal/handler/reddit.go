@@ -234,6 +234,13 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
 			return
 		}
+		// Only a post permalink (…/comments/<id>/…) returns the 2-element array we
+		// decode below. Reject subreddit/user/home URLs up front with a clear
+		// message instead of letting the decode fail with a generic 502.
+		if !strings.Contains(parsed.Path, "/comments/") {
+			writeError(w, http.StatusBadRequest, "Not a Reddit post URL")
+			return
+		}
 
 		token, err := ra.accessToken(r.Context())
 		if err != nil {
@@ -241,7 +248,8 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 			return
 		}
 
-		path := strings.TrimRight(parsed.Path, "/")
+		// Use the escaped path so reserved characters survive the round-trip.
+		path := strings.TrimRight(parsed.EscapedPath(), "/")
 		endpoint := "https://oauth.reddit.com" + path + "?raw_json=1&limit=1"
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
 		if err != nil {
