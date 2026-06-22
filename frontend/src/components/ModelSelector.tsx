@@ -41,6 +41,7 @@ export default function ModelSelector({ doc, onChange }: ModelSelectorProps) {
         position: 'fixed',
         bottom: 32,
         left: 32,
+        zIndex: (theme) => theme.zIndex.fab,
         px: 2,
         py: 1.25,
         display: 'flex',
