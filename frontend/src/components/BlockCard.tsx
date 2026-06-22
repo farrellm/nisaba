@@ -17,6 +17,7 @@ import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api, ApiError } from '../api/client'
+import AuthorField from './AuthorField'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
 
@@ -209,6 +210,15 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
         <Stack spacing={2}>
           {keys.map((key) => {
             const value = values[key] ?? ''
+            if (key === 'author') {
+              return (
+                <AuthorField
+                  key={key}
+                  value={value}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
+                />
+              )
+            }
             const collapsed = !expanded.has(key) && value.length > 80
             if (collapsed) {
               return (

@@ -1,0 +1,35 @@
+package handler
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/store"
+)
+
+// ListAttributeValues returns the logged-in user's distinct past values for the
+// attribute key given in ?key=, alphabetically sorted. Used to populate
+// autocomplete suggestions (e.g. author names) when editing a block.
+func ListAttributeValues(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, ok := sess.UserID(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+
+		key := strings.TrimSpace(r.URL.Query().Get("key"))
+		if key == "" {
+			writeError(w, http.StatusBadRequest, "key is required")
+			return
+		}
+
+		values, err := st.AttributeValues(r.Context(), userID, key)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load attribute values")
+			return
+		}
+		writeJSON(w, http.StatusOK, values)
+	}
+}
