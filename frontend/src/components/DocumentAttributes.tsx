@@ -105,13 +105,13 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         <Stack spacing={2}>
           {keys.map((key) => {
             const value = values[key] ?? ''
-            const collapsed = !expanded.has(key) && value.length > 30
+            const collapsed = !expanded.has(key) && value.length > 80
             if (collapsed) {
               return (
                 <TextField
                   key={key}
                   label={key}
-                  value={`${value.slice(0, 28)}…`}
+                  value={`${value.slice(0, 40)}…`}
                   onClick={() => reveal(key)}
                   InputProps={{
                     readOnly: true,

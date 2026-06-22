@@ -3,6 +3,7 @@ import {
   Box,
   CircularProgress,
   IconButton,
+  InputAdornment,
   Stack,
   TextField,
   Tooltip,
@@ -14,6 +15,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
+import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api, ApiError } from '../api/client'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
@@ -44,7 +46,12 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
   const [armed, setArmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const armedTimer = useRef<ReturnType<typeof setTimeout>>()
+
+  function reveal(key: string) {
+    setExpanded((prev) => new Set(prev).add(key))
+  }
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
   const busy = saving || copying || running || deleting || reparsingId !== null
@@ -200,16 +207,42 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
         </Box>
 
         <Stack spacing={2}>
-          {keys.map((key) => (
-            <TextField
-              key={key}
-              label={key}
-              value={values[key] ?? ''}
-              onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-              multiline
-              minRows={1}
-            />
-          ))}
+          {keys.map((key) => {
+            const value = values[key] ?? ''
+            const collapsed = !expanded.has(key) && value.length > 80
+            if (collapsed) {
+              return (
+                <TextField
+                  key={key}
+                  label={key}
+                  value={`${value.slice(0, 40)}…`}
+                  onClick={() => reveal(key)}
+                  InputProps={{
+                    readOnly: true,
+                    endAdornment: (
+                      <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
+                        <UnfoldMore fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      cursor: 'pointer',
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                    },
+                  }}
+                />
+              )
+            }
+            return (
+              <TextField
+                key={key}
+                label={key}
+                value={value}
+                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                multiline
+                minRows={1}
+              />
+            )
+          })}
         </Stack>
 
         {error && (
