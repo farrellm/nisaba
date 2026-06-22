@@ -54,51 +54,55 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-      <form onSubmit={handleSubmit} noValidate>
-        <DialogTitle>Add a block</DialogTitle>
-        <DialogContent>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          <RadioGroup value={selected} onChange={(e) => setSelected(e.target.value)}>
-            {modes.map((mode) => (
-              <FormControlLabel
-                key={mode.name}
-                value={mode.name}
-                control={<Radio />}
-                sx={{ alignItems: 'flex-start', py: 0.5 }}
-                label={
-                  <span>
-                    <Typography component="span" sx={{ fontFamily: fonts.display, fontSize: '1.05rem' }}>
-                      {mode.label}
-                    </Typography>
-                    <Typography
-                      sx={{
-                        fontFamily: fonts.mono,
-                        fontSize: '0.75rem',
-                        color: 'text.secondary',
-                      }}
-                    >
-                      {mode.keys.join(' · ')}
-                    </Typography>
-                  </span>
-                }
-              />
-            ))}
-          </RadioGroup>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="contained" disabled={submitting || !selected}>
-            {submitting ? 'Adding…' : 'Add block'}
-          </Button>
-        </DialogActions>
-      </form>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      fullWidth
+      maxWidth="sm"
+      slotProps={{ paper: { component: 'form', onSubmit: handleSubmit } }}
+    >
+      <DialogTitle>Add a block</DialogTitle>
+      <DialogContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        <RadioGroup value={selected} onChange={(e) => setSelected(e.target.value)}>
+          {modes.map((mode) => (
+            <FormControlLabel
+              key={mode.name}
+              value={mode.name}
+              control={<Radio />}
+              sx={{ alignItems: 'flex-start', py: 0.5 }}
+              label={
+                <span>
+                  <Typography component="span" sx={{ fontFamily: fonts.display, fontSize: '1.05rem' }}>
+                    {mode.label}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontFamily: fonts.mono,
+                      fontSize: '0.75rem',
+                      color: 'text.secondary',
+                    }}
+                  >
+                    {mode.keys.join(' · ')}
+                  </Typography>
+                </span>
+              }
+            />
+          ))}
+        </RadioGroup>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="contained" disabled={submitting || !selected}>
+          {submitting ? 'Adding…' : 'Add block'}
+        </Button>
+      </DialogActions>
     </Dialog>
   )
 }
