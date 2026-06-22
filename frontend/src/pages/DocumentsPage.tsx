@@ -27,6 +27,7 @@ export default function DocumentsPage() {
       loading={documents === null && error === null}
       error={error}
       active="documents"
+      defaultSort="newest"
     >
       <Fab
         color="primary"
