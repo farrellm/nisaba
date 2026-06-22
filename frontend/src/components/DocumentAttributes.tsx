@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Box, Button, InputAdornment, Stack, TextField, Typography } from '@mui/material'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api, ApiError } from '../api/client'
@@ -21,6 +21,24 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
     for (const key of keys) seed[key] = attributes[key] ?? ''
     return seed
   })
+  // Re-sync local values when the document's attributes change (e.g. after a
+  // run promotes new values into the shared namespace). useState seeds only
+  // once, so without this the fields keep showing stale text. Preserve any
+  // unsaved edits by adopting the new server value only for keys the user
+  // hasn't locally diverged on, tracked against the last server snapshot.
+  const serverRef = useRef<Record<string, string>>(attributes)
+  useEffect(() => {
+    const server = doc.attributes ?? {}
+    setValues((prev) => {
+      const next = { ...prev }
+      for (const key of Object.keys(server)) {
+        const userEdited = (prev[key] ?? '') !== (serverRef.current[key] ?? '')
+        if (!userEdited) next[key] = server[key]
+      }
+      return next
+    })
+    serverRef.current = server
+  }, [doc.attributes])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
