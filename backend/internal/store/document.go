@@ -77,7 +77,49 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 		}
 		docs = append(docs, d)
 	}
-	return docs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	labels, err := s.labelsByDocument(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range docs {
+		if names := labels[docs[i].ID]; names != nil {
+			docs[i].Labels = names
+		} else {
+			docs[i].Labels = []string{}
+		}
+	}
+	return docs, nil
+}
+
+// labelsByDocument returns, for every document owned by the user, its label names
+// keyed by document id. Documents without labels are absent from the map.
+func (s *Store) labelsByDocument(ctx context.Context, userID int64) (map[int64][]string, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT dl.document_id, l.name
+		   FROM labels l
+		   JOIN document_labels dl ON dl.label_id = l.id
+		   JOIN documents d ON d.id = dl.document_id
+		  WHERE d.user_id = $1
+		  ORDER BY l.name`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byDoc := map[int64][]string{}
+	for rows.Next() {
+		var docID int64
+		var name string
+		if err := rows.Scan(&docID, &name); err != nil {
+			return nil, err
+		}
+		byDoc[docID] = append(byDoc[docID], name)
+	}
+	return byDoc, rows.Err()
 }
 
 // UpdateDocument updates a document's mutable columns and bumps updated_at to

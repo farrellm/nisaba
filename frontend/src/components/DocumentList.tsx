@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
   Box,
+  Chip,
   Container,
   Divider,
   Link as MuiLink,
@@ -136,6 +137,21 @@ export default function DocumentList({
                 >
                   {doc.title || 'Untitled'}
                 </Typography>
+                {(doc.labels ?? []).map((label) => (
+                  <Chip
+                    key={label}
+                    label={label}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      fontFamily: fonts.mono,
+                      fontSize: '0.7rem',
+                      height: 20,
+                      color: 'text.secondary',
+                      borderColor: 'divider',
+                    }}
+                  />
+                ))}
                 <Box
                   sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }}
                 />

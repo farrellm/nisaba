@@ -6,6 +6,7 @@ export interface Document {
   url: string | null
   updatedAt: string
   isArchived: boolean
+  labels: string[]
 }
 
 // RedditPost is one newest post from the user's subreddit, as returned by
@@ -58,5 +59,4 @@ export interface DocumentDetail extends Document {
   selectedModel: string
   attributes: Record<string, string>
   blocks: Block[]
-  labels: string[]
 }
