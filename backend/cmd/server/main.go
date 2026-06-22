@@ -75,6 +75,7 @@ func main() {
 					r.Delete("/{blockId}", handler.DeleteBlock(st, sess))
 					r.Post("/{blockId}/copy", handler.CopyBlock(st, sess))
 					r.Post("/{blockId}/run", handler.RunBlock(st, sess))
+					r.Post("/{blockId}/responses/{responseId}/reparse", handler.ReparseResponse(st, sess))
 				})
 			})
 		})
