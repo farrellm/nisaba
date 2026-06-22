@@ -15,6 +15,7 @@ import { useAuth } from '../auth/AuthContext'
 import { api, ApiError } from '../api/client'
 import { fonts } from '../theme'
 import AccountMenu from '../components/AccountMenu'
+import { usePageTitle } from '../lib/usePageTitle'
 
 const navLinkSx = {
   fontFamily: fonts.mono,
@@ -27,6 +28,7 @@ const navLinkSx = {
 // /api/auth/me and refreshes the auth context so the canonical value (which the
 // server may have defaulted) is reflected everywhere.
 export default function SettingsPage() {
+  usePageTitle('Settings')
   const { user, refresh } = useAuth()
   const [subreddit, setSubreddit] = useState(user?.subreddit ?? '')
   const [error, setError] = useState<string | null>(null)

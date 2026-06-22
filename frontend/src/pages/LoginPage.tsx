@@ -4,8 +4,10 @@ import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
 import AuthLayout from '../components/AuthLayout'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export default function LoginPage() {
+  usePageTitle('Log in')
   const { user, login } = useAuth()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')

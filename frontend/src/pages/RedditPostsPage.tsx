@@ -8,10 +8,12 @@ import type { RedditPost } from '../api/types'
 import Masthead from '../components/Masthead'
 import RedditPromptDialog from '../components/RedditPromptDialog'
 import RedditUrlDialog from '../components/RedditUrlDialog'
+import { usePageTitle } from '../lib/usePageTitle'
 
 // RedditPostsPage lists the newest posts from the user's configured subreddit.
 // Clicking a title opens a dialog that turns the post into a new document.
 export default function RedditPostsPage() {
+  usePageTitle('Writing Prompts')
   const { user } = useAuth()
   const [posts, setPosts] = useState<RedditPost[] | null>(null)
   const [error, setError] = useState<string | null>(null)

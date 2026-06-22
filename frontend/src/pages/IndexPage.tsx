@@ -2,8 +2,10 @@ import { Box, Button, Container, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { fonts } from '../theme'
 import AccountMenu from '../components/AccountMenu'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export default function IndexPage() {
+  usePageTitle()
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Masthead bar */}

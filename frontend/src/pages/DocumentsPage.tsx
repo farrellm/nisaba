@@ -5,8 +5,10 @@ import { api } from '../api/client'
 import type { Document } from '../api/types'
 import DocumentList from '../components/DocumentList'
 import NewDocumentDialog from '../components/NewDocumentDialog'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export default function DocumentsPage() {
+  usePageTitle('Documents')
   const [documents, setDocuments] = useState<Document[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)

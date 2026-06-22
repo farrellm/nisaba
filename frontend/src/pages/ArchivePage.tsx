@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { Document } from '../api/types'
 import DocumentList from '../components/DocumentList'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export default function ArchivePage() {
+  usePageTitle('Archive')
   const [documents, setDocuments] = useState<Document[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 

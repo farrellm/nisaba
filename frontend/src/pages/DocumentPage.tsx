@@ -20,6 +20,7 @@ import AddBlockDialog from '../components/AddBlockDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
+import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
 // DocumentPage loads a document via GET /api/documents/:id and renders its
@@ -30,6 +31,7 @@ export default function DocumentPage() {
   const navigate = useNavigate()
 
   const [doc, setDoc] = useState<DocumentDetail | null>(null)
+  usePageTitle(doc ? doc.title || 'Untitled' : null)
   const [modes, setModes] = useState<Mode[]>([])
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
