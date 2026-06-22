@@ -44,11 +44,12 @@ type Model struct {
 // models is the fixed, cross-provider list. IDs are provider-native model names.
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
-	{ID: "claude-opus-4-5", Label: "Claude Opus 4.5", Provider: "anthropic"},
-	{ID: "claude-sonnet-4-5", Label: "Claude Sonnet 4.5", Provider: "anthropic"},
 	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
-	{ID: "gpt-5.2", Label: "GPT-5.2", Provider: "openai"},
-	{ID: "gemini-3-pro", Label: "Gemini 3 Pro", Provider: "google"},
+	{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: "anthropic"},
+	{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic"},
+	{ID: "gpt-5.4", Label: "GPT-5.4", Provider: "openai"},
+	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
+	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
 	{ID: "z-ai/glm-5.2", Label: "GLM-5.2", Provider: "openrouter"},
 	{ID: "deepseek-v4-pro", Label: "DeepSeek V4 Pro", Provider: "deepseek"},
 }
