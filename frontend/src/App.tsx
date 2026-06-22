@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import CreateUserPage from './pages/CreateUserPage'
 import DocumentsPage from './pages/DocumentsPage'
 import DocumentPage from './pages/DocumentPage'
+import AttributePage from './pages/AttributePage'
 import ArchivePage from './pages/ArchivePage'
 import RedditPostsPage from './pages/RedditPostsPage'
 import SettingsPage from './pages/SettingsPage'
@@ -35,6 +36,14 @@ export default function App() {
         element={
           <RequireAuth>
             <DocumentPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/documents/:id/attributes/:key"
+        element={
+          <RequireAuth>
+            <AttributePage />
           </RequireAuth>
         }
       />

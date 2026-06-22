@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Box, Button, InputAdornment, Stack, TextField, Typography } from '@mui/material'
+import { Box, Button, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
+import OpenInNew from '@mui/icons-material/OpenInNew'
 import { api, ApiError } from '../api/client'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
@@ -106,37 +107,50 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
           {keys.map((key) => {
             const value = values[key] ?? ''
             const collapsed = !expanded.has(key) && value.length > 80
-            if (collapsed) {
-              return (
-                <TextField
-                  key={key}
-                  label={key}
-                  value={`${value.slice(0, 40)}…`}
-                  onClick={() => reveal(key)}
-                  InputProps={{
-                    readOnly: true,
-                    endAdornment: (
-                      <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-                        <UnfoldMore fontSize="small" />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      cursor: 'pointer',
-                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                    },
-                  }}
-                />
-              )
-            }
-            return (
+            const field = collapsed ? (
               <TextField
-                key={key}
+                label={key}
+                value={`${value.slice(0, 40)}…`}
+                onClick={() => reveal(key)}
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: (
+                    <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
+                      <UnfoldMore fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  sx: {
+                    cursor: 'pointer',
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                  },
+                }}
+              />
+            ) : (
+              <TextField
                 label={key}
                 value={value}
                 onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
                 multiline
                 minRows={1}
               />
+            )
+            return (
+              <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                <Box sx={{ flex: 1 }}>{field}</Box>
+                <Tooltip title="View as markdown">
+                  <IconButton
+                    component="a"
+                    href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
+                    target="_blank"
+                    rel="noopener"
+                    aria-label={`View ${key} as markdown`}
+                    size="small"
+                    sx={{ mt: 1, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                  >
+                    <OpenInNew fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             )
           })}
         </Stack>
