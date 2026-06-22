@@ -332,6 +332,75 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	}
 }
 
+// ReparseResponse re-runs only the parse + merge step against an existing
+// response named by {responseId}, without calling the model. It feeds that
+// response's stored text back into the document's shared attributes the same way
+// RunBlock does (top-level XML tags plus the mode's output key, merged), so a user
+// can re-derive attributes from any past response.
+func ReparseResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, ok := ownedDocument(w, r, st, sess)
+		if !ok {
+			return
+		}
+		block, ok := findBlock(w, r, doc)
+		if !ok {
+			return
+		}
+
+		m, ok := mode.Get(block.Mode)
+		if !ok {
+			writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
+			return
+		}
+
+		responseID, err := strconv.ParseInt(chi.URLParam(r, "responseId"), 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid response id")
+			return
+		}
+		var output string
+		found := false
+		for _, resp := range block.Responses {
+			if resp.ID == responseID {
+				output = resp.Value
+				found = true
+				break
+			}
+		}
+		if !found {
+			writeError(w, http.StatusNotFound, "Response not found")
+			return
+		}
+
+		// Re-derive the document's shared key/values from this response. Same
+		// merge semantics as RunBlock: top-level XML tags each populate a
+		// document attribute and the mode's output key (when set) wins.
+		updates := parseTopLevelTags(output)
+		applyRenames(updates, m.Renames)
+		if m.Output != "" {
+			updates[m.Output] = output
+		}
+		if len(updates) > 0 {
+			if err := st.MergeDocumentAttributes(r.Context(), doc.ID, updates); err != nil {
+				writeError(w, http.StatusInternalServerError, "Could not update document")
+				return
+			}
+			if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
+				writeError(w, http.StatusInternalServerError, "Could not update document")
+				return
+			}
+		}
+
+		hydrated, err := st.GetBlock(r.Context(), block.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load block")
+			return
+		}
+		writeJSON(w, http.StatusOK, hydrated)
+	}
+}
+
 // DeleteBlock removes a block from a document. Its attributes and responses are
 // removed by the database via ON DELETE CASCADE.
 func DeleteBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {

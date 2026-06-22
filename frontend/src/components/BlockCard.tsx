@@ -12,6 +12,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import { api, ApiError } from '../api/client'
 import type { Block, Mode } from '../api/types'
@@ -42,10 +43,11 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
   const [running, setRunning] = useState(false)
   const [armed, setArmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [reparsingId, setReparsingId] = useState<number | null>(null)
   const armedTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
-  const busy = saving || copying || running || deleting
+  const busy = saving || copying || running || deleting || reparsingId !== null
 
   // Clear the pending revert timer if the card unmounts.
   useEffect(() => () => clearTimeout(armedTimer.current), [])
@@ -123,6 +125,24 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
       setError(err instanceof ApiError ? err.message : 'Could not run. Try again.')
     } finally {
       setRunning(false)
+    }
+  }
+
+  // Re-derive the document's shared attributes from a stored response, without
+  // calling the model again. Same refresh path as a run.
+  async function handleReparse(responseId: number) {
+    setError(null)
+    setReparsingId(responseId)
+    try {
+      const updated = await api.post<Block>(
+        `/api/documents/${block.documentId}/blocks/${block.id}/responses/${responseId}/reparse`,
+      )
+      onBlockUpdated(updated)
+      onAfterRun()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not re-parse. Try again.')
+    } finally {
+      setReparsingId(null)
     }
   }
 
@@ -253,6 +273,9 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
                 <Box
                   component="summary"
                   sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
                     cursor: 'pointer',
                     listStyle: 'none',
                     '&::-webkit-details-marker': { display: 'none' },
@@ -265,6 +288,27 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
                   >
                     {response.model || 'no model'}
                   </Typography>
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Tooltip title="Re-parse into document attributes">
+                    <span>
+                      <IconButton
+                        size="small"
+                        disabled={busy}
+                        aria-label="Re-parse response into document attributes"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleReparse(response.id)
+                        }}
+                        sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                      >
+                        {reparsingId === response.id ? (
+                          <CircularProgress size={18} />
+                        ) : (
+                          <ReplayIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 </Box>
                 <Typography
                   sx={{
