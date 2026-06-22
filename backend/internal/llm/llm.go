@@ -3,10 +3,10 @@
 // cross-provider model list (the source of truth for the UI selector and for
 // validating a document's selected model) and a Generate helper.
 //
-// Each model routes directly to its own provider (Anthropic, OpenAI, Google),
-// not through an aggregator. GoAI reads each provider's key from the
-// environment: ANTHROPIC_API_KEY, OPENAI_API_KEY, and
-// GEMINI_API_KEY/GOOGLE_GENERATIVE_AI_API_KEY.
+// Each model routes through the provider named in its Model.Provider — its own
+// vendor (Anthropic, OpenAI, Google) or the OpenRouter aggregator. GoAI reads
+// each provider's key from the environment: ANTHROPIC_API_KEY, OPENAI_API_KEY,
+// GEMINI_API_KEY/GOOGLE_GENERATIVE_AI_API_KEY, and OPENROUTER_API_KEY.
 package llm
 
 import (
@@ -18,6 +18,7 @@ import (
 	"github.com/zendev-sh/goai/provider/anthropic"
 	"github.com/zendev-sh/goai/provider/google"
 	"github.com/zendev-sh/goai/provider/openai"
+	"github.com/zendev-sh/goai/provider/openrouter"
 )
 
 // maxToolIterations bounds the agentic tool-call loop in Generate so a model
@@ -46,6 +47,7 @@ var models = []Model{
 	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
 	{ID: "gpt-5.2", Label: "GPT-5.2", Provider: "openai"},
 	{ID: "gemini-3-pro", Label: "Gemini 3 Pro", Provider: "google"},
+	{ID: "z-ai/glm-5.2", Label: "GLM-5.2", Provider: "openrouter"},
 }
 
 // Models returns the fixed model list in display order.
@@ -77,6 +79,8 @@ func clientFor(id string) (provider.LanguageModel, error) {
 			return openai.Chat(id), nil
 		case "google":
 			return google.Chat(id), nil
+		case "openrouter":
+			return openrouter.Chat(id), nil
 		default:
 			return nil, fmt.Errorf("model %q has unsupported provider %q", id, m.Provider)
 		}
