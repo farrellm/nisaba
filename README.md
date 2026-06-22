@@ -1,6 +1,6 @@
 # Nisaba
 
-Nisaba is a tool for **writing with LLMs**. A document is built from **blocks**, and every block is created in one of a fixed set of **modes**. Each mode has a fixed set of keys and a mustache prompt template. When you add a block its values are seeded from the document's shared key/values; when you **run** it, the template renders those values into a prompt, the prompt goes to the document's selected model, and the response is saved to the block and fed back into the document's key/values. The model call is provider-agnostic (via `dragon-born/go-llm`), and the model is chosen per document from a fixed, cross-provider list.
+Nisaba is a tool for **writing with LLMs**. A document is built from **blocks**, and every block is created in one of a fixed set of **modes**. Each mode has a fixed set of keys and a mustache prompt template. When you add a block its values are seeded from the document's shared key/values; when you **run** it, the template renders those values into a prompt, the prompt goes to the document's selected model, and the response is saved to the block and fed back into the document's key/values. The model call is provider-agnostic (via the [GoAI SDK](https://github.com/zendev-sh/goai), routing each model directly to its own provider), and the model is chosen per document from a fixed, cross-provider list.
 
 Built on a React + MUI frontend, Go backend, and PostgreSQL database.
 
@@ -67,13 +67,15 @@ The backend reads configuration from environment variables with development defa
 
 ### LLM provider
 
-The LLM call is provider-agnostic via [`dragon-born/go-llm`](https://gopkg.in/dragon-born/go-llm.v1), wrapped in `backend/internal/llm`. Requests route through go-llm's default gateway (OpenRouter), so a single key reaches every model in the fixed list (Anthropic, OpenAI, Google, …). Set it before running a block:
+The LLM call is provider-agnostic via the [GoAI SDK](https://github.com/zendev-sh/goai), wrapped in `backend/internal/llm`. Each model in the fixed list routes directly to its own provider (Anthropic, OpenAI, Google), so set that provider's key before running a block:
 
 ```sh
-export OPENROUTER_API_KEY=...
+export ANTHROPIC_API_KEY=...   # Claude models
+export OPENAI_API_KEY=...      # GPT models
+export GEMINI_API_KEY=...      # Gemini models (or GOOGLE_GENERATIVE_AI_API_KEY)
 ```
 
-go-llm also supports per-provider keys directly (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`, …) if you switch the default provider.
+GoAI reads each key from the environment automatically; you only need the keys for the providers whose models you actually run.
 
 ## Project Structure
 

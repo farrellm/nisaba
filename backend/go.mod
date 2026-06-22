@@ -8,8 +8,8 @@ require (
 	github.com/gorilla/sessions v1.4.0
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/rs/cors v1.11.1
+	github.com/zendev-sh/goai v0.8.5
 	golang.org/x/crypto v0.53.0
-	gopkg.in/dragon-born/go-llm.v1 v1.0.2
 )
 
 require (

@@ -1,11 +1,13 @@
 package llm
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strings"
 
-	ai "gopkg.in/dragon-born/go-llm.v1"
+	"github.com/zendev-sh/goai"
+	"github.com/zendev-sh/goai/provider/openai"
 )
 
 // blockedNames are substrings that disqualify a generated name. A candidate is
@@ -37,18 +39,18 @@ type namesResponse struct {
 // generateNames asks the model for ~20 candidate character names for the given
 // description, returning them unfiltered. It hard-codes the model per request;
 // this is the only vendor-aware part, so it stays in internal/llm.
-func generateNames(description string) ([]string, error) {
+func generateNames(ctx context.Context, description string) ([]string, error) {
 	prompt := fmt.Sprintf("Generate a list of 20 names (first and last) for a "+
 		"character with the following description:\n%s", description)
 
-	var out namesResponse
-	if err := ai.OpenAI().Use("gpt-5.4").
-		Temperature(1.0).
-		Schema(&out).
-		AskInto(prompt, &out); err != nil {
+	res, err := goai.GenerateObject[namesResponse](ctx, openai.Chat("gpt-5.4"),
+		goai.WithPrompt(prompt),
+		goai.WithTemperature(1.0),
+	)
+	if err != nil {
 		return nil, err
 	}
-	return out.Names, nil
+	return res.Object.Names, nil
 }
 
 // pickAllowed partitions names into those matching the blocklist (any blocked
@@ -86,22 +88,20 @@ func pickAllowed(names []string) (string, error) {
 // description. It asks the model for a batch of candidates, drops any containing
 // a blocked substring, and returns one allowed name at random. Attach it to a
 // mode's Tools to make it callable.
-var GenerateNameTool = ToolDef{
-	Name:        "generate_name",
-	Description: "Generate a unique name for a character with the specified description.",
-	Parameters: Params().
-		String("description", "A detailed description of the character to name.", true).
-		Build(),
-	Handler: func(args map[string]any) (string, error) {
-		description, _ := args["description"].(string)
-		if strings.TrimSpace(description) == "" {
+var GenerateNameTool = goai.NewTool(
+	"generate_name",
+	"Generate a unique name for a character with the specified description.",
+	func(ctx context.Context, args struct {
+		Description string `json:"description" jsonschema:"description=A detailed description of the character to name."`
+	}) (string, error) {
+		if strings.TrimSpace(args.Description) == "" {
 			return "", fmt.Errorf("generate_name: description is required")
 		}
 
-		names, err := generateNames(description)
+		names, err := generateNames(ctx, args.Description)
 		if err != nil {
 			return "", err
 		}
 		return pickAllowed(names)
 	},
-}
+)

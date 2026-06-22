@@ -14,12 +14,12 @@ import (
 
 // Mode is one entry in the fixed registry.
 type Mode struct {
-	Name     string        `json:"name"`   // stable id, stored in blocks.mode
-	Label    string        `json:"label"`  // human-facing name for the UI
-	Keys     []string      `json:"keys"`   // input attribute keys (fixed per mode)
-	Output   string        `json:"output"` // document attribute key the response populates
-	Template string        `json:"-"`      // mustache prompt; server-side only
-	Tools    []llm.ToolDef `json:"-"`      // tool functions attached to the LLM call; server-side only
+	Name     string     `json:"name"`   // stable id, stored in blocks.mode
+	Label    string     `json:"label"`  // human-facing name for the UI
+	Keys     []string   `json:"keys"`   // input attribute keys (fixed per mode)
+	Output   string     `json:"output"` // document attribute key the response populates
+	Template string     `json:"-"`      // mustache prompt; server-side only
+	Tools    []llm.Tool `json:"-"`      // tool functions attached to the LLM call; server-side only
 
 	// Renames maps a produced top-level tag name to the document attribute key it
 	// should populate, so a mode's output chains into the next mode's input
@@ -80,8 +80,8 @@ var modes = []Mode{
 	{Name: "brainstorm-1", Label: "Brainstorm (one-act)", Keys: []string{"prompt"}, Template: brainstorm1Tmpl},
 	{Name: "brainstorm-2", Label: "Brainstorm (two-act)", Keys: []string{"prompt"}, Template: brainstorm2Tmpl},
 	{Name: "brainstorm-creative-2", Label: "Brainstorm (creative, two-act)", Keys: []string{"prompt"}, Template: brainstormCreative2Tmpl},
-	{Name: "brainstorm-tools-1", Label: "Brainstorm (tools, one-act)", Keys: []string{"prompt"}, Template: brainstormTools1Tmpl, Tools: []llm.ToolDef{llm.GenerateNameTool}},
-	{Name: "brainstorm-tools-2", Label: "Brainstorm (tools, two-act)", Keys: []string{"prompt"}, Template: brainstormTools2Tmpl, Tools: []llm.ToolDef{llm.GenerateNameTool}},
+	{Name: "brainstorm-tools-1", Label: "Brainstorm (tools, one-act)", Keys: []string{"prompt"}, Template: brainstormTools1Tmpl, Tools: []llm.Tool{llm.GenerateNameTool}},
+	{Name: "brainstorm-tools-2", Label: "Brainstorm (tools, two-act)", Keys: []string{"prompt"}, Template: brainstormTools2Tmpl, Tools: []llm.Tool{llm.GenerateNameTool}},
 	{Name: "revise-outline-1", Label: "Revise outline (one-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline1Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
 	{Name: "revise-outline-2", Label: "Revise outline (two-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline2Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
 	{Name: "authors", Label: "Suggest authors", Keys: []string{"outline", "characters"}, Template: authorsTmpl},
