@@ -1,4 +1,4 @@
-.PHONY: help db db-stop db-clean migrate migrate-down backend backend-build backend-test frontend-install frontend frontend-build
+.PHONY: help db db-stop db-clean migrate migrate-down backend backend-watch backend-build backend-test frontend-install frontend frontend-build
 
 MIGRATE_BIN := migrate
 MIGRATE_DIR := db/migrations
@@ -29,6 +29,9 @@ migrate-down: ## Roll back the last migration
 
 backend: ## Run the Go API server
 	cd backend && go run ./cmd/server
+
+backend-watch: ## Run the Go API server, restarting on file changes (needs wgo)
+	cd backend && wgo run ./cmd/server
 
 backend-build: ## Compile the Go binary to backend/bin/server
 	cd backend && go build -o bin/server ./cmd/server
