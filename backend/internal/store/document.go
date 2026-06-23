@@ -142,16 +142,29 @@ func (s *Store) UpdateDocument(ctx context.Context, doc model.Document) (model.D
 }
 
 // DeleteDocument removes a document (cascading to its blocks, attributes, and
-// label taggings).
-func (s *Store) DeleteDocument(ctx context.Context, id int64) error {
-	ct, err := s.pool.Exec(ctx, `DELETE FROM documents WHERE id = $1`, id)
+// label taggings) and then deletes any of the owner's labels left attached to no
+// document. userID scopes that orphan cleanup.
+func (s *Store) DeleteDocument(ctx context.Context, userID, id int64) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	ct, err := tx.Exec(ctx, `DELETE FROM documents WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
 	if ct.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	return nil
+
+	// The document delete cascaded its label taggings; drop now-orphaned labels.
+	if _, err := tx.Exec(ctx, deleteOrphanLabelsSQL, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 // SetDocumentAttribute inserts or updates a single key/value attribute.

@@ -7,6 +7,13 @@ import (
 	"github.com/farrellm/nisaba/internal/model"
 )
 
+// deleteOrphanLabelsSQL removes a user's labels that are no longer attached to any
+// document. Run it after any operation that can detach a label (label reconcile,
+// document delete) so labels exist only while associated with at least one document.
+const deleteOrphanLabelsSQL = `DELETE FROM labels l
+	 WHERE l.user_id = $1
+	   AND NOT EXISTS (SELECT 1 FROM document_labels dl WHERE dl.label_id = l.id)`
+
 // CreateLabel inserts a label for a user. The (user_id, name) uniqueness
 // constraint surfaces as an error if the name already exists for that user.
 func (s *Store) CreateLabel(ctx context.Context, userID int64, name string) (model.Label, error) {
@@ -124,6 +131,11 @@ func (s *Store) SetDocumentLabels(ctx context.Context, userID, documentID int64,
 			documentID, id); err != nil {
 			return err
 		}
+	}
+
+	// A removed label may have been on no other document; delete it if so.
+	if _, err := tx.Exec(ctx, deleteOrphanLabelsSQL, userID); err != nil {
+		return err
 	}
 
 	return tx.Commit(ctx)

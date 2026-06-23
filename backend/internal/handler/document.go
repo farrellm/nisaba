@@ -192,7 +192,7 @@ func DeleteDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if err := st.DeleteDocument(r.Context(), doc.ID); err != nil {
+		if err := st.DeleteDocument(r.Context(), doc.UserID, doc.ID); err != nil {
 			if errors.Is(err, store.ErrNotFound) {
 				writeError(w, http.StatusNotFound, "Document not found")
 				return
