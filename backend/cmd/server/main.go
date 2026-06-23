@@ -71,6 +71,7 @@ func main() {
 				r.Put("/", handler.UpdateDocument(st, sess))
 				r.Delete("/", handler.DeleteDocument(st, sess))
 				r.Post("/suggest-labels", handler.SuggestDocumentLabels(st, sess))
+				r.Post("/recommend-labels", handler.RecommendDocumentLabels(st, sess))
 
 				r.Route("/blocks", func(r chi.Router) {
 					r.Post("/", handler.CreateBlock(st, sess))

@@ -35,3 +35,24 @@ func TestParseLabelsNoMatchesReturnsEmptyNonNil(t *testing.T) {
 		t.Fatalf("expected empty slice, got %v", got)
 	}
 }
+
+func TestKeepAvailableFiltersToPool(t *testing.T) {
+	available := []string{"Dystopia", "Noir", "Romance"}
+	// "dystopia" matches case-insensitively (canonical casing wins), the repeat is
+	// dropped, and "Invented" (not in the pool) is discarded.
+	got := keepAvailable([]string{"dystopia", "Invented", "NOIR", "Noir"}, available)
+	want := []string{"Dystopia", "Noir"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestKeepAvailableNoOverlapReturnsEmptyNonNil(t *testing.T) {
+	got := keepAvailable([]string{"Western"}, []string{"Noir"})
+	if got == nil {
+		t.Fatal("expected non-nil empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected empty slice, got %v", got)
+	}
+}

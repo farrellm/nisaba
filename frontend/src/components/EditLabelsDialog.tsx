@@ -33,6 +33,8 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
   const [allLabels, setAllLabels] = useState<string[]>([])
   const [suggested, setSuggested] = useState<string[]>([])
   const [suggesting, setSuggesting] = useState(false)
+  const [recommended, setRecommended] = useState<string[]>([])
+  const [recommending, setRecommending] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -45,6 +47,8 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
     setAllLabels(seeded)
     setSuggested([])
     setSuggesting(false)
+    setRecommended([])
+    setRecommending(false)
     setDraft('')
     setError(null)
     api
@@ -89,6 +93,21 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
       setError(err instanceof ApiError ? err.message : 'Could not suggest labels. Try again.')
     } finally {
       setSuggesting(false)
+    }
+  }
+
+  // Ask the model which of the user's existing labels fit the story. The picks
+  // are highlighted in place within "Other labels" rather than moved.
+  async function handleRecommend() {
+    setError(null)
+    setRecommending(true)
+    try {
+      const names = await api.post<string[]>(`/api/documents/${doc.id}/recommend-labels`)
+      setRecommended(names ?? [])
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not recommend labels. Try again.')
+    } finally {
+      setRecommending(false)
     }
   }
 
@@ -218,20 +237,33 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
           </Box>
 
           <Box>
-            <Typography variant="overline" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
-              Other labels
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+                Other labels
+              </Typography>
+              <Button
+                size="small"
+                onClick={handleRecommend}
+                disabled={recommending || others.length === 0}
+              >
+                {recommending ? 'Recommending…' : 'Recommend'}
+              </Button>
+            </Box>
             {others.length > 0 ? (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-                {others.map((name) => (
-                  <Chip
-                    key={name}
-                    label={name}
-                    variant="outlined"
-                    onClick={() => applyLabel(name)}
-                    sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}
-                  />
-                ))}
+                {others.map((name) => {
+                  const rec = recommended.some((r) => sameName(r, name))
+                  return (
+                    <Chip
+                      key={name}
+                      label={name}
+                      variant="outlined"
+                      color={rec ? 'primary' : 'default'}
+                      onClick={() => applyLabel(name)}
+                      sx={{ fontFamily: fonts.mono, color: rec ? undefined : 'text.secondary' }}
+                    />
+                  )
+                })}
               </Box>
             ) : (
               <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
