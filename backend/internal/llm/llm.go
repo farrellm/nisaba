@@ -130,10 +130,11 @@ func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	return combineSteps(res), nil
 }
 
-// combineSteps joins every generation step's output in order. For each step that
-// produced reasoning, the thinking is wrapped as "<thinking>\n…\n</thinking>\n"
-// before the step's text; steps without reasoning contribute just their text.
-// Across a multi-step tool loop the per-step outputs are concatenated.
+// combineSteps joins every generation step's output in order. For each step the
+// thinking (when present) is wrapped as "<thinking>\n…\n</thinking>\n", followed
+// by the step's text, followed by one block per tool call tagged with the tool
+// name and carrying its arguments and result. Across a multi-step tool loop the
+// per-step outputs are concatenated.
 func combineSteps(res *goai.TextResult) string {
 	var b strings.Builder
 	for _, s := range res.Steps {
@@ -143,6 +144,24 @@ func combineSteps(res *goai.TextResult) string {
 			b.WriteString("\n</thinking>\n")
 		}
 		b.WriteString(s.Text)
+		// Index this step's results by call ID so each call pairs with its own
+		// output; positional pairing breaks when the loop is cut short before
+		// some tools run (ToolResults is then empty).
+		results := make(map[string]string, len(s.ToolResults))
+		for _, r := range s.ToolResults {
+			results[r.ToolCallID] = r.Output
+		}
+		for _, c := range s.ToolCalls {
+			b.WriteString("<")
+			b.WriteString(c.Name)
+			b.WriteString(">\narguments: ")
+			b.Write(c.Input)
+			b.WriteString("\nresult: ")
+			b.WriteString(results[c.ID])
+			b.WriteString("\n</")
+			b.WriteString(c.Name)
+			b.WriteString(">\n")
+		}
 	}
 	return b.String()
 }
