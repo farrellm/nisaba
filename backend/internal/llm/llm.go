@@ -103,7 +103,10 @@ func clientFor(id string) (provider.LanguageModel, error) {
 // When tools is non-empty, each tool is attached and the request runs through
 // GoAI's agentic loop (MaxSteps): the model may invoke tools, whose results are
 // fed back, until it returns a final text reply or maxToolIterations is reached.
-// With no tools it does a single generation.
+// That path also enables prompt caching, which marks the system prompt as
+// ephemeral so the multi-step loop doesn't pay to re-send it each step (caching-
+// capable providers honor it; others ignore it). With no tools it does a single
+// generation.
 func generate(ctx context.Context, model, system, prompt string, tools []Tool) (*goai.TextResult, error) {
 	client, err := clientFor(model)
 	if err != nil {
@@ -112,7 +115,11 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 
 	opts := []goai.Option{goai.WithSystem(system), goai.WithPrompt(prompt)}
 	if len(tools) > 0 {
-		opts = append(opts, goai.WithTools(tools...), goai.WithMaxSteps(maxToolIterations))
+		opts = append(opts,
+			goai.WithTools(tools...),
+			goai.WithMaxSteps(maxToolIterations),
+			goai.WithPromptCaching(true),
+		)
 	}
 
 	return goai.GenerateText(ctx, client, opts...)
