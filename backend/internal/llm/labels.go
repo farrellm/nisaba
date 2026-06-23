@@ -12,6 +12,9 @@ import (
 //go:embed templates/suggest-labels.mustache
 var suggestLabelsTmpl string
 
+//go:embed templates/available-labels.mustache
+var availableLabelsTmpl string
+
 // suggestLabelsModel is the model used to suggest story labels. Hard-coded per
 // request; like generateNames this is the only vendor-aware part, so it stays in
 // internal/llm. It must be an id from the fixed models list (routed by clientFor).
@@ -37,6 +40,58 @@ func SuggestLabels(ctx context.Context, story string) ([]string, error) {
 		return nil, err
 	}
 	return parseLabels(res), nil
+}
+
+// SelectLabels renders the available-labels template for story and the supplied
+// pool, asks the hard-coded model which of those labels fit, and returns the
+// chosen ones (a subset of available). Returns a non-nil (possibly empty) slice;
+// an empty pool short-circuits without an LLM call.
+func SelectLabels(ctx context.Context, story string, available []string) ([]string, error) {
+	if len(available) == 0 {
+		return []string{}, nil
+	}
+
+	prompt, err := mustache.Render(availableLabelsTmpl, map[string]string{
+		"story":     story,
+		"available": strings.Join(available, "\n"),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := Generate(ctx, suggestLabelsModel, "", prompt, nil)
+	if err != nil {
+		return nil, err
+	}
+	// The model is told to only pick from the list, but filter defensively so a
+	// stray or reworded label can't leak through.
+	return keepAvailable(parseLabels(res), available), nil
+}
+
+// keepAvailable returns the members of labels that match a name in available
+// (case-insensitively), in their original order, using the canonical casing from
+// available and dropping duplicates. Always returns non-nil.
+func keepAvailable(labels, available []string) []string {
+	kept := []string{}
+	for _, l := range labels {
+		for _, a := range available {
+			if strings.EqualFold(l, a) {
+				canonical := a
+				dup := false
+				for _, k := range kept {
+					if strings.EqualFold(k, canonical) {
+						dup = true
+						break
+					}
+				}
+				if !dup {
+					kept = append(kept, canonical)
+				}
+				break
+			}
+		}
+	}
+	return kept
 }
 
 // parseLabels extracts the trimmed inner text of every <label> tag in s, in

@@ -59,3 +59,40 @@ func SuggestDocumentLabels(st *store.Store, sess *auth.Sessions) http.HandlerFun
 		writeJSON(w, http.StatusOK, labels)
 	}
 }
+
+// RecommendDocumentLabels picks the labels from the caller's existing pool that
+// fit a document's "story" attribute (llm.SelectLabels). Like SuggestDocumentLabels
+// it is read-only and returns a subset for the caller to apply itself via PUT; the
+// difference is it chooses among labels the user already has rather than inventing
+// new ones.
+func RecommendDocumentLabels(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, ok := ownedDocument(w, r, st, sess)
+		if !ok {
+			return
+		}
+
+		story := strings.TrimSpace(doc.Attributes["story"])
+		if story == "" {
+			writeError(w, http.StatusBadRequest, "Document has no story to label yet")
+			return
+		}
+
+		labels, err := st.ListLabels(r.Context(), doc.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load labels")
+			return
+		}
+		names := make([]string, 0, len(labels))
+		for _, l := range labels {
+			names = append(names, l.Name)
+		}
+
+		recommended, err := llm.SelectLabels(r.Context(), story, names)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Model request failed")
+			return
+		}
+		writeJSON(w, http.StatusOK, recommended)
+	}
+}

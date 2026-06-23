@@ -1,0 +1,40 @@
+You will analyze a story and choose descriptive labels for it from a list. Here is the story to analyze:
+
+<story>
+{{{story}}}
+</story>
+
+Your task is to suggest labels that describe various aspects of this story. Each label must come from the provided list and can describe any of the following story elements:
+- Plot elements or themes
+- Setting (time period, location, environment)
+- Character types or roles
+- Genre classification
+- Tone or mood
+
+Instructions:
+1. First, carefully read and analyze the story in <analysis> tags. Quote key phrases or sentences that reveal important story elements. Then systematically work through each category:
+   - Plot elements or themes: What are the main conflicts, events, or underlying messages?
+   - Setting: When and where does this take place? What's the environment like?
+   - Character types or roles: What kinds of characters appear in the story?
+   - Genre classification: What genre(s) does this story fit into?
+   - Tone or mood: What's the overall feeling or atmosphere?
+   It's OK for this section to be quite long.
+
+2. Next, review the following available labels. Select the most relevant and descriptive labels that best capture the essence of the story. It is acceptable to return no labels if no available labels are relevant.
+
+<available_labels>
+{{{available}}}
+</available_labels>
+
+3. Finally, format your chosen labels in the required XML structure.
+
+Your final output should follow this exact format:
+
+<suggestion>
+  <label>[first label]</label>
+  <label>[second label]</label>
+  <label>[third label]</label>
+  ...
+</suggestion>
+
+Remember: Each label must be taken from the list of available labels.
