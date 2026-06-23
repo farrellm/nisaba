@@ -77,7 +77,49 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 		}
 		docs = append(docs, d)
 	}
-	return docs, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	labels, err := s.labelsByDocument(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range docs {
+		if names := labels[docs[i].ID]; names != nil {
+			docs[i].Labels = names
+		} else {
+			docs[i].Labels = []string{}
+		}
+	}
+	return docs, nil
+}
+
+// labelsByDocument returns, for every document owned by the user, its label names
+// keyed by document id. Documents without labels are absent from the map.
+func (s *Store) labelsByDocument(ctx context.Context, userID int64) (map[int64][]string, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT dl.document_id, l.name
+		   FROM labels l
+		   JOIN document_labels dl ON dl.label_id = l.id
+		   JOIN documents d ON d.id = dl.document_id
+		  WHERE d.user_id = $1
+		  ORDER BY l.name`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byDoc := map[int64][]string{}
+	for rows.Next() {
+		var docID int64
+		var name string
+		if err := rows.Scan(&docID, &name); err != nil {
+			return nil, err
+		}
+		byDoc[docID] = append(byDoc[docID], name)
+	}
+	return byDoc, rows.Err()
 }
 
 // UpdateDocument updates a document's mutable columns and bumps updated_at to
@@ -100,16 +142,29 @@ func (s *Store) UpdateDocument(ctx context.Context, doc model.Document) (model.D
 }
 
 // DeleteDocument removes a document (cascading to its blocks, attributes, and
-// label taggings).
-func (s *Store) DeleteDocument(ctx context.Context, id int64) error {
-	ct, err := s.pool.Exec(ctx, `DELETE FROM documents WHERE id = $1`, id)
+// label taggings) and then deletes any of the owner's labels left attached to no
+// document. userID scopes that orphan cleanup.
+func (s *Store) DeleteDocument(ctx context.Context, userID, id int64) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	ct, err := tx.Exec(ctx, `DELETE FROM documents WHERE id = $1`, id)
 	if err != nil {
 		return err
 	}
 	if ct.RowsAffected() == 0 {
 		return ErrNotFound
 	}
-	return nil
+
+	// The document delete cascaded its label taggings; drop now-orphaned labels.
+	if _, err := tx.Exec(ctx, deleteOrphanLabelsSQL, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 // SetDocumentAttribute inserts or updates a single key/value attribute.

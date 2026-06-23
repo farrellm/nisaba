@@ -124,11 +124,12 @@ type updateDocument struct {
 	SelectedModel *string            `json:"selectedModel"`
 	Attributes    *map[string]string `json:"attributes"`
 	IsArchived    *bool              `json:"isArchived"`
+	Labels        *[]string          `json:"labels"`
 }
 
-// UpdateDocument changes a document's selected model and/or its attribute values
-// and returns the refreshed, fully-populated document. Each field is optional;
-// only the fields present in the request are applied.
+// UpdateDocument changes a document's selected model, attribute values, archive
+// state, and/or labels, and returns the refreshed, fully-populated document. Each
+// field is optional; only the fields present in the request are applied.
 func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st, sess)
@@ -166,6 +167,13 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			}
 		}
 
+		if body.Labels != nil {
+			if err := st.SetDocumentLabels(r.Context(), doc.UserID, doc.ID, *body.Labels); err != nil {
+				writeError(w, http.StatusInternalServerError, "Could not update document")
+				return
+			}
+		}
+
 		updated, err := st.GetDocument(r.Context(), doc.ID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not load document")
@@ -184,7 +192,7 @@ func DeleteDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		if err := st.DeleteDocument(r.Context(), doc.ID); err != nil {
+		if err := st.DeleteDocument(r.Context(), doc.UserID, doc.ID); err != nil {
 			if errors.Is(err, store.ErrNotFound) {
 				writeError(w, http.StatusNotFound, "Document not found")
 				return

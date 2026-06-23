@@ -17,6 +17,7 @@ import { api, ApiError } from '../api/client'
 import type { Block, DocumentDetail, Mode } from '../api/types'
 import Masthead from '../components/Masthead'
 import AddBlockDialog from '../components/AddBlockDialog'
+import EditLabelsDialog from '../components/EditLabelsDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
@@ -35,6 +36,7 @@ export default function DocumentPage() {
   const [modes, setModes] = useState<Mode[]>([])
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [labelsDialogOpen, setLabelsDialogOpen] = useState(false)
 
   // Document overflow menu (archive / delete). Delete uses an arm/confirm step,
   // matching BlockCard: the first click arms (and starts a disarm timer), the
@@ -189,6 +191,14 @@ export default function DocumentPage() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
+                <MenuItem
+                  onClick={() => {
+                    setLabelsDialogOpen(true)
+                    closeMenu()
+                  }}
+                >
+                  <ListItemText>Edit labels…</ListItemText>
+                </MenuItem>
                 <MenuItem onClick={handleToggleArchive} disabled={busy}>
                   <ListItemText>{doc.isArchived ? 'Unarchive' : 'Archive'}</ListItemText>
                 </MenuItem>
@@ -238,6 +248,14 @@ export default function DocumentPage() {
         onClose={() => setDialogOpen(false)}
         onCreate={createBlock}
       />
+      {doc && (
+        <EditLabelsDialog
+          open={labelsDialogOpen}
+          doc={doc}
+          onClose={() => setLabelsDialogOpen(false)}
+          onChange={setDoc}
+        />
+      )}
     </Box>
   )
 }
