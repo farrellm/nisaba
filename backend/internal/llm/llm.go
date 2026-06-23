@@ -37,9 +37,10 @@ type Tool = goai.Tool
 // model identifier stored in documents.selected_model; Provider selects which
 // GoAI provider client routes the request.
 type Model struct {
-	ID       string `json:"id"`
-	Label    string `json:"label"`
-	Provider string `json:"provider"`
+	ID              string         `json:"id"`
+	Label           string         `json:"label"`
+	Provider        string         `json:"provider"`
+	ProviderOptions map[string]any `json:"-"`
 }
 
 // models is the fixed, cross-provider list. IDs are provider-native model names.
@@ -47,7 +48,13 @@ type Model struct {
 var models = []Model{
 	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
 	{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: "anthropic"},
-	{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic"},
+	{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic",
+		ProviderOptions: map[string]any{
+			"thinking": map[string]any{
+				"type":    "adaptive",
+				"display": "summarized",
+			},
+		}},
 	{ID: "gpt-5.4", Label: "GPT-5.4", Provider: "openai"},
 	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
@@ -60,39 +67,43 @@ func Models() []Model {
 	return models
 }
 
-// Valid reports whether id is one of the fixed models.
-func Valid(id string) bool {
+// lookup returns the Model with the given id from the fixed list.
+func lookup(id string) (Model, bool) {
 	for _, m := range models {
 		if m.ID == id {
-			return true
+			return m, true
 		}
 	}
-	return false
+	return Model{}, false
+}
+
+// Valid reports whether id is one of the fixed models.
+func Valid(id string) bool {
+	_, ok := lookup(id)
+	return ok
 }
 
 // clientFor returns the GoAI provider client for a model id from the fixed list,
 // routing to the provider named in its Model.Provider. Unknown ids error.
 func clientFor(id string) (provider.LanguageModel, error) {
-	for _, m := range models {
-		if m.ID != id {
-			continue
-		}
-		switch m.Provider {
-		case "anthropic":
-			return anthropic.Chat(id), nil
-		case "openai":
-			return openai.Chat(id), nil
-		case "google":
-			return google.Chat(id), nil
-		case "openrouter":
-			return openrouter.Chat(id), nil
-		case "deepseek":
-			return deepseek.Chat(id), nil
-		default:
-			return nil, fmt.Errorf("model %q has unsupported provider %q", id, m.Provider)
-		}
+	m, ok := lookup(id)
+	if !ok {
+		return nil, fmt.Errorf("unknown model %q", id)
 	}
-	return nil, fmt.Errorf("unknown model %q", id)
+	switch m.Provider {
+	case "anthropic":
+		return anthropic.Chat(id), nil
+	case "openai":
+		return openai.Chat(id), nil
+	case "google":
+		return google.Chat(id), nil
+	case "openrouter":
+		return openrouter.Chat(id), nil
+	case "deepseek":
+		return deepseek.Chat(id), nil
+	default:
+		return nil, fmt.Errorf("model %q has unsupported provider %q", id, m.Provider)
+	}
 }
 
 // generate runs the GoAI call for one model and returns the raw result. Callers
@@ -114,6 +125,9 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	}
 
 	opts := []goai.Option{goai.WithSystem(system), goai.WithPrompt(prompt)}
+	if m, ok := lookup(model); ok && len(m.ProviderOptions) > 0 {
+		opts = append(opts, goai.WithProviderOptions(m.ProviderOptions))
+	}
 	if len(tools) > 0 {
 		opts = append(opts,
 			goai.WithTools(tools...),
