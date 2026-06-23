@@ -13,6 +13,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/zendev-sh/goai"
 	"github.com/zendev-sh/goai/provider"
@@ -94,18 +95,19 @@ func clientFor(id string) (provider.LanguageModel, error) {
 	return nil, fmt.Errorf("unknown model %q", id)
 }
 
-// Generate sends prompt to the given model under the given system prompt and
-// returns its text reply. The model id must be one from Models(); it routes
-// directly to that model's provider.
+// generate runs the GoAI call for one model and returns the raw result. Callers
+// choose between the combined per-step output (Generate) and final-text-only
+// (the label helpers in labels.go). The model id must be one from Models(); it
+// routes directly to that model's provider.
 //
 // When tools is non-empty, each tool is attached and the request runs through
 // GoAI's agentic loop (MaxSteps): the model may invoke tools, whose results are
 // fed back, until it returns a final text reply or maxToolIterations is reached.
 // With no tools it does a single generation.
-func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (string, error) {
+func generate(ctx context.Context, model, system, prompt string, tools []Tool) (*goai.TextResult, error) {
 	client, err := clientFor(model)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	opts := []goai.Option{goai.WithSystem(system), goai.WithPrompt(prompt)}
@@ -113,9 +115,34 @@ func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 		opts = append(opts, goai.WithTools(tools...), goai.WithMaxSteps(maxToolIterations))
 	}
 
-	res, err := goai.GenerateText(ctx, client, opts...)
+	return goai.GenerateText(ctx, client, opts...)
+}
+
+// Generate sends prompt to the given model under the given system prompt and
+// returns its reply as the combined per-step output (see combineSteps): each
+// step's thinking, when present, wrapped in <thinking>…</thinking> ahead of its
+// text, concatenated across a multi-step tool loop.
+func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (string, error) {
+	res, err := generate(ctx, model, system, prompt, tools)
 	if err != nil {
 		return "", err
 	}
-	return res.Text, nil
+	return combineSteps(res), nil
+}
+
+// combineSteps joins every generation step's output in order. For each step that
+// produced reasoning, the thinking is wrapped as "<thinking>\n…\n</thinking>\n"
+// before the step's text; steps without reasoning contribute just their text.
+// Across a multi-step tool loop the per-step outputs are concatenated.
+func combineSteps(res *goai.TextResult) string {
+	var b strings.Builder
+	for _, s := range res.Steps {
+		if s.Reasoning != "" {
+			b.WriteString("<thinking>\n")
+			b.WriteString(s.Reasoning)
+			b.WriteString("\n</thinking>\n")
+		}
+		b.WriteString(s.Text)
+	}
+	return b.String()
 }

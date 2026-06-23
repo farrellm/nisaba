@@ -18,7 +18,9 @@ var availableLabelsTmpl string
 // suggestLabelsModel is the model used to suggest story labels. Hard-coded per
 // request; like generateNames this is the only vendor-aware part, so it stays in
 // internal/llm. It must be an id from the fixed models list (routed by clientFor).
-const suggestLabelsModel = "claude-sonnet-4-6"
+// #const suggestLabelsModel = "claude-sonnet-4-6"
+// const suggestLabelsModel = "z-ai/glm-5.2"
+const suggestLabelsModel = "deepseek-v4-pro"
 
 // labelRe matches the inner text of each <label>…</label> tag. The model emits
 // labels nested inside a <suggestion> block, so parseTopLevelTags (which only
@@ -35,11 +37,11 @@ func SuggestLabels(ctx context.Context, story string) ([]string, error) {
 		return nil, err
 	}
 
-	res, err := Generate(ctx, suggestLabelsModel, "", prompt, nil)
+	res, err := generate(ctx, suggestLabelsModel, "", prompt, nil)
 	if err != nil {
 		return nil, err
 	}
-	return parseLabels(res), nil
+	return parseLabels(res.Text), nil
 }
 
 // SelectLabels renders the available-labels template for story and the supplied
@@ -59,13 +61,13 @@ func SelectLabels(ctx context.Context, story string, available []string) ([]stri
 		return nil, err
 	}
 
-	res, err := Generate(ctx, suggestLabelsModel, "", prompt, nil)
+	res, err := generate(ctx, suggestLabelsModel, "", prompt, nil)
 	if err != nil {
 		return nil, err
 	}
 	// The model is told to only pick from the list, but filter defensively so a
 	// stray or reworded label can't leak through.
-	return keepAvailable(parseLabels(res), available), nil
+	return keepAvailable(parseLabels(res.Text), available), nil
 }
 
 // keepAvailable returns the members of labels that match a name in available
