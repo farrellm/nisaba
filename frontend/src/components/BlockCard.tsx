@@ -10,6 +10,7 @@ import {
   Typography,
 } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import DataObjectIcon from '@mui/icons-material/DataObject'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
@@ -18,7 +19,9 @@ import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api, ApiError } from '../api/client'
 import AuthorField from './AuthorField'
+import Markdown from './Markdown'
 import type { Block, Mode } from '../api/types'
+import { parseResponseSegments } from '../lib/responseSegments'
 import { fonts } from '../theme'
 
 interface BlockCardProps {
@@ -48,10 +51,25 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [structured, setStructured] = useState<Set<number>>(() => {
+    // The last block's newest response opens in the structured view by default.
+    const responses = block.responses ?? []
+    return defaultOpen && responses.length > 0
+      ? new Set([responses[responses.length - 1].id])
+      : new Set()
+  })
   const armedTimer = useRef<ReturnType<typeof setTimeout>>()
 
   function reveal(key: string) {
     setExpanded((prev) => new Set(prev).add(key))
+  }
+
+  function toggleStructured(id: number) {
+    setStructured((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
@@ -127,6 +145,9 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
         `/api/documents/${block.documentId}/blocks/${block.id}/run`,
         { attributes: values },
       )
+      // A freshly run response opens in the structured view by default.
+      const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
+      if (fresh) setStructured((prev) => new Set(prev).add(fresh.id))
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
@@ -332,6 +353,24 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
                     {response.model || 'no model'}
                   </Typography>
                   <Box sx={{ flexGrow: 1 }} />
+                  <Tooltip title={structured.has(response.id) ? 'Raw view' : 'Structured view'}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label={structured.has(response.id) ? 'Show raw response' : 'Show structured response'}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          toggleStructured(response.id)
+                        }}
+                        sx={{
+                          color: structured.has(response.id) ? 'primary.main' : 'text.disabled',
+                          '&:hover': { color: 'primary.main' },
+                        }}
+                      >
+                        <DataObjectIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                   <Tooltip title="Re-parse into document attributes">
                     <span>
                       <IconButton
@@ -353,18 +392,62 @@ export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted,
                     </span>
                   </Tooltip>
                 </Box>
-                <Typography
-                  sx={{
-                    fontFamily: fonts.mono,
-                    fontSize: '0.85rem',
-                    whiteSpace: 'pre-wrap',
-                    bgcolor: 'action.hover',
-                    borderRadius: 2,
-                    p: 2,
-                  }}
-                >
-                  {response.value}
-                </Typography>
+                {structured.has(response.id) ? (
+                  <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
+                    {parseResponseSegments(response.value).map((seg, segIdx) =>
+                      seg.kind === 'text' ? (
+                        <Markdown key={segIdx}>{seg.text}</Markdown>
+                      ) : (
+                        <Box
+                          key={segIdx}
+                          component="details"
+                          open
+                          sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
+                        >
+                          <Box
+                            component="summary"
+                            sx={{
+                              cursor: 'pointer',
+                              fontFamily: fonts.mono,
+                              fontSize: '0.8rem',
+                              color: 'text.secondary',
+                            }}
+                          >
+                            {seg.name}
+                          </Box>
+                          <Box
+                            component="blockquote"
+                            sx={{
+                              my: 1,
+                              ml: 0,
+                              pl: 2.5,
+                              borderLeft: '3px solid',
+                              borderColor: 'divider',
+                              color: 'text.secondary',
+                            }}
+                          >
+                            {/* Escape '<' so nested tags render as literal text:
+                                react-markdown drops raw HTML. */}
+                            <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
+                          </Box>
+                        </Box>
+                      ),
+                    )}
+                  </Box>
+                ) : (
+                  <Typography
+                    sx={{
+                      fontFamily: fonts.mono,
+                      fontSize: '0.85rem',
+                      whiteSpace: 'pre-wrap',
+                      bgcolor: 'action.hover',
+                      borderRadius: 2,
+                      p: 2,
+                    }}
+                  >
+                    {response.value}
+                  </Typography>
+                )}
               </Box>
             ))}
           </Stack>
