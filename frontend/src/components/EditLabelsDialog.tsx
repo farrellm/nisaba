@@ -31,6 +31,8 @@ const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditLabelsDialogProps) {
   const [applied, setApplied] = useState<string[]>([])
   const [allLabels, setAllLabels] = useState<string[]>([])
+  const [suggested, setSuggested] = useState<string[]>([])
+  const [suggesting, setSuggesting] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -41,6 +43,8 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
     const seeded = doc.labels ?? []
     setApplied(seeded)
     setAllLabels(seeded)
+    setSuggested([])
+    setSuggesting(false)
     setDraft('')
     setError(null)
     api
@@ -62,6 +66,30 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
 
   function removeLabel(name: string) {
     setApplied((prev) => prev.filter((l) => !sameName(l, name)))
+  }
+
+  const isApplied = (name: string) => applied.some((l) => sameName(l, name))
+
+  // Toggle a label's applied state in place — used by the suggestions, whose
+  // pills stay put and just change color rather than moving between sections.
+  function toggleLabel(name: string) {
+    if (isApplied(name)) removeLabel(name)
+    else applyLabel(name)
+  }
+
+  // Ask the model to suggest labels from the document's story. Suggestions stay
+  // visible whether or not they're applied; clicking one toggles it.
+  async function handleSuggest() {
+    setError(null)
+    setSuggesting(true)
+    try {
+      const names = await api.post<string[]>(`/api/documents/${doc.id}/suggest-labels`)
+      setSuggested(names ?? [])
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not suggest labels. Try again.')
+    } finally {
+      setSuggesting(false)
+    }
   }
 
   // Add the typed name, reusing an existing label (by its canonical name) when one
@@ -98,7 +126,11 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
     }
   }
 
-  const others = allLabels.filter((l) => !applied.some((a) => sameName(a, l)))
+  // A suggested label keeps its own section, so don't also list it under "Other
+  // labels" — every label lives in exactly one of the pool-based sections.
+  const others = allLabels.filter(
+    (l) => !isApplied(l) && !suggested.some((s) => sameName(s, l)),
+  )
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
@@ -147,6 +179,40 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
             ) : (
               <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
                 No labels on this document yet.
+              </Typography>
+            )}
+          </Box>
+
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+                Suggested
+              </Typography>
+              <Button size="small" onClick={handleSuggest} disabled={suggesting}>
+                {suggesting ? 'Suggesting…' : suggested.length > 0 ? 'Regenerate' : 'Suggest from story'}
+              </Button>
+            </Box>
+            {suggested.length > 0 ? (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                {suggested.map((name) => {
+                  const on = isApplied(name)
+                  return (
+                    <Chip
+                      key={name}
+                      label={name}
+                      color={on ? 'primary' : 'default'}
+                      variant={on ? 'filled' : 'outlined'}
+                      onClick={() => toggleLabel(name)}
+                      sx={{ fontFamily: fonts.mono, color: on ? undefined : 'text.secondary' }}
+                    />
+                  )
+                })}
+              </Box>
+            ) : (
+              <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
+                {suggesting
+                  ? 'Analyzing the story…'
+                  : 'Generate labels from this document’s story.'}
               </Typography>
             )}
           </Box>

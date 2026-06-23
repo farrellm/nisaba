@@ -70,6 +70,7 @@ func main() {
 				r.Get("/", handler.GetDocument(st, sess))
 				r.Put("/", handler.UpdateDocument(st, sess))
 				r.Delete("/", handler.DeleteDocument(st, sess))
+				r.Post("/suggest-labels", handler.SuggestDocumentLabels(st, sess))
 
 				r.Route("/blocks", func(r chi.Router) {
 					r.Post("/", handler.CreateBlock(st, sess))

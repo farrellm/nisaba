@@ -1,0 +1,42 @@
+You will analyze a story and generate descriptive labels for it. Here is the story to analyze:
+
+<story>
+{{story}}
+</story>
+
+Your task is to suggest exactly 10 labels that describe various aspects of this story. Each label should be 1-2 words and can describe any of the following story elements:
+- Plot elements or themes
+- Setting (time period, location, environment)
+- Character types or roles
+- Genre classification
+- Tone or mood
+
+Instructions:
+1. First, carefully read and analyze the story in <analysis> tags. Quote key phrases or sentences that reveal important story elements. Then systematically work through each category:
+   - Plot elements or themes: What are the main conflicts, events, or underlying messages?
+   - Setting: When and where does this take place? What's the environment like?
+   - Character types or roles: What kinds of characters appear in the story?
+   - Genre classification: What genre(s) does this story fit into?
+   - Tone or mood: What's the overall feeling or atmosphere?
+   It's OK for this section to be quite long.
+
+2. Next, in <label_selection> tags, brainstorm multiple potential 1-2 word labels for each category above, then select the 10 most relevant and descriptive labels that best capture the essence of the story. Count your selected labels (1, 2, 3, etc.) to ensure you have exactly 10.
+
+3. Finally, format your 10 chosen labels in the required XML structure.
+
+Your final output should follow this exact format:
+
+<suggestion>
+  <label>[first label]</label>
+  <label>[second label]</label>
+  <label>[third label]</label>
+  <label>[fourth label]</label>
+  <label>[fifth label]</label>
+  <label>[sixth label]</label>
+  <label>[seventh label]</label>
+  <label>[eighth label]</label>
+  <label>[ninth label]</label>
+  <label>[tenth label]</label>
+</suggestion>
+
+Remember: Each label must be exactly 1-2 words, and you must provide exactly 10 labels total.

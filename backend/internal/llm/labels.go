@@ -1,0 +1,52 @@
+package llm
+
+import (
+	"context"
+	_ "embed"
+	"regexp"
+	"strings"
+
+	"github.com/cbroglie/mustache"
+)
+
+//go:embed templates/suggest-labels.mustache
+var suggestLabelsTmpl string
+
+// suggestLabelsModel is the model used to suggest story labels. Hard-coded per
+// request; like generateNames this is the only vendor-aware part, so it stays in
+// internal/llm. It must be an id from the fixed models list (routed by clientFor).
+const suggestLabelsModel = "claude-sonnet-4-6"
+
+// labelRe matches the inner text of each <label>…</label> tag. The model emits
+// labels nested inside a <suggestion> block, so parseTopLevelTags (which only
+// reads top-level tags, and lives in internal/handler) doesn't fit; a focused
+// scan is simpler and degrades gracefully on the surrounding scratch reasoning.
+var labelRe = regexp.MustCompile(`(?s)<label>(.*?)</label>`)
+
+// SuggestLabels renders the suggest-labels template for story, asks the
+// hard-coded model to analyze it, and returns the suggested labels in order.
+// Returns a non-nil (possibly empty) slice when the call succeeds.
+func SuggestLabels(ctx context.Context, story string) ([]string, error) {
+	prompt, err := mustache.Render(suggestLabelsTmpl, map[string]string{"story": story})
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := Generate(ctx, suggestLabelsModel, "", prompt, nil)
+	if err != nil {
+		return nil, err
+	}
+	return parseLabels(res), nil
+}
+
+// parseLabels extracts the trimmed inner text of every <label> tag in s, in
+// order, dropping any that are empty after trimming. Always returns non-nil.
+func parseLabels(s string) []string {
+	labels := []string{}
+	for _, m := range labelRe.FindAllStringSubmatch(s, -1) {
+		if label := strings.TrimSpace(m[1]); label != "" {
+			labels = append(labels, label)
+		}
+	}
+	return labels
+}
