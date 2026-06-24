@@ -75,6 +75,16 @@ const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlock
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
   const busy = saving || copying || running || deleting || reparsingId !== null
 
+  // Save/Copy share one treatment: a quiet muted icon, ringed in accent when the
+  // block has uncommitted edits. The clean-state border is transparent (not
+  // absent) so the button's box never changes size and the row doesn't shift.
+  const editActionSx = (active: boolean) => ({
+    border: '1px solid',
+    borderColor: active ? 'primary.main' : 'transparent',
+    color: active ? 'primary.main' : 'text.disabled',
+    '&:hover': { color: 'primary.main', bgcolor: active ? 'action.hover' : 'transparent' },
+  })
+
   // Clear the pending revert timer if the card unmounts.
   useEffect(() => () => clearTimeout(armedTimer.current), [])
 
@@ -290,7 +300,7 @@ const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlock
                 onClick={handleSave}
                 disabled={!dirty || busy}
                 aria-label="Save"
-                sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                sx={editActionSx(dirty)}
               >
                 {saving ? <CircularProgress size={18} /> : <SaveOutlinedIcon fontSize="small" />}
               </IconButton>
@@ -303,7 +313,7 @@ const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlock
                 onClick={handleCopy}
                 disabled={busy}
                 aria-label="Copy to document"
-                sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                sx={editActionSx(dirty)}
               >
                 {copying ? <CircularProgress size={18} /> : <ContentCopyIcon fontSize="small" />}
               </IconButton>
