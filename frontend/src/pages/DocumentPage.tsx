@@ -8,6 +8,7 @@ import {
   ListItemText,
   Menu,
   MenuItem,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -175,15 +176,17 @@ export default function DocumentPage() {
                   </MuiLink>
                 )}
               </Box>
-              <IconButton
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-                aria-label="Document menu"
-                aria-haspopup="true"
-                aria-expanded={menuOpen ? 'true' : undefined}
-                sx={{ color: 'text.secondary', mt: 1 }}
-              >
-                <MoreVertIcon />
-              </IconButton>
+              <Tooltip title="Document menu">
+                <IconButton
+                  onClick={(e) => setAnchorEl(e.currentTarget)}
+                  aria-label="Document menu"
+                  aria-haspopup="true"
+                  aria-expanded={menuOpen ? 'true' : undefined}
+                  sx={{ color: 'text.secondary', mt: 1 }}
+                >
+                  <MoreVertIcon />
+                </IconButton>
+              </Tooltip>
               <Menu
                 anchorEl={anchorEl}
                 open={menuOpen}
