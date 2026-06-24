@@ -13,6 +13,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DataObjectIcon from '@mui/icons-material/DataObject'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import Difference from '@mui/icons-material/Difference'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
@@ -27,6 +28,7 @@ import { fonts } from '../theme'
 interface BlockCardProps {
   block: Block
   mode: Mode | undefined
+  documentAttributes: Record<string, string>
   onBlockUpdated: (block: Block) => void
   onBlockDeleted: (id: number) => void
   onAfterRun: () => void
@@ -36,7 +38,7 @@ interface BlockCardProps {
 // BlockCard renders one block: its mode, editable key/values, a run action, and
 // the responses produced so far. The body is a collapsible <details>; the mode
 // header is the always-visible <summary>.
-const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted, onAfterRun, defaultOpen }: BlockCardProps) {
+const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onBlockUpdated, onBlockDeleted, onAfterRun, defaultOpen }: BlockCardProps) {
   const keys = mode?.keys ?? Object.keys(block.attributes)
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
@@ -241,20 +243,18 @@ const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlock
         <Stack spacing={2}>
           {keys.map((key) => {
             const value = values[key] ?? ''
+            const collapsed = key !== 'author' && !expanded.has(key) && value.length > 80
+            let field
             if (key === 'author') {
-              return (
+              field = (
                 <AuthorField
-                  key={key}
                   value={value}
                   onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
                 />
               )
-            }
-            const collapsed = !expanded.has(key) && value.length > 80
-            if (collapsed) {
-              return (
+            } else if (collapsed) {
+              field = (
                 <TextField
-                  key={key}
                   label={key}
                   value={`${value.slice(0, 40)}…`}
                   onClick={() => reveal(key)}
@@ -272,16 +272,43 @@ const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlock
                   }}
                 />
               )
+            } else {
+              field = (
+                <TextField
+                  label={key}
+                  value={value}
+                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                  multiline
+                  minRows={1}
+                />
+              )
             }
+
+            // Diff link mirrors the Save/Copy buttons (editActionSx): ringed in
+            // accent when the saved block value diverges from the document
+            // value, disabled when they match. Compares saved (not live-edited)
+            // values to match what the diff page renders from the server.
+            const differs = (block.attributes[key] ?? '') !== (documentAttributes[key] ?? '')
             return (
-              <TextField
-                key={key}
-                label={key}
-                value={value}
-                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                multiline
-                minRows={1}
-              />
+              <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                <Box sx={{ flex: 1 }}>{field}</Box>
+                <Tooltip title={differs ? 'Compare with document' : 'Matches document'}>
+                  <span>
+                    <IconButton
+                      component="a"
+                      href={`/documents/${block.documentId}/blocks/${block.id}/attributes/${encodeURIComponent(key)}/diff`}
+                      target="_blank"
+                      rel="noopener"
+                      disabled={!differs}
+                      aria-label={`Compare ${key} with document`}
+                      size="small"
+                      sx={{ mt: 1, ...editActionSx(differs) }}
+                    >
+                      <Difference fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Stack>
             )
           })}
         </Stack>

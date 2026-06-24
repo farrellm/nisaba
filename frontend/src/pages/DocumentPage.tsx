@@ -223,6 +223,7 @@ export default function DocumentPage() {
                   key={block.id}
                   block={block}
                   mode={modesByName.get(block.mode)}
+                  documentAttributes={doc.attributes ?? {}}
                   onBlockUpdated={replaceBlock}
                   onBlockDeleted={removeBlock}
                   onAfterRun={reloadDocument}
