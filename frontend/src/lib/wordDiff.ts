@@ -11,10 +11,12 @@
 
 export type DiffSegment = { type: 'equal' | 'add' | 'remove'; text: string }
 
-// Split into alternating non-whitespace and whitespace runs, e.g.
-// "a  b\nc" -> ["a", "  ", "b", "\n", "c"]. Empty input yields no tokens.
+// Split into whitespace runs, alphanumeric word runs, and individual
+// punctuation/symbol characters, e.g. "Hi, world!" ->
+// ["Hi", ",", " ", "world", "!"]. The Unicode (u) flag keeps accented and
+// non-Latin letters inside word tokens. Empty input yields no tokens.
 function tokenize(s: string): string[] {
-  return s.match(/\s+|\S+/g) ?? []
+  return s.match(/\s+|[\p{L}\p{N}]+|[^\s\p{L}\p{N}]/gu) ?? []
 }
 
 export function wordDiff(before: string, after: string): DiffSegment[] {
@@ -59,8 +61,8 @@ export function wordDiff(before: string, after: string): DiffSegment[] {
   return segments
 }
 
-// wordCount counts whitespace-delimited words in a string (0 for empty/blank).
+// wordCount counts alphanumeric word runs in a string, ignoring whitespace and
+// punctuation (so a pure-punctuation segment contributes 0).
 export function wordCount(s: string): number {
-  const t = s.trim()
-  return t === '' ? 0 : t.split(/\s+/).length
+  return (s.match(/[\p{L}\p{N}]+/gu) ?? []).length
 }
