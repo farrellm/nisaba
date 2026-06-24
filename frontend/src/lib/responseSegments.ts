@@ -56,9 +56,12 @@ export function parseResponseSegments(s: string): ResponseSegment[] {
     const valueStart = gt + 1
     const close = findMatchingClose(s, valueStart, name)
     if (close === null) {
-      // Never-closed tag: leave it as text and advance past the start tag.
-      i = valueStart
-      continue
+      // Never-closed tag: response likely truncated. Auto-close at end of
+      // string and capture the rest as this tag's body, mirroring the backend.
+      flushText(i)
+      out.push({ kind: 'tag', name, inner: s.slice(valueStart) })
+      textStart = s.length
+      break
     }
     flushText(i)
     out.push({ kind: 'tag', name, inner: s.slice(valueStart, close.start) })

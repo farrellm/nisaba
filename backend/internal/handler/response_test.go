@@ -47,9 +47,19 @@ func TestParseTopLevelTags(t *testing.T) {
 			want: map[string]string{"note": ""},
 		},
 		{
-			name: "unclosed tag does not loop or panic",
+			name: "unclosed last tag is auto-closed at EOF",
 			in:   "<a>ok</a><b>never closed",
-			want: map[string]string{"a": "ok"},
+			want: map[string]string{"a": "ok", "b": "never closed"},
+		},
+		{
+			name: "unclosed tag captures nested markup verbatim",
+			in:   "<a>x <b>y</b> z",
+			want: map[string]string{"a": "x <b>y</b> z"},
+		},
+		{
+			name: "empty unclosed tag at EOF yields empty value",
+			in:   "<a>",
+			want: map[string]string{"a": ""},
 		},
 		{
 			name: "opening-tag attributes ignored for key",

@@ -8,7 +8,9 @@ import "strings"
 // tag's value (we never recurse). Opening-tag attributes are ignored for the
 // key. Self-closing tags and empty bodies yield an empty-string value. Text
 // outside any tag is ignored. When the same top-level name appears more than
-// once, the last occurrence wins.
+// once, the last occurrence wins. A top-level tag that is never closed (e.g. a
+// truncated response) is auto-closed at end of string, taking the rest of the
+// text as its value.
 //
 // encoding/xml is unsuitable here because model responses are free-form text,
 // not well-formed XML, so we scan bytes directly and degrade gracefully on
@@ -53,10 +55,11 @@ func parseTopLevelTags(s string) map[string]string {
 		valueStart := tagEnd + 1
 		closeIdx, afterClose := findMatchingClose(s, valueStart, name)
 		if closeIdx < 0 {
-			// Never-closed tag: stop matching but advance past the start tag so
-			// we return what we have without looping.
-			i = valueStart
-			continue
+			// Never-closed tag: the response was likely truncated (or the model
+			// omitted the final close). Auto-close at end of string and capture
+			// the rest as this tag's value. This necessarily ends parsing.
+			out[name] = s[valueStart:]
+			break
 		}
 		out[name] = s[valueStart:closeIdx]
 		i = afterClose
