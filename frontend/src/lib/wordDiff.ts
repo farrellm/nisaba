@@ -58,7 +58,50 @@ export function wordDiff(before: string, after: string): DiffSegment[] {
   while (i < n) push('remove', a[i++])
   while (j < m) push('add', b[j++])
 
-  return segments
+  return groupChanges(segments)
+}
+
+// groupChanges merges runs of edits that the backtracking fragmented apart with
+// matching inter-word whitespace. Without it, changing several adjacent words
+// reads as alternating add/remove (e.g. -quick +slow =" " -brown +red). For each
+// maximal run of edits it emits one remove block then one add block, absorbing
+// any whitespace-only `equal` that sits *between* two edits into both sides (the
+// space exists identically in the before- and after-text). Larger/meaningful
+// equalities end the run and stay put, so genuinely-unchanged spans aren't
+// swallowed.
+function groupChanges(segments: DiffSegment[]): DiffSegment[] {
+  const out: DiffSegment[] = []
+  let i = 0
+  while (i < segments.length) {
+    if (segments[i].type === 'equal') {
+      out.push(segments[i])
+      i++
+      continue
+    }
+    // segments[i] is an edit — gather the run.
+    let removeText = ''
+    let addText = ''
+    let j = i
+    while (j < segments.length) {
+      const s = segments[j]
+      if (s.type === 'remove') removeText += s.text
+      else if (s.type === 'add') addText += s.text
+      else {
+        // equal: absorb only if whitespace-only AND followed by another edit.
+        // (push already coalesces neighbors, so the next segment is never equal.)
+        const next = segments[j + 1]
+        if (/^\s+$/.test(s.text) && next && next.type !== 'equal') {
+          removeText += s.text
+          addText += s.text
+        } else break
+      }
+      j++
+    }
+    if (removeText) out.push({ type: 'remove', text: removeText })
+    if (addText) out.push({ type: 'add', text: addText })
+    i = j
+  }
+  return out
 }
 
 // wordCount counts alphanumeric word runs in a string, ignoring whitespace and

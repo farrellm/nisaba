@@ -76,7 +76,27 @@ Adjacent tokens of the same type are merged into one segment as they're emitted
 This turns token-level output into readable runs — e.g. a contiguous insertion
 of several words/spaces becomes a single `add` segment rather than many.
 
-## 4. Word counts
+## 4. Group consecutive changes
+
+Because inter-word whitespace tokens match, a change spanning several adjacent
+words gets fragmented by the LCS into edits separated by tiny `equal` spaces —
+e.g. `the quick brown fox` → `the slow red fox` backtracks to
+`="the " −"quick" +"slow" =" " −"brown" +"red" =" fox"`, which reads as
+alternating struck/inserted words.
+
+A final `groupChanges` pass merges each maximal run of edits into **one `remove`
+block followed by one `add` block**, absorbing any **whitespace-only `equal` that
+sits between two edits** into both sides (the space exists identically in the
+before- and after-text). The example becomes
+`="the " −"quick brown" +"slow red" =" fox"`.
+
+Only whitespace-only equalities are absorbed: a preserved word or punctuation
+mark between two edits is genuinely unchanged and stays an `equal` boundary, so
+unchanged spans are never swallowed. The reconstruction invariant still holds —
+an absorbed space is identical in both inputs, so including it in both blocks
+keeps `equal`+`remove` = `before` and `equal`+`add` = `after`.
+
+## 5. Word counts
 
 `wordCount(s)` counts alphanumeric word runs only (`[\p{L}\p{N}]+` with the `u`
 flag), ignoring whitespace and punctuation. The diff page sums it over the
