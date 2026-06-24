@@ -200,6 +200,46 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.
 	}
 }
 
+// redditPostPath validates a user-supplied Reddit post URL and returns the safe,
+// traversal-free path to forward to oauth.reddit.com. ok is false for any
+// non-Reddit host, non-permalink path, or path containing dot-segments (which
+// would otherwise let "../" traverse to another oauth.reddit.com endpoint once
+// the upstream resolves it — SSRF). The dot-segment check runs on the decoded
+// path: EscapedPath() is always a consistent escaping of Path, so a decoded path
+// free of "."/".." segments cannot produce traversal in either literal ("../")
+// or percent-encoded ("%2e%2e") form.
+func redditPostPath(raw string) (path string, ok bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", false
+	}
+	// Tolerate URLs pasted without a scheme (e.g. "www.reddit.com/r/…"),
+	// which url.Parse would otherwise treat as a path with no host.
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" {
+		return "", false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host != "reddit.com" && !strings.HasSuffix(host, ".reddit.com") {
+		return "", false
+	}
+	// Only a post permalink (…/comments/<id>/…) returns the 2-element array the
+	// caller decodes. Reject subreddit/user/home URLs up front.
+	if !strings.Contains(parsed.Path, "/comments/") {
+		return "", false
+	}
+	for _, seg := range strings.Split(parsed.Path, "/") {
+		if seg == "." || seg == ".." {
+			return "", false
+		}
+	}
+	// Use the escaped path so reserved characters survive the round-trip.
+	return strings.TrimRight(parsed.EscapedPath(), "/"), true
+}
+
 // GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
 // OAuth API and returns its title and normalized permalink URL. It lets users
 // import a specific post that isn't in the subreddit's newest listing.
@@ -214,31 +254,14 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 			return
 		}
 
-		raw := strings.TrimSpace(r.URL.Query().Get("url"))
-		if raw == "" {
+		raw := r.URL.Query().Get("url")
+		if strings.TrimSpace(raw) == "" {
 			writeError(w, http.StatusBadRequest, "Missing url")
 			return
 		}
-		// Tolerate URLs pasted without a scheme (e.g. "www.reddit.com/r/…"),
-		// which url.Parse would otherwise treat as a path with no host.
-		if !strings.Contains(raw, "://") {
-			raw = "https://" + raw
-		}
-		parsed, err := url.Parse(raw)
-		if err != nil || parsed.Host == "" {
+		path, ok := redditPostPath(raw)
+		if !ok {
 			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
-			return
-		}
-		host := strings.ToLower(parsed.Hostname())
-		if host != "reddit.com" && !strings.HasSuffix(host, ".reddit.com") {
-			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
-			return
-		}
-		// Only a post permalink (…/comments/<id>/…) returns the 2-element array we
-		// decode below. Reject subreddit/user/home URLs up front with a clear
-		// message instead of letting the decode fail with a generic 502.
-		if !strings.Contains(parsed.Path, "/comments/") {
-			writeError(w, http.StatusBadRequest, "Not a Reddit post URL")
 			return
 		}
 
@@ -248,8 +271,6 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 			return
 		}
 
-		// Use the escaped path so reserved characters survive the round-trip.
-		path := strings.TrimRight(parsed.EscapedPath(), "/")
 		endpoint := "https://oauth.reddit.com" + path + "?raw_json=1&limit=1"
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
 		if err != nil {
