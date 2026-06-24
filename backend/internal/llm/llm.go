@@ -167,6 +167,7 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	u := res.TotalUsage
 	slog.Info("llm generate",
 		"model", model,
+		"finish_reason", res.FinishReason,
 		"input_tokens", u.InputTokens,
 		"output_tokens", u.OutputTokens,
 		"total_tokens", u.TotalTokens,
@@ -197,6 +198,15 @@ func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 func combineSteps(res *goai.TextResult) string {
 	var b strings.Builder
 	for _, s := range res.Steps {
+		u := s.Usage
+		slog.Info("llm step",
+			"input_tokens", u.InputTokens,
+			"output_tokens", u.OutputTokens,
+			"total_tokens", u.TotalTokens,
+			"reasoning_tokens", u.ReasoningTokens,
+			"cache_read_tokens", u.CacheReadTokens,
+			"cache_write_tokens", u.CacheWriteTokens,
+		)
 		if s.Reasoning != "" {
 			b.WriteString("<thinking>\n")
 			b.WriteString(s.Reasoning)
