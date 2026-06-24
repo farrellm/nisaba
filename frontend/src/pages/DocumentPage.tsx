@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Box,
   Container,
@@ -113,28 +113,28 @@ export default function DocumentPage() {
     api.get<Mode[]>('/api/modes').then(setModes).catch(() => setModes([]))
   }, [id])
 
-  async function createBlock(mode: string): Promise<Block> {
+  const createBlock = useCallback(async (mode: string): Promise<Block> => {
     const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
     setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? []), block] } : d))
     return block
-  }
+  }, [id])
 
-  function replaceBlock(updated: Block) {
+  const replaceBlock = useCallback((updated: Block) => {
     setDoc((d) =>
       d ? { ...d, blocks: (d.blocks ?? []).map((b) => (b.id === updated.id ? updated : b)) } : d,
     )
-  }
+  }, [])
 
-  function removeBlock(id: number) {
-    setDoc((d) => (d ? { ...d, blocks: (d.blocks ?? []).filter((b) => b.id !== id) } : d))
-  }
+  const removeBlock = useCallback((blockId: number) => {
+    setDoc((d) => (d ? { ...d, blocks: (d.blocks ?? []).filter((b) => b.id !== blockId) } : d))
+  }, [])
 
   // Running a block mutates the document's shared attributes, so reload it.
-  function reloadDocument() {
+  const reloadDocument = useCallback(() => {
     api.get<DocumentDetail>(`/api/documents/${id}`).then(setDoc).catch(() => {})
-  }
+  }, [id])
 
-  const modesByName = new Map(modes.map((m) => [m.name, m]))
+  const modesByName = useMemo(() => new Map(modes.map((m) => [m.name, m])), [modes])
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
