@@ -42,35 +42,20 @@ type Model struct {
 	Label           string         `json:"label"`
 	Provider        string         `json:"provider"`
 	ProviderOptions map[string]any `json:"-"`
-	// ToolProviderOptions are provider options applied only when the call carries
-	// tools (merged over ProviderOptions).
-	ToolProviderOptions map[string]any `json:"-"`
 }
-
-// Shared Anthropic provider options. anthropicThinking enables adaptive thinking
-// with summarized output; anthropicCaching sets ephemeral cache_control on
-// tool-bearing calls. Treated as read-only (generate copies them out, never
-// mutates), so the same map may back multiple models.
-var (
-	anthropicThinking = map[string]any{
-		"thinking": map[string]any{
-			"type":    "adaptive",
-			"display": "summarized",
-		},
-	}
-	anthropicCaching = map[string]any{
-		"cache_control": map[string]any{"type": "ephemeral"},
-	}
-)
 
 // models is the fixed, cross-provider list. IDs are provider-native model names.
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
-	// {ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
-	{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: "anthropic",
-		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
+	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
+	{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: "anthropic"},
 	{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic",
-		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
+		ProviderOptions: map[string]any{
+			"thinking": map[string]any{
+				"type":    "adaptive",
+				"display": "summarized",
+			},
+		}},
 	{ID: "gpt-5.4", Label: "GPT-5.4", Provider: "openai"},
 	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
@@ -130,34 +115,26 @@ func clientFor(id string) (provider.LanguageModel, error) {
 // When tools is non-empty, each tool is attached and the request runs through
 // GoAI's agentic loop (MaxSteps): the model may invoke tools, whose results are
 // fed back, until it returns a final text reply or maxToolIterations is reached.
-// That path also merges the model's ToolProviderOptions over its ProviderOptions,
-// which is how cache control (Anthropic cache_control) is enabled per-model so the
-// multi-step loop doesn't pay to re-send the prompt each step. With no tools it
-// does a single generation.
+// That path also enables prompt caching, which marks the system prompt as
+// ephemeral so the multi-step loop doesn't pay to re-send it each step (caching-
+// capable providers honor it; others ignore it). With no tools it does a single
+// generation.
 func generate(ctx context.Context, model, system, prompt string, tools []Tool) (*goai.TextResult, error) {
 	client, err := clientFor(model)
 	if err != nil {
 		return nil, err
 	}
-	m, _ := lookup(model) // unknown id already rejected by clientFor above
 
 	opts := []goai.Option{goai.WithSystem(system), goai.WithPrompt(prompt)}
-
-	provOpts := map[string]any{}
-	for k, v := range m.ProviderOptions {
-		provOpts[k] = v
+	if m, ok := lookup(model); ok && len(m.ProviderOptions) > 0 {
+		opts = append(opts, goai.WithProviderOptions(m.ProviderOptions))
 	}
 	if len(tools) > 0 {
 		opts = append(opts,
 			goai.WithTools(tools...),
 			goai.WithMaxSteps(maxToolIterations),
+			goai.WithPromptCaching(true),
 		)
-		for k, v := range m.ToolProviderOptions {
-			provOpts[k] = v
-		}
-	}
-	if len(provOpts) > 0 {
-		opts = append(opts, goai.WithProviderOptions(provOpts))
 	}
 
 	res, err := goai.GenerateText(ctx, client, opts...)
@@ -167,7 +144,6 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	u := res.TotalUsage
 	slog.Info("llm generate",
 		"model", model,
-		"finish_reason", res.FinishReason,
 		"input_tokens", u.InputTokens,
 		"output_tokens", u.OutputTokens,
 		"total_tokens", u.TotalTokens,
@@ -198,15 +174,6 @@ func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 func combineSteps(res *goai.TextResult) string {
 	var b strings.Builder
 	for _, s := range res.Steps {
-		u := s.Usage
-		slog.Info("llm step",
-			"input_tokens", u.InputTokens,
-			"output_tokens", u.OutputTokens,
-			"total_tokens", u.TotalTokens,
-			"reasoning_tokens", u.ReasoningTokens,
-			"cache_read_tokens", u.CacheReadTokens,
-			"cache_write_tokens", u.CacheWriteTokens,
-		)
 		if s.Reasoning != "" {
 			b.WriteString("<thinking>\n")
 			b.WriteString(s.Reasoning)

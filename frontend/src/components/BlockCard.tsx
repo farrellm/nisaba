@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Box,
   CircularProgress,
@@ -36,7 +36,7 @@ interface BlockCardProps {
 // BlockCard renders one block: its mode, editable key/values, a run action, and
 // the responses produced so far. The body is a collapsible <details>; the mode
 // header is the always-visible <summary>.
-const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted, onAfterRun, defaultOpen }: BlockCardProps) {
+export default function BlockCard({ block, mode, onBlockUpdated, onBlockDeleted, onAfterRun, defaultOpen }: BlockCardProps) {
   const keys = mode?.keys ?? Object.keys(block.attributes)
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
@@ -455,6 +455,4 @@ const BlockCard = memo(function BlockCard({ block, mode, onBlockUpdated, onBlock
       </Box>
     </Box>
   )
-})
-
-export default BlockCard
+}

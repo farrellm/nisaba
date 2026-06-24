@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Divider, IconButton, ListItemText, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
+import { Divider, IconButton, ListItemText, Menu, MenuItem, Typography } from '@mui/material'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -30,17 +30,15 @@ export default function AccountMenu() {
 
   return (
     <>
-      <Tooltip title="Account menu">
-        <IconButton
-          onClick={(e) => setAnchorEl(e.currentTarget)}
-          aria-label="Account menu"
-          aria-haspopup="true"
-          aria-expanded={open ? 'true' : undefined}
-          sx={{ color: 'text.primary' }}
-        >
-          <MoreVertIcon />
-        </IconButton>
-      </Tooltip>
+      <IconButton
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        aria-label="Account menu"
+        aria-haspopup="true"
+        aria-expanded={open ? 'true' : undefined}
+        sx={{ color: 'text.primary' }}
+      >
+        <MoreVertIcon />
+      </IconButton>
       <Menu
         anchorEl={anchorEl}
         open={open}

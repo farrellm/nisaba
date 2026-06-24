@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Box,
   Container,
@@ -8,7 +8,6 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  Tooltip,
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -114,28 +113,28 @@ export default function DocumentPage() {
     api.get<Mode[]>('/api/modes').then(setModes).catch(() => setModes([]))
   }, [id])
 
-  const createBlock = useCallback(async (mode: string): Promise<Block> => {
+  async function createBlock(mode: string): Promise<Block> {
     const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
     setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? []), block] } : d))
     return block
-  }, [id])
+  }
 
-  const replaceBlock = useCallback((updated: Block) => {
+  function replaceBlock(updated: Block) {
     setDoc((d) =>
       d ? { ...d, blocks: (d.blocks ?? []).map((b) => (b.id === updated.id ? updated : b)) } : d,
     )
-  }, [])
+  }
 
-  const removeBlock = useCallback((blockId: number) => {
-    setDoc((d) => (d ? { ...d, blocks: (d.blocks ?? []).filter((b) => b.id !== blockId) } : d))
-  }, [])
+  function removeBlock(id: number) {
+    setDoc((d) => (d ? { ...d, blocks: (d.blocks ?? []).filter((b) => b.id !== id) } : d))
+  }
 
   // Running a block mutates the document's shared attributes, so reload it.
-  const reloadDocument = useCallback(() => {
+  function reloadDocument() {
     api.get<DocumentDetail>(`/api/documents/${id}`).then(setDoc).catch(() => {})
-  }, [id])
+  }
 
-  const modesByName = useMemo(() => new Map(modes.map((m) => [m.name, m])), [modes])
+  const modesByName = new Map(modes.map((m) => [m.name, m]))
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -176,17 +175,15 @@ export default function DocumentPage() {
                   </MuiLink>
                 )}
               </Box>
-              <Tooltip title="Document menu">
-                <IconButton
-                  onClick={(e) => setAnchorEl(e.currentTarget)}
-                  aria-label="Document menu"
-                  aria-haspopup="true"
-                  aria-expanded={menuOpen ? 'true' : undefined}
-                  sx={{ color: 'text.secondary', mt: 1 }}
-                >
-                  <MoreVertIcon />
-                </IconButton>
-              </Tooltip>
+              <IconButton
+                onClick={(e) => setAnchorEl(e.currentTarget)}
+                aria-label="Document menu"
+                aria-haspopup="true"
+                aria-expanded={menuOpen ? 'true' : undefined}
+                sx={{ color: 'text.secondary', mt: 1 }}
+              >
+                <MoreVertIcon />
+              </IconButton>
               <Menu
                 anchorEl={anchorEl}
                 open={menuOpen}

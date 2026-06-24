@@ -1,16 +1,13 @@
-import { memo } from 'react'
 import { Box } from '@mui/material'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { fonts } from '../theme'
 
-const remarkPlugins = [remarkGfm]
-
 // Markdown renders free-form markdown (typically LLM output) with the app's
 // editorial typography. Styling lives in one place via descendant selectors on a
 // wrapping Box rather than per-element component overrides, so the renderer stays
 // reusable.
-const Markdown = memo(function Markdown({ children }: { children: string }) {
+export default function Markdown({ children }: { children: string }) {
   return (
     <Box
       sx={{
@@ -97,9 +94,7 @@ const Markdown = memo(function Markdown({ children }: { children: string }) {
         '& th': { fontFamily: fonts.mono, fontWeight: 600, fontSize: '0.8rem' },
       }}
     >
-      <ReactMarkdown remarkPlugins={remarkPlugins}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </Box>
   )
-})
-
-export default Markdown
+}

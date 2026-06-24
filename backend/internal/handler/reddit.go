@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -234,10 +235,14 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
 			return
 		}
+
+		importPath := path.Clean(parsed.Path)
+		parsed.Path = importPath
+
 		// Only a post permalink (…/comments/<id>/…) returns the 2-element array we
 		// decode below. Reject subreddit/user/home URLs up front with a clear
 		// message instead of letting the decode fail with a generic 502.
-		if !strings.Contains(parsed.Path, "/comments/") {
+		if !strings.Contains(importPath, "/comments/") {
 			writeError(w, http.StatusBadRequest, "Not a Reddit post URL")
 			return
 		}
@@ -249,8 +254,8 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 		}
 
 		// Use the escaped path so reserved characters survive the round-trip.
-		path := strings.TrimRight(parsed.EscapedPath(), "/")
-		endpoint := "https://oauth.reddit.com" + path + "?raw_json=1&limit=1"
+		cleanedPath := strings.TrimRight(parsed.EscapedPath(), "/")
+		endpoint := "https://oauth.reddit.com" + cleanedPath + "?raw_json=1&limit=1"
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not build request")
