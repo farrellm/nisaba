@@ -47,30 +47,30 @@ type Model struct {
 	ToolProviderOptions map[string]any `json:"-"`
 }
 
+// Shared Anthropic provider options. anthropicThinking enables adaptive thinking
+// with summarized output; anthropicCaching sets ephemeral cache_control on
+// tool-bearing calls. Treated as read-only (generate copies them out, never
+// mutates), so the same map may back multiple models.
+var (
+	anthropicThinking = map[string]any{
+		"thinking": map[string]any{
+			"type":    "adaptive",
+			"display": "summarized",
+		},
+	}
+	anthropicCaching = map[string]any{
+		"cache_control": map[string]any{"type": "ephemeral"},
+	}
+)
+
 // models is the fixed, cross-provider list. IDs are provider-native model names.
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
 	// {ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
 	{ID: "claude-sonnet-4-6", Label: "Claude Sonnet 4.6", Provider: "anthropic",
-		ProviderOptions: map[string]any{
-			"thinking": map[string]any{
-				"type":    "adaptive",
-				"display": "summarized",
-			},
-		},
-		ToolProviderOptions: map[string]any{
-			"cache_control": map[string]any{"type": "ephemeral"},
-		}},
+		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
 	{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic",
-		ProviderOptions: map[string]any{
-			"thinking": map[string]any{
-				"type":    "adaptive",
-				"display": "summarized",
-			},
-		},
-		ToolProviderOptions: map[string]any{
-			"cache_control": map[string]any{"type": "ephemeral"},
-		}},
+		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
 	{ID: "gpt-5.4", Label: "GPT-5.4", Provider: "openai"},
 	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
