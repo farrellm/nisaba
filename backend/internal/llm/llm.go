@@ -13,6 +13,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/zendev-sh/goai"
@@ -136,7 +137,21 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 		)
 	}
 
-	return goai.GenerateText(ctx, client, opts...)
+	res, err := goai.GenerateText(ctx, client, opts...)
+	if err != nil {
+		return nil, err
+	}
+	u := res.TotalUsage
+	slog.Info("llm generate",
+		"model", model,
+		"input_tokens", u.InputTokens,
+		"output_tokens", u.OutputTokens,
+		"total_tokens", u.TotalTokens,
+		"reasoning_tokens", u.ReasoningTokens,
+		"cache_read_tokens", u.CacheReadTokens,
+		"cache_write_tokens", u.CacheWriteTokens,
+	)
+	return res, nil
 }
 
 // Generate sends prompt to the given model under the given system prompt and
