@@ -145,6 +145,9 @@ export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: Red
                 onChange={(e) => setBody(e.target.value)}
                 multiline
                 minRows={6}
+                // Cap growth (the story can be long) so the field scrolls
+                // internally and the dialog's action buttons stay on screen.
+                maxRows={12}
               />
             </Stack>
           )}
