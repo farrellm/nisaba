@@ -101,6 +101,7 @@ type redditListing struct {
 			Data struct {
 				Title     string `json:"title"`
 				Permalink string `json:"permalink"`
+				Author    string `json:"author"`
 			} `json:"data"`
 		} `json:"children"`
 	} `json:"data"`
@@ -108,8 +109,9 @@ type redditListing struct {
 
 // redditPost is the trimmed post we return to the frontend.
 type redditPost struct {
-	Title string `json:"title"`
-	URL   string `json:"url"`
+	Title  string `json:"title"`
+	URL    string `json:"url"`
+	Author string `json:"author"`
 }
 
 // NewRedditAuth creates a shared OAuth token holder for the Reddit handlers, so
@@ -249,8 +251,9 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.
 		posts := make([]redditPost, 0, len(listing.Data.Children))
 		for _, c := range listing.Data.Children {
 			posts = append(posts, redditPost{
-				Title: c.Data.Title,
-				URL:   "https://www.reddit.com" + c.Data.Permalink,
+				Title:  c.Data.Title,
+				URL:    "https://www.reddit.com" + c.Data.Permalink,
+				Author: c.Data.Author,
 			})
 		}
 		writeJSON(w, http.StatusOK, posts)
@@ -387,8 +390,9 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 
 		data := listings[0].Data.Children[0].Data
 		writeJSON(w, http.StatusOK, redditPost{
-			Title: data.Title,
-			URL:   "https://www.reddit.com" + data.Permalink,
+			Title:  data.Title,
+			URL:    "https://www.reddit.com" + data.Permalink,
+			Author: data.Author,
 		})
 	}
 }

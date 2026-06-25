@@ -25,8 +25,9 @@ interface RedditSubmitDialogProps {
 }
 
 // RedditSubmitDialog publishes the document's story back to Reddit as a self
-// post. The body is seeded from the "story" attribute. The title is derived,
-// best-effort, from the original prompt at doc.url: fetch its title, strip any
+// post. The body is seeded from the "story" attribute, prefixed (once the
+// original prompt is fetched) with a credit link to it and its author. The title
+// is derived, best-effort, from the original prompt at doc.url: fetch its title, strip any
 // "[WP]" tag, trim, and prefix "[PI] " (WritingPrompts -> Prompt Inspired). Both
 // fields stay editable. Submitting posts to the user's configured subreddit via
 // POST /api/documents/:id/reddit-submit, which saves the resulting permalink on
@@ -51,14 +52,18 @@ export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: Red
     setPostedUrl('')
 
     if (!doc.url) return
+    const url = doc.url
     let cancelled = false
     setTitleLoading(true)
     api
-      .get<RedditPost>(`/api/reddit/post?url=${encodeURIComponent(doc.url)}`)
+      .get<RedditPost>(`/api/reddit/post?url=${encodeURIComponent(url)}`)
       .then((post) => {
         if (cancelled) return
         const stripped = post.title.replace(/\[wp\]/gi, '').trim()
         setTitle(`[PI] ${stripped}`)
+        // Credit the original prompt above the story.
+        const credit = `[Original post](${url}) by u/${post.author}.\n\n---\n\n`
+        setBody(credit + (doc.attributes?.story ?? ''))
       })
       .catch(() => {
         // Best-effort: leave the title blank for the user to fill in.

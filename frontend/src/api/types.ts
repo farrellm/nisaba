@@ -17,6 +17,7 @@ export interface Document {
 export interface RedditPost {
   title: string
   url: string
+  author: string
 }
 
 // Response mirrors model.Response — one generated answer attached to a block.
