@@ -19,6 +19,9 @@ interface RedditSubmitDialogProps {
   open: boolean
   doc: DocumentDetail
   onClose: () => void
+  // Called with the refreshed document after a successful post, so the parent
+  // can reflect the newly-saved post URL.
+  onPosted: (doc: DocumentDetail) => void
 }
 
 // RedditSubmitDialog publishes the document's story back to Reddit as a self
@@ -26,14 +29,16 @@ interface RedditSubmitDialogProps {
 // best-effort, from the original prompt at doc.url: fetch its title, strip any
 // "[WP]" tag, trim, and prefix "[PI] " (WritingPrompts -> Prompt Inspired). Both
 // fields stay editable. Submitting posts to the user's configured subreddit via
-// POST /api/reddit/submit.
-export default function RedditSubmitDialog({ open, doc, onClose }: RedditSubmitDialogProps) {
+// POST /api/documents/:id/reddit-submit, which saves the resulting permalink on
+// the document and returns the refreshed document.
+export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: RedditSubmitDialogProps) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [titleLoading, setTitleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [postedUrl, setPostedUrl] = useState<string | null>(null)
+  const [posted, setPosted] = useState(false)
+  const [postedUrl, setPostedUrl] = useState('')
 
   // Seed the fields each time the dialog opens. The story is read directly; the
   // title is fetched from the original prompt and may arrive a moment later.
@@ -42,7 +47,8 @@ export default function RedditSubmitDialog({ open, doc, onClose }: RedditSubmitD
     setBody(doc.attributes?.story ?? '')
     setTitle('')
     setError(null)
-    setPostedUrl(null)
+    setPosted(false)
+    setPostedUrl('')
 
     if (!doc.url) return
     let cancelled = false
@@ -75,11 +81,14 @@ export default function RedditSubmitDialog({ open, doc, onClose }: RedditSubmitD
     setError(null)
     setSubmitting(true)
     try {
-      const result = await api.post<{ url: string }>('/api/reddit/submit', {
-        title,
-        body,
-      })
-      setPostedUrl(result.url)
+      const updated = await api.post<DocumentDetail>(
+        `/api/documents/${doc.id}/reddit-submit`,
+        { title, body },
+      )
+      const urls = updated.postUrls ?? []
+      setPostedUrl(urls[urls.length - 1] ?? '')
+      setPosted(true)
+      onPosted(updated)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
     } finally {
@@ -97,12 +106,17 @@ export default function RedditSubmitDialog({ open, doc, onClose }: RedditSubmitD
               {error}
             </Alert>
           )}
-          {postedUrl ? (
+          {posted ? (
             <Alert severity="success" sx={{ mt: 1 }}>
-              Posted to Reddit.{' '}
-              <MuiLink href={postedUrl} target="_blank" rel="noopener noreferrer">
-                View post ↗
-              </MuiLink>
+              Posted to Reddit.
+              {postedUrl && (
+                <>
+                  {' '}
+                  <MuiLink href={postedUrl} target="_blank" rel="noopener noreferrer">
+                    View post ↗
+                  </MuiLink>
+                </>
+              )}
             </Alert>
           ) : (
             <Stack spacing={2} sx={{ mt: 1 }}>
@@ -132,9 +146,9 @@ export default function RedditSubmitDialog({ open, doc, onClose }: RedditSubmitD
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
-            {postedUrl ? 'Done' : 'Cancel'}
+            {posted ? 'Done' : 'Cancel'}
           </Button>
-          {!postedUrl && (
+          {!posted && (
             <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
               {submitting ? 'Posting…' : 'Post'}
             </Button>

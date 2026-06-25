@@ -26,6 +26,16 @@ import ModelSelector from '../components/ModelSelector'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
+// Shared style for the "Original post" / "Posted" permalink chips under the title.
+const postLinkSx = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 0.5,
+  color: 'primary.main',
+  textDecoration: 'none',
+  '&:hover': { textDecoration: 'underline' },
+} as const
+
 // DocumentPage loads a document via GET /api/documents/:id and renders its
 // blocks. Users add blocks (choosing a mode), edit each block's key/values, and
 // run them.
@@ -158,25 +168,31 @@ export default function DocumentPage() {
                 >
                   {doc.title || 'Untitled'}
                 </Typography>
-                {doc.url && (
-                  <MuiLink
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    variant="overline"
-                    sx={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      mt: 1.5,
-                      color: 'primary.main',
-                      textDecoration: 'none',
-                      '&:hover': { textDecoration: 'underline' },
-                    }}
-                  >
-                    Original post ↗
-                  </MuiLink>
-                )}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1.5 }}>
+                  {doc.url && (
+                    <MuiLink
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="overline"
+                      sx={postLinkSx}
+                    >
+                      Original post ↗
+                    </MuiLink>
+                  )}
+                  {(doc.postUrls ?? []).map((postUrl, i) => (
+                    <MuiLink
+                      key={postUrl}
+                      href={postUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="overline"
+                      sx={postLinkSx}
+                    >
+                      {(doc.postUrls ?? []).length > 1 ? `Posted #${i + 1} ↗` : 'Posted ↗'}
+                    </MuiLink>
+                  ))}
+                </Box>
               </Box>
               <Tooltip title="Document menu">
                 <IconButton
@@ -277,6 +293,7 @@ export default function DocumentPage() {
           open={submitDialogOpen}
           doc={doc}
           onClose={() => setSubmitDialogOpen(false)}
+          onPosted={setDoc}
         />
       )}
     </Box>

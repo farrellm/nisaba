@@ -393,16 +393,17 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 	}
 }
 
-// SubmitRedditPost publishes a self (text) post to the logged-in user's
-// configured subreddit as the script-app account (the password grant). Reading
-// uses an application-only token, which has no account identity and cannot
-// submit, so this needs REDDIT_USERNAME/PASSWORD in addition to the app
-// credentials and reports 503 when they're absent.
+// SubmitRedditPost publishes a self (text) post to the document owner's
+// configured subreddit as the script-app account (the password grant) and
+// records the resulting permalink on the document. Reading uses an
+// application-only token, which has no account identity and cannot submit, so
+// this needs REDDIT_USERNAME/PASSWORD in addition to the app credentials and
+// reports 503 when they're absent. It is nested under /documents/{id} so the
+// returned post URL is saved against that document.
 func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		doc, ok := ownedDocument(w, r, st, sess)
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
 		if !ra.canSubmit() {
@@ -424,9 +425,9 @@ func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http
 			return
 		}
 
-		user, err := st.GetUser(r.Context(), id)
+		user, err := st.GetUser(r.Context(), doc.UserID)
 		if err != nil {
-			writeError(w, http.StatusUnauthorized, "Not logged in")
+			writeError(w, http.StatusInternalServerError, "Could not load user")
 			return
 		}
 
@@ -494,6 +495,18 @@ func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http
 			return
 		}
 
-		writeJSON(w, http.StatusOK, map[string]string{"url": submitResp.JSON.Data.URL})
+		if url := submitResp.JSON.Data.URL; url != "" {
+			if err := st.AddDocumentPost(r.Context(), doc.ID, url); err != nil {
+				writeError(w, http.StatusInternalServerError, "Posted, but could not save the post URL")
+				return
+			}
+		}
+
+		updated, err := st.GetDocument(r.Context(), doc.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load document")
+			return
+		}
+		writeJSON(w, http.StatusOK, updated)
 	}
 }

@@ -7,6 +7,9 @@ export interface Document {
   updatedAt: string
   isArchived: boolean
   labels: string[]
+  // Permalinks of posts published from this document (e.g. Reddit). May be null
+  // on summary responses; guard with ?? [].
+  postUrls: string[]
 }
 
 // RedditPost is one newest post from the user's subreddit, as returned by

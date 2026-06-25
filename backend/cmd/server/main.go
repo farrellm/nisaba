@@ -66,7 +66,6 @@ func main() {
 		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
 		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))
 		r.Get("/reddit/post", handler.GetRedditPost(sess, redditAuth))
-		r.Post("/reddit/submit", handler.SubmitRedditPost(st, sess, redditAuth))
 
 		r.Route("/documents", func(r chi.Router) {
 			r.Get("/", handler.ListDocuments(st, sess))
@@ -78,6 +77,7 @@ func main() {
 				r.Delete("/", handler.DeleteDocument(st, sess))
 				r.Post("/suggest-labels", handler.SuggestDocumentLabels(st, sess))
 				r.Post("/recommend-labels", handler.RecommendDocumentLabels(st, sess))
+				r.Post("/reddit-submit", handler.SubmitRedditPost(st, sess, redditAuth))
 
 				r.Route("/blocks", func(r chi.Router) {
 					r.Post("/", handler.CreateBlock(st, sess))
