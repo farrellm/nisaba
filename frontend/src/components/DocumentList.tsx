@@ -57,10 +57,10 @@ export default function DocumentList({
             sensitivity: 'base',
           })
         case 'oldest':
-          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+          return a.updatedAt < b.updatedAt ? -1 : a.updatedAt > b.updatedAt ? 1 : 0
         case 'newest':
         default:
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          return a.updatedAt > b.updatedAt ? -1 : a.updatedAt < b.updatedAt ? 1 : 0
       }
     })
     return copy
