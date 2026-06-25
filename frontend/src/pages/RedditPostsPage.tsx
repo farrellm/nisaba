@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Box, Container, Divider, Fab, Typography } from '@mui/material'
+import { Box, Container, Divider, Fab, Tooltip, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
@@ -82,14 +82,16 @@ export default function RedditPostsPage() {
         )}
       </Container>
 
-      <Fab
-        color="primary"
-        aria-label="Import from URL"
-        onClick={() => setUrlDialogOpen(true)}
-        sx={{ position: 'fixed', bottom: 32, right: 32, borderRadius: '50%' }}
-      >
-        <AddIcon />
-      </Fab>
+      <Tooltip title="Import from URL" placement="left">
+        <Fab
+          color="primary"
+          aria-label="Import from URL"
+          onClick={() => setUrlDialogOpen(true)}
+          sx={{ position: 'fixed', bottom: 32, right: 32, borderRadius: '50%' }}
+        >
+          <AddIcon />
+        </Fab>
+      </Tooltip>
 
       <RedditUrlDialog
         open={urlDialogOpen}

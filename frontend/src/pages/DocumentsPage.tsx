@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Fab } from '@mui/material'
+import { Fab, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { api } from '../api/client'
 import type { Document } from '../api/types'
@@ -29,14 +29,16 @@ export default function DocumentsPage() {
       active="documents"
       defaultSort="newest"
     >
-      <Fab
-        color="primary"
-        aria-label="New document"
-        onClick={() => setDialogOpen(true)}
-        sx={{ position: 'fixed', bottom: 32, right: 32, borderRadius: '50%' }}
-      >
-        <AddIcon />
-      </Fab>
+      <Tooltip title="New document" placement="left">
+        <Fab
+          color="primary"
+          aria-label="New document"
+          onClick={() => setDialogOpen(true)}
+          sx={{ position: 'fixed', bottom: 32, right: 32, borderRadius: '50%' }}
+        >
+          <AddIcon />
+        </Fab>
+      </Tooltip>
       <NewDocumentDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </DocumentList>
   )
