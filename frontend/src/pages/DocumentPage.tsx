@@ -238,14 +238,16 @@ export default function DocumentPage() {
       </Container>
 
       {doc && <ModelSelector doc={doc} onChange={setDoc} />}
-      <Fab
-        color="primary"
-        aria-label="Add block"
-        onClick={() => setDialogOpen(true)}
-        sx={{ position: 'fixed', bottom: 32, right: 32, borderRadius: '50%' }}
-      >
-        <AddIcon />
-      </Fab>
+      <Tooltip title="Add block" placement="left">
+        <Fab
+          color="primary"
+          aria-label="Add block"
+          onClick={() => setDialogOpen(true)}
+          sx={{ position: 'fixed', bottom: 32, right: 32, borderRadius: '50%' }}
+        >
+          <AddIcon />
+        </Fab>
+      </Tooltip>
       <AddBlockDialog
         open={dialogOpen}
         modes={modes}
