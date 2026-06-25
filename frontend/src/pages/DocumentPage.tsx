@@ -19,6 +19,7 @@ import type { Block, DocumentDetail, Mode } from '../api/types'
 import Masthead from '../components/Masthead'
 import AddBlockDialog from '../components/AddBlockDialog'
 import EditLabelsDialog from '../components/EditLabelsDialog'
+import RedditSubmitDialog from '../components/RedditSubmitDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
@@ -38,6 +39,7 @@ export default function DocumentPage() {
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [labelsDialogOpen, setLabelsDialogOpen] = useState(false)
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
 
   // Document overflow menu (archive / delete). Delete uses an arm/confirm step,
   // matching BlockCard: the first click arms (and starts a disarm timer), the
@@ -202,6 +204,14 @@ export default function DocumentPage() {
                 >
                   <ListItemText>Edit labels…</ListItemText>
                 </MenuItem>
+                <MenuItem
+                  onClick={() => {
+                    setSubmitDialogOpen(true)
+                    closeMenu()
+                  }}
+                >
+                  <ListItemText>Post to Reddit…</ListItemText>
+                </MenuItem>
                 <MenuItem onClick={handleToggleArchive} disabled={busy}>
                   <ListItemText>{doc.isArchived ? 'Unarchive' : 'Archive'}</ListItemText>
                 </MenuItem>
@@ -260,6 +270,13 @@ export default function DocumentPage() {
           doc={doc}
           onClose={() => setLabelsDialogOpen(false)}
           onChange={setDoc}
+        />
+      )}
+      {doc && (
+        <RedditSubmitDialog
+          open={submitDialogOpen}
+          doc={doc}
+          onClose={() => setSubmitDialogOpen(false)}
         />
       )}
     </Box>

@@ -13,6 +13,8 @@ type Config struct {
 	ModeTemplatesDir   string
 	RedditClientID     string
 	RedditClientSecret string
+	RedditUsername     string
+	RedditPassword     string
 }
 
 func Load() Config {
@@ -48,7 +50,9 @@ func Load() Config {
 
 	// Reddit application-only OAuth credentials, from a registered app at
 	// https://www.reddit.com/prefs/apps. Without these the Reddit posts endpoint
-	// reports that the integration is not configured.
+	// reports that the integration is not configured. REDDIT_USERNAME/PASSWORD are
+	// the script-app account credentials used to submit posts (password grant);
+	// without them the submit endpoint reports it is not configured.
 	return Config{
 		Addr:               addr,
 		DatabaseURL:        dbURL,
@@ -57,5 +61,7 @@ func Load() Config {
 		ModeTemplatesDir:   modeTemplatesDir,
 		RedditClientID:     os.Getenv("REDDIT_CLIENT_ID"),
 		RedditClientSecret: os.Getenv("REDDIT_CLIENT_SECRET"),
+		RedditUsername:     os.Getenv("REDDIT_USERNAME"),
+		RedditPassword:     os.Getenv("REDDIT_PASSWORD"),
 	}
 }

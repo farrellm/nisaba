@@ -63,9 +63,10 @@ func main() {
 		})
 		r.Get("/attribute-values", handler.ListAttributeValues(st, sess))
 		r.Get("/public/documents/{id}/attributes/{key}", handler.PublicDocumentAttribute(st))
-		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret)
+		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
 		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))
 		r.Get("/reddit/post", handler.GetRedditPost(sess, redditAuth))
+		r.Post("/reddit/submit", handler.SubmitRedditPost(st, sess, redditAuth))
 
 		r.Route("/documents", func(r chi.Router) {
 			r.Get("/", handler.ListDocuments(st, sess))

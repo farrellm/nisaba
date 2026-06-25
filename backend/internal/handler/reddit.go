@@ -30,6 +30,11 @@ const redditUserAgent = "nisaba/1.0 (writing prompt importer)"
 type redditAuth struct {
 	clientID     string
 	clientSecret string
+	// username/password authenticate a script-app account for submitting posts
+	// (the password grant). They are optional: reading uses the app-only token
+	// above, submitting needs a user identity.
+	username string
+	password string
 
 	mu      sync.Mutex
 	token   string
@@ -109,13 +114,65 @@ type redditPost struct {
 
 // NewRedditAuth creates a shared OAuth token holder for the Reddit handlers, so
 // the listing and single-post endpoints reuse one cached application-only token.
-func NewRedditAuth(clientID, clientSecret string) *redditAuth {
-	return &redditAuth{clientID: clientID, clientSecret: clientSecret}
+// username/password are optional and only used to submit posts.
+func NewRedditAuth(clientID, clientSecret, username, password string) *redditAuth {
+	return &redditAuth{
+		clientID:     clientID,
+		clientSecret: clientSecret,
+		username:     username,
+		password:     password,
+	}
 }
 
 // configured reports whether Reddit credentials were supplied.
 func (a *redditAuth) configured() bool {
 	return a.clientID != "" && a.clientSecret != ""
+}
+
+// canSubmit reports whether the script-app account credentials needed to submit
+// a post (in addition to the app credentials) were supplied.
+func (a *redditAuth) canSubmit() bool {
+	return a.configured() && a.username != "" && a.password != ""
+}
+
+// userAccessToken fetches a fresh user-context OAuth token via the password
+// grant, authenticating as the configured script-app account. Unlike the
+// application-only token it is not cached: submissions are infrequent, and a
+// per-submit fetch avoids tangling with the cached app token (a.token).
+func (a *redditAuth) userAccessToken(ctx context.Context) (string, error) {
+	form := url.Values{
+		"grant_type": {"password"},
+		"username":   {a.username},
+		"password":   {a.password},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://www.reddit.com/api/v1/access_token", strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", err
+	}
+	req.SetBasicAuth(a.clientID, a.clientSecret)
+	req.Header.Set("User-Agent", redditUserAgent)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := redditClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("reddit token request returned %d", resp.StatusCode)
+	}
+
+	var body struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return "", err
+	}
+	if body.AccessToken == "" {
+		return "", fmt.Errorf("reddit token response missing access_token")
+	}
+	return body.AccessToken, nil
 }
 
 // ListRedditPosts fetches the newest posts from the logged-in user's configured
@@ -333,5 +390,110 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 			Title: data.Title,
 			URL:   "https://www.reddit.com" + data.Permalink,
 		})
+	}
+}
+
+// SubmitRedditPost publishes a self (text) post to the logged-in user's
+// configured subreddit as the script-app account (the password grant). Reading
+// uses an application-only token, which has no account identity and cannot
+// submit, so this needs REDDIT_USERNAME/PASSWORD in addition to the app
+// credentials and reports 503 when they're absent.
+func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := sess.UserID(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+		if !ra.canSubmit() {
+			writeError(w, http.StatusServiceUnavailable, "Reddit posting is not configured")
+			return
+		}
+
+		var body struct {
+			Title string `json:"title"`
+			Body  string `json:"body"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		title := strings.TrimSpace(body.Title)
+		if title == "" {
+			writeError(w, http.StatusBadRequest, "Missing title")
+			return
+		}
+
+		user, err := st.GetUser(r.Context(), id)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+
+		token, err := ra.userAccessToken(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+			return
+		}
+
+		form := url.Values{
+			"sr":       {user.Subreddit},
+			"kind":     {"self"},
+			"title":    {title},
+			"text":     {body.Body},
+			"api_type": {"json"},
+		}
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
+			"https://oauth.reddit.com/api/submit", strings.NewReader(form.Encode()))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not build request")
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("User-Agent", redditUserAgent)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+		resp, err := redditClient.Do(req)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "Could not reach Reddit")
+			return
+		}
+		defer resp.Body.Close()
+
+		switch resp.StatusCode {
+		case http.StatusOK:
+			// fall through to decode; Reddit reports logical errors in the body.
+		case http.StatusTooManyRequests:
+			writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
+			return
+		default:
+			writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", resp.StatusCode))
+			return
+		}
+
+		// On a 200 Reddit still reports validation failures (banned, rate limit,
+		// empty title, …) in json.errors as [code, message, field] triples.
+		var submitResp struct {
+			JSON struct {
+				Errors [][]string `json:"errors"`
+				Data   struct {
+					URL string `json:"url"`
+				} `json:"data"`
+			} `json:"json"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&submitResp); err != nil {
+			writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
+			return
+		}
+		if len(submitResp.JSON.Errors) > 0 {
+			msg := "Reddit rejected the post"
+			if e := submitResp.JSON.Errors[0]; len(e) >= 2 && e[1] != "" {
+				msg = e[1]
+			}
+			writeError(w, http.StatusBadRequest, msg)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"url": submitResp.JSON.Data.URL})
 	}
 }
