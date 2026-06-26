@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -100,7 +101,14 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
           Cancel
         </Button>
         <Button type="submit" variant="contained" disabled={submitting || !selected}>
-          {submitting ? 'Adding…' : 'Add block'}
+          {submitting ? (
+            <>
+              <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+              Adding…
+            </>
+          ) : (
+            'Add block'
+          )}
         </Button>
       </DialogActions>
     </Dialog>
