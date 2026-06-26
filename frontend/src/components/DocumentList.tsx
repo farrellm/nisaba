@@ -1,18 +1,15 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
   Box,
-  Chip,
   Container,
   Divider,
-  Link as MuiLink,
   MenuItem,
   Select,
   Typography,
   type SelectChangeEvent,
 } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
-import { timeAgo } from '../lib/relativeTime'
 import { fonts } from '../theme'
+import DocumentRow from './DocumentRow'
 import Masthead from './Masthead'
 import type { Document } from '../api/types'
 
@@ -121,55 +118,7 @@ export default function DocumentList({
             Loading…
           </Typography>
         ) : sorted && sorted.length > 0 ? (
-          sorted.map((doc) => (
-            <MuiLink
-              key={doc.id}
-              component={RouterLink}
-              to={`/documents/${doc.id}`}
-              underline="none"
-              color="inherit"
-              sx={{ display: 'block', '&:hover .doc-title': { color: 'primary.main' } }}
-            >
-              <Box sx={{ py: 1.75 }}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
-                  <Typography
-                    className="doc-title"
-                    sx={{ fontFamily: fonts.display, fontSize: '1.15rem', transition: 'color 120ms' }}
-                  >
-                    {doc.title || 'Untitled'}
-                  </Typography>
-                  <Box
-                    sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }}
-                  />
-                  <Typography
-                    sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}
-                  >
-                    {timeAgo(doc.updatedAt)}
-                  </Typography>
-                </Box>
-                {(doc.labels ?? []).length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
-                    {(doc.labels ?? []).map((label) => (
-                      <Chip
-                        key={label}
-                        label={label}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          fontFamily: fonts.mono,
-                          fontSize: '0.7rem',
-                          height: 20,
-                          color: 'text.secondary',
-                          borderColor: 'divider',
-                        }}
-                      />
-                    ))}
-                  </Box>
-                )}
-              </Box>
-              <Divider sx={{ borderStyle: 'dotted' }} />
-            </MuiLink>
-          ))
+          sorted.map((doc) => <DocumentRow key={doc.id} doc={doc} />)
         ) : (
           <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
             Nothing here yet.

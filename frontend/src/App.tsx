@@ -4,6 +4,7 @@ import IndexPage from './pages/IndexPage'
 import LoginPage from './pages/LoginPage'
 import CreateUserPage from './pages/CreateUserPage'
 import DocumentsPage from './pages/DocumentsPage'
+import LabelsPage from './pages/LabelsPage'
 import DocumentPage from './pages/DocumentPage'
 import AttributePage from './pages/AttributePage'
 import BlockAttributeDiffPage from './pages/BlockAttributeDiffPage'
@@ -29,6 +30,14 @@ export default function App() {
         element={
           <RequireAuth>
             <DocumentsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/labels"
+        element={
+          <RequireAuth>
+            <LabelsPage />
           </RequireAuth>
         }
       />
