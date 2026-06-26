@@ -255,6 +255,20 @@ func (s *Store) documentAttributes(ctx context.Context, documentID int64) (map[s
 // whether it exists. A missing document is indistinguishable from a missing key
 // (both return found=false) — callers needing existence checks must do them
 // separately.
+// GetDocumentTitle returns a document's title without loading the full aggregate.
+func (s *Store) GetDocumentTitle(ctx context.Context, documentID int64) (string, error) {
+	var title string
+	err := s.pool.QueryRow(ctx,
+		`SELECT title FROM documents WHERE id = $1`, documentID).Scan(&title)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return title, nil
+}
+
 func (s *Store) GetDocumentAttribute(ctx context.Context, documentID int64, key string) (string, bool, error) {
 	var value string
 	err := s.pool.QueryRow(ctx,

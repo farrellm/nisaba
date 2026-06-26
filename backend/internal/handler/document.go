@@ -137,7 +137,12 @@ func PublicDocumentAttribute(st *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "Could not load attribute")
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"value": value})
+		title, err := st.GetDocumentTitle(r.Context(), id)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusInternalServerError, "Could not load attribute")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"value": value, "title": title})
 	}
 }
 

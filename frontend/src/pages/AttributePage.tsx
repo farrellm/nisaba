@@ -3,7 +3,6 @@ import { Box, Typography } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import Markdown from '../components/Markdown'
-import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
 // AttributePage is a standalone, chrome-free view of a single document attribute
@@ -11,18 +10,27 @@ import { fonts } from '../theme'
 // to be opened in its own tab from DocumentAttributes.
 export default function AttributePage() {
   const { id, key = '' } = useParams()
-  usePageTitle(key || null)
 
   const [value, setValue] = useState<string | null>(null)
+  const [title, setTitle] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // The tab title is just the document title (no " · Nisaba" suffix), so set
+  // document.title directly rather than going through usePageTitle.
+  useEffect(() => {
+    if (title) document.title = title
+  }, [title])
+
   useEffect(() => {
     api
-      .get<{ value: string }>(
+      .get<{ value: string; title: string }>(
         `/api/public/documents/${id}/attributes/${encodeURIComponent(key)}`,
       )
-      .then((r) => setValue(r.value))
+      .then((r) => {
+        setValue(r.value)
+        setTitle(r.title)
+      })
       .catch(() => setError('Could not load this attribute.'))
       .finally(() => setLoaded(true))
   }, [id, key])
