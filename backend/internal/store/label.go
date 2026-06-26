@@ -2,11 +2,9 @@ package store
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/farrellm/nisaba/internal/model"
-	"github.com/jackc/pgx/v5"
 )
 
 // deleteOrphanLabelsSQL removes a user's labels that are no longer attached to any
@@ -59,84 +57,6 @@ func (s *Store) DeleteLabel(ctx context.Context, userID, id int64) error {
 		return ErrNotFound
 	}
 	return nil
-}
-
-// DeleteLabelByName removes a user's label by its name (cascading to its document
-// taggings), detaching it from every document at once. Scoping by user_id prevents
-// touching another user's label. Returns ErrNotFound if the name doesn't exist.
-func (s *Store) DeleteLabelByName(ctx context.Context, userID int64, name string) error {
-	ct, err := s.pool.Exec(ctx,
-		`DELETE FROM labels WHERE user_id = $1 AND name = $2`, userID, name)
-	if err != nil {
-		return err
-	}
-	if ct.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-// RenameLabel renames a user's label across every document at once. newName is
-// trimmed; an empty result is rejected with ErrEmptyName. When no label named
-// newName exists the row is renamed in place. When one already exists (a different
-// label), the two are merged: the old label's taggings are repointed onto the
-// existing label and the old row is deleted — merged is true in that case. Returns
-// ErrNotFound if oldName doesn't exist. Renaming a label to its own name is a no-op.
-func (s *Store) RenameLabel(ctx context.Context, userID int64, oldName, newName string) (merged bool, err error) {
-	newName = strings.TrimSpace(newName)
-	if newName == "" {
-		return false, ErrEmptyName
-	}
-	if oldName == newName {
-		return false, nil
-	}
-
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return false, err
-	}
-	defer tx.Rollback(ctx) //nolint:errcheck
-
-	var oldID int64
-	if err := tx.QueryRow(ctx,
-		`SELECT id FROM labels WHERE user_id = $1 AND name = $2`,
-		userID, oldName).Scan(&oldID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, ErrNotFound
-		}
-		return false, err
-	}
-
-	var newID int64
-	err = tx.QueryRow(ctx,
-		`SELECT id FROM labels WHERE user_id = $1 AND name = $2`,
-		userID, newName).Scan(&newID)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		// No collision: rename the row in place.
-		if _, err := tx.Exec(ctx,
-			`UPDATE labels SET name = $1 WHERE id = $2`, newName, oldID); err != nil {
-			return false, err
-		}
-	case err == nil:
-		// Collision: repoint the old label's taggings onto the existing label,
-		// then drop the old row.
-		merged = true
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO document_labels (document_id, label_id)
-			 SELECT document_id, $1 FROM document_labels WHERE label_id = $2
-			 ON CONFLICT DO NOTHING`,
-			newID, oldID); err != nil {
-			return false, err
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM labels WHERE id = $1`, oldID); err != nil {
-			return false, err
-		}
-	default:
-		return false, err
-	}
-
-	return merged, tx.Commit(ctx)
 }
 
 // AddDocumentLabel tags a document with a label. It is idempotent.

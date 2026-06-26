@@ -56,11 +56,7 @@ func main() {
 
 		r.Get("/modes", handler.ListModes())
 		r.Get("/models", handler.ListModels())
-		r.Route("/labels", func(r chi.Router) {
-			r.Get("/", handler.ListLabels(st, sess))
-			r.Put("/", handler.RenameLabel(st, sess))
-			r.Delete("/", handler.DeleteLabel(st, sess))
-		})
+		r.Get("/labels", handler.ListLabels(st, sess))
 		r.Get("/attribute-values", handler.ListAttributeValues(st, sess))
 		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret)
 		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))

@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -33,74 +31,6 @@ func ListLabels(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			names = append(names, l.Name)
 		}
 		writeJSON(w, http.StatusOK, names)
-	}
-}
-
-// RenameLabel renames one of the caller's labels across every document at once.
-// Body: {"name": <current>, "newName": <new>}. When a label already named newName
-// exists the two are merged (the response's "merged" flag is true); otherwise the
-// label is renamed in place. 400 on a blank newName, 404 when name doesn't exist.
-func RenameLabel(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := sess.UserID(r)
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "Not logged in")
-			return
-		}
-
-		var body struct {
-			Name    string `json:"name"`
-			NewName string `json:"newName"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeError(w, http.StatusBadRequest, "Invalid request body")
-			return
-		}
-
-		merged, err := st.RenameLabel(r.Context(), userID, body.Name, body.NewName)
-		switch {
-		case errors.Is(err, store.ErrEmptyName):
-			writeError(w, http.StatusBadRequest, "New label name cannot be empty")
-			return
-		case errors.Is(err, store.ErrNotFound):
-			writeError(w, http.StatusNotFound, "Label not found")
-			return
-		case err != nil:
-			writeError(w, http.StatusInternalServerError, "Could not rename label")
-			return
-		}
-
-		writeJSON(w, http.StatusOK, map[string]bool{"merged": merged})
-	}
-}
-
-// DeleteLabel removes one of the caller's labels, detaching it from every document
-// (the documents themselves are kept). The label is named via the ?name= query
-// param. 404 when the name doesn't exist.
-func DeleteLabel(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := sess.UserID(r)
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "Not logged in")
-			return
-		}
-
-		name := strings.TrimSpace(r.URL.Query().Get("name"))
-		if name == "" {
-			writeError(w, http.StatusBadRequest, "Missing label name")
-			return
-		}
-
-		switch err := st.DeleteLabelByName(r.Context(), userID, name); {
-		case errors.Is(err, store.ErrNotFound):
-			writeError(w, http.StatusNotFound, "Label not found")
-			return
-		case err != nil:
-			writeError(w, http.StatusInternalServerError, "Could not delete label")
-			return
-		}
-
-		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

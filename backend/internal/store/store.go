@@ -13,9 +13,6 @@ import (
 // ErrNotFound is returned when a query that expects to find a row finds none.
 var ErrNotFound = errors.New("store: not found")
 
-// ErrEmptyName is returned when an operation that needs a name is given a blank one.
-var ErrEmptyName = errors.New("store: empty name")
-
 // trimAttrs returns a copy of attrs with leading/trailing whitespace stripped
 // from every key and value. Applied by every attribute-write method so padded
 // values (e.g. response-parsed XML tags) never reach the database.
