@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { DocumentDetail } from '../api/types'
 import Markdown from '../components/Markdown'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
@@ -14,17 +13,19 @@ export default function AttributePage() {
   const { id, key = '' } = useParams()
   usePageTitle(key || null)
 
-  const [doc, setDoc] = useState<DocumentDetail | null>(null)
+  const [value, setValue] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     api
-      .get<DocumentDetail>(`/api/documents/${id}`)
-      .then(setDoc)
+      .get<{ value: string }>(
+        `/api/public/documents/${id}/attributes/${encodeURIComponent(key)}`,
+      )
+      .then((r) => setValue(r.value))
       .catch(() => setError('Could not load this attribute.'))
-  }, [id])
-
-  const value = doc?.attributes?.[key]
+      .finally(() => setLoaded(true))
+  }, [id, key])
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -34,7 +35,7 @@ export default function AttributePage() {
       >
         {error ? (
           <Notice>{error}</Notice>
-        ) : !doc ? null : value ? (
+        ) : !loaded ? null : value ? (
           <Markdown>{value}</Markdown>
         ) : (
           <Notice>No value for this attribute.</Notice>

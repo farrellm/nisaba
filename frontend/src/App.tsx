@@ -49,14 +49,7 @@ export default function App() {
           </RequireAuth>
         }
       />
-      <Route
-        path="/documents/:id/attributes/:key"
-        element={
-          <RequireAuth>
-            <AttributePage />
-          </RequireAuth>
-        }
-      />
+      <Route path="/documents/:id/attributes/:key" element={<AttributePage />} />
       <Route
         path="/documents/:id/blocks/:blockId/attributes/:key/diff"
         element={
