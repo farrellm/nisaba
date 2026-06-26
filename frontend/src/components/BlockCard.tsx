@@ -9,8 +9,10 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DataObjectIcon from '@mui/icons-material/DataObject'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import Difference from '@mui/icons-material/Difference'
@@ -52,6 +54,9 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   const [armed, setArmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [savingEditId, setSavingEditId] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [structured, setStructured] = useState<Set<number>>(() => {
     // The last block's newest response opens in the structured view by default.
@@ -75,7 +80,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   }
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
-  const busy = saving || copying || running || deleting || reparsingId !== null
+  const busy = saving || copying || running || deleting || reparsingId !== null || savingEditId !== null
 
   // Save/Copy share one treatment: a quiet muted icon, ringed in accent when the
   // block has uncommitted edits. The clean-state border is transparent (not
@@ -184,6 +189,34 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       setError(err instanceof ApiError ? err.message : 'Could not re-parse. Try again.')
     } finally {
       setReparsingId(null)
+    }
+  }
+
+  function startEdit(responseId: number, value: string) {
+    setError(null)
+    setEditingId(responseId)
+    setEditValue(value)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+  }
+
+  async function handleSaveEdit(responseId: number) {
+    setError(null)
+    setSavingEditId(responseId)
+    try {
+      const updated = await api.put<Block>(
+        `/api/documents/${block.documentId}/blocks/${block.id}/responses/${responseId}`,
+        { value: editValue },
+      )
+      onBlockUpdated(updated)
+      onAfterRun() // editing auto-reparses into the document's shared attributes
+      setEditingId(null)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+    } finally {
+      setSavingEditId(null)
     }
   }
 
@@ -390,46 +423,116 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                     {response.model || 'no model'}
                   </Typography>
                   <Box sx={{ flexGrow: 1 }} />
-                  <Tooltip title={structured.has(response.id) ? 'Raw view' : 'Structured view'}>
-                    <span>
-                      <IconButton
-                        size="small"
-                        aria-label={structured.has(response.id) ? 'Show raw response' : 'Show structured response'}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          toggleStructured(response.id)
-                        }}
-                        sx={{
-                          color: structured.has(response.id) ? 'primary.main' : 'text.disabled',
-                          '&:hover': { color: 'primary.main' },
-                        }}
-                      >
-                        <DataObjectIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Re-parse into document attributes">
-                    <span>
-                      <IconButton
-                        size="small"
-                        disabled={busy}
-                        aria-label="Re-parse response into document attributes"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          handleReparse(response.id)
-                        }}
-                        sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                      >
-                        {reparsingId === response.id ? (
-                          <CircularProgress size={18} />
-                        ) : (
-                          <ReplayIcon fontSize="small" />
-                        )}
-                      </IconButton>
-                    </span>
-                  </Tooltip>
+                  {editingId === response.id ? (
+                    <>
+                      <Tooltip title="Save edit">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={busy}
+                            aria-label="Save edited response"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleSaveEdit(response.id)
+                            }}
+                            sx={editActionSx(editValue !== response.value)}
+                          >
+                            {savingEditId === response.id ? (
+                              <CircularProgress size={18} />
+                            ) : (
+                              <SaveOutlinedIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Cancel edit">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={busy}
+                            aria-label="Cancel editing response"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              cancelEdit()
+                            }}
+                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </>
+                  ) : (
+                    <>
+                      <Tooltip title={structured.has(response.id) ? 'Raw view' : 'Structured view'}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            aria-label={structured.has(response.id) ? 'Show raw response' : 'Show structured response'}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              toggleStructured(response.id)
+                            }}
+                            sx={{
+                              color: structured.has(response.id) ? 'primary.main' : 'text.disabled',
+                              '&:hover': { color: 'primary.main' },
+                            }}
+                          >
+                            <DataObjectIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Edit response">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={busy}
+                            aria-label="Edit response"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              startEdit(response.id, response.value)
+                            }}
+                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                          >
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Re-parse into document attributes">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={busy}
+                            aria-label="Re-parse response into document attributes"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleReparse(response.id)
+                            }}
+                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                          >
+                            {reparsingId === response.id ? (
+                              <CircularProgress size={18} />
+                            ) : (
+                              <ReplayIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </>
+                  )}
                 </Box>
-                {structured.has(response.id) ? (
+                {editingId === response.id ? (
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={6}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    InputProps={{
+                      sx: { fontFamily: fonts.mono, fontSize: '0.85rem' },
+                    }}
+                  />
+                ) : structured.has(response.id) ? (
                   <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
                     {parseResponseSegments(response.value).map((seg, segIdx) =>
                       seg.kind === 'text' ? (
