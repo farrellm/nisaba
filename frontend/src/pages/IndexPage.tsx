@@ -34,6 +34,9 @@ export default function IndexPage() {
           <Button component={RouterLink} to="/documents" variant="contained" size="large">
             Documents
           </Button>
+          <Button component={RouterLink} to="/labels" variant="outlined" size="large">
+            Labels
+          </Button>
           <Button component={RouterLink} to="/archive" variant="outlined" size="large">
             Archive
           </Button>
