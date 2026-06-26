@@ -236,6 +236,18 @@ func redditPostPath(raw string) (path string, ok bool) {
 			return "", false
 		}
 	}
+
+	// Reject paths with encoded dots or slashes which might bypass traversal checks
+	// depending on how the upstream server normalizes the path.
+	// Check both Path (for double-encoding resolved to single-encoding) and
+	// RawPath (for single-encoding preserved raw).
+	lowerPath := strings.ToLower(parsed.Path)
+	lowerRawPath := strings.ToLower(parsed.RawPath)
+	if strings.Contains(lowerPath, "%2e") || strings.Contains(lowerPath, "%2f") ||
+		strings.Contains(lowerRawPath, "%2e") || strings.Contains(lowerRawPath, "%2f") {
+		return "", false
+	}
+
 	// Use the escaped path so reserved characters survive the round-trip.
 	return strings.TrimRight(parsed.EscapedPath(), "/"), true
 }
