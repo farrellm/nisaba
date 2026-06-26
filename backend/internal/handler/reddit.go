@@ -231,7 +231,19 @@ func redditPostPath(raw string) (path string, ok bool) {
 	if !strings.Contains(parsed.Path, "/comments/") {
 		return "", false
 	}
-	for _, seg := range strings.Split(parsed.Path, "/") {
+
+	decoded := strings.ToLower(parsed.EscapedPath())
+	for {
+		next := strings.ReplaceAll(decoded, "%2f", "/")
+		next = strings.ReplaceAll(next, "%2e", ".")
+		next = strings.ReplaceAll(next, "%25", "%")
+		if next == decoded {
+			break
+		}
+		decoded = next
+	}
+
+	for _, seg := range strings.Split(decoded, "/") {
 		if seg == "." || seg == ".." {
 			return "", false
 		}
