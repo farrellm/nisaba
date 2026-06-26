@@ -27,9 +27,14 @@ func TestParseTopLevelTags(t *testing.T) {
 			want: map[string]string{"outer": "<inner>x</inner>"},
 		},
 		{
-			name: "same-name nesting matches outermost close",
+			name: "repeated same-name open implicitly closes the first",
 			in:   "<a>1<a>2</a>3</a>",
-			want: map[string]string{"a": "1<a>2</a>3"},
+			want: map[string]string{"a": "2"},
+		},
+		{
+			name: "two opens one close (truncated/garbled close) splits into siblings",
+			in:   "<a>one<a>two</a>",
+			want: map[string]string{"a": "two"},
 		},
 		{
 			name: "surrounding and interleaved text ignored",

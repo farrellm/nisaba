@@ -8,7 +8,10 @@ import "strings"
 // tag's value (we never recurse). Opening-tag attributes are ignored for the
 // key. Self-closing tags and empty bodies yield an empty-string value. Text
 // outside any tag is ignored. When the same top-level name appears more than
-// once, the last occurrence wins. A top-level tag that is never closed (e.g. a
+// once, the last occurrence wins. A repeated opening tag of the same name (e.g.
+// a model that writes <x> again where it meant </x>) implicitly closes the open
+// tag right before the second open, so each becomes its own top-level tag rather
+// than one nesting the other. A top-level tag that is never closed (e.g. a
 // truncated response) is auto-closed at end of string, taking the rest of the
 // text as its value.
 //
@@ -80,12 +83,16 @@ func applyRenames(updates map[string]string, renames map[string]string) {
 	}
 }
 
-// findMatchingClose returns the index where the closing tag for name begins and
-// the index just past that closing tag, starting the search at from. It counts
-// nested start tags of the same name so the outermost close is matched. Returns
-// (-1, -1) when no matching close exists.
+// findMatchingClose returns the index where the closing tag for name ends and
+// the index just past that close, starting the search at from. It returns on the
+// first same-name boundary: a real closing tag </name>, or a repeated opening
+// tag <name> (not self-closing), which forces an implicit close right before that
+// second open — so unbalanced "two opens, one close" input degrades into two
+// sibling tags rather than one runaway unclosed tag. For an implicit close both
+// returned indices are the position of the second open's '<', so the caller
+// re-parses it as a fresh element. Self-closing same-name tags are treated as
+// body content and skipped. Returns (-1, -1) when no boundary exists.
 func findMatchingClose(s string, from int, name string) (int, int) {
-	depth := 0
 	i := from
 	for i < len(s) {
 		lt := strings.IndexByte(s[i:], '<')
@@ -102,14 +109,13 @@ func findMatchingClose(s string, from int, name string) (int, int) {
 
 		if strings.HasPrefix(inner, "/") {
 			if tagName(inner[1:]) == name {
-				if depth == 0 {
-					return i, tagEnd + 1
-				}
-				depth--
+				return i, tagEnd + 1
 			}
 		} else if isNameStart(byteAt(inner, 0)) && tagName(inner) == name &&
 			!strings.HasSuffix(strings.TrimSpace(inner), "/") {
-			depth++
+			// Repeated open of the same name: implicitly close just before it and
+			// let the caller re-parse this open as a new element.
+			return i, i
 		}
 		i = tagEnd + 1
 	}
