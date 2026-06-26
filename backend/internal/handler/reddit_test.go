@@ -62,6 +62,16 @@ func TestRedditPostPath(t *testing.T) {
 			in:     "https://reddit.com/r/x/comments/abc123/./t",
 			wantOK: false,
 		},
+		{
+			name:   "double encoded traversal",
+			in:     "https://reddit.com/r/x/comments/abc123/t/%252e%252e/%252e%252e/api/v1/me",
+			wantOK: false,
+		},
+		{
+			name:   "encoded slash",
+			in:     "https://reddit.com/r/x/comments/abc123/t/..%2f..%2fapi/v1/me",
+			wantOK: false,
+		},
 	}
 
 	for _, tt := range tests {
