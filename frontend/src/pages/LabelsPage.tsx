@@ -23,7 +23,7 @@ import { fonts } from '../theme'
 
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 const newestFirst = (a: Document, b: Document) =>
-  new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  b.updatedAt < a.updatedAt ? -1 : b.updatedAt > a.updatedAt ? 1 : 0
 
 // LabelsPage is the writer's index: one section per label, every document carrying
 // it listed beneath (archived ones marked), with per-label rename and delete. Labels
