@@ -7,7 +7,8 @@
 // the text between/around tags (the backend builds an attribute map and drops
 // non-tag text), and it keeps duplicate tag names (the backend's "last wins"
 // only matters for attributes). Like the backend, it degrades gracefully on
-// malformed input rather than using a strict XML parser.
+// malformed input rather than using a strict XML parser — including treating a
+// repeated same-name opening tag as an implicit close before the second open.
 
 export type ResponseSegment =
   | { kind: 'text'; text: string }
@@ -73,11 +74,14 @@ export function parseResponseSegments(s: string): ResponseSegment[] {
   return out
 }
 
-// findMatchingClose returns the index where the closing tag for name begins and
-// the index just past it, starting at from. It counts nested same-name start
-// tags so the outermost close is matched. Returns -1 when no close exists.
+// findMatchingClose returns the index where the closing tag for name ends and
+// the index just past it, starting at from. It returns on the first same-name
+// boundary: a real closing tag </name>, or a repeated opening tag <name> (not
+// self-closing), which forces an implicit close right before that second open
+// (both indices point at the second open's '<', so the caller re-parses it as a
+// fresh element). Self-closing same-name tags are treated as body and skipped.
+// Returns null when no boundary exists.
 function findMatchingClose(s: string, from: number, name: string): { start: number; after: number } | null {
-  let depth = 0
   let i = from
   while (i < s.length) {
     const lt = s.indexOf('<', i)
@@ -88,12 +92,10 @@ function findMatchingClose(s: string, from: number, name: string): { start: numb
     const inner = s.slice(i + 1, gt)
 
     if (inner.startsWith('/')) {
-      if (tagName(inner.slice(1)) === name) {
-        if (depth === 0) return { start: i, after: gt + 1 }
-        depth--
-      }
+      if (tagName(inner.slice(1)) === name) return { start: i, after: gt + 1 }
     } else if (isNameStart(inner[0] ?? '') && tagName(inner) === name && !inner.trim().endsWith('/')) {
-      depth++
+      // Repeated open of the same name: implicitly close just before it.
+      return { start: i, after: i }
     }
     i = gt + 1
   }
