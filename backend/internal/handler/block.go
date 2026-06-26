@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -302,25 +303,10 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		// Feed the result back into the document's shared key/values. Top-level
-		// XML tags in the response each populate a document attribute (any tag
-		// name; nested tags stay verbatim in the value). When the mode declares
-		// an output key, the full response is also saved under it — set last so
-		// it wins over a same-named tag.
-		updates := parseTopLevelTags(output)
-		applyRenames(updates, m.Renames)
-		if m.Output != "" {
-			updates[m.Output] = output
-		}
-		if len(updates) > 0 {
-			if err := st.MergeDocumentAttributes(r.Context(), doc.ID, updates); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
-				return
-			}
-			if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
-				return
-			}
+		// Feed the result back into the document's shared key/values.
+		if err := reparseInto(r.Context(), st, doc, m, output); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update document")
+			return
 		}
 
 		hydrated, err := st.GetBlock(r.Context(), block.ID)
@@ -330,6 +316,27 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, hydrated)
 	}
+}
+
+// reparseInto re-derives a document's shared attributes from a response's text:
+// top-level XML tags each populate an attribute (any tag name; nested tags stay
+// verbatim in the value), the mode's output key (when set) wins over a same-named
+// tag, and the merged result is written back to the document.
+func reparseInto(ctx context.Context, st *store.Store, doc model.Document, m mode.Mode, output string) error {
+	updates := parseTopLevelTags(output)
+	applyRenames(updates, m.Renames)
+	if m.Output != "" {
+		updates[m.Output] = output
+	}
+	if len(updates) > 0 {
+		if err := st.MergeDocumentAttributes(ctx, doc.ID, updates); err != nil {
+			return err
+		}
+		if _, err := st.UpdateDocument(ctx, doc); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ReparseResponse re-runs only the parse + merge step against an existing
@@ -373,23 +380,76 @@ func ReparseResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		// Re-derive the document's shared key/values from this response. Same
-		// merge semantics as RunBlock: top-level XML tags each populate a
-		// document attribute and the mode's output key (when set) wins.
-		updates := parseTopLevelTags(output)
-		applyRenames(updates, m.Renames)
-		if m.Output != "" {
-			updates[m.Output] = output
+		// Re-derive the document's shared key/values from this response.
+		if err := reparseInto(r.Context(), st, doc, m, output); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update document")
+			return
 		}
-		if len(updates) > 0 {
-			if err := st.MergeDocumentAttributes(r.Context(), doc.ID, updates); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
-				return
+
+		hydrated, err := st.GetBlock(r.Context(), block.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load block")
+			return
+		}
+		writeJSON(w, http.StatusOK, hydrated)
+	}
+}
+
+// UpdateResponse replaces the text of an existing response named by {responseId}
+// and re-derives the document's shared attributes from the new text (same merge
+// as RunBlock/ReparseResponse), so editing a response keeps the document
+// consistent without re-running the model.
+func UpdateResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, ok := ownedDocument(w, r, st, sess)
+		if !ok {
+			return
+		}
+		block, ok := findBlock(w, r, doc)
+		if !ok {
+			return
+		}
+
+		m, ok := mode.Get(block.Mode)
+		if !ok {
+			writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
+			return
+		}
+
+		responseID, err := strconv.ParseInt(chi.URLParam(r, "responseId"), 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid response id")
+			return
+		}
+		found := false
+		for _, resp := range block.Responses {
+			if resp.ID == responseID {
+				found = true
+				break
 			}
-			if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
-				return
-			}
+		}
+		if !found {
+			writeError(w, http.StatusNotFound, "Response not found")
+			return
+		}
+
+		var body struct {
+			Value string `json:"value"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		if err := st.UpdateResponse(r.Context(), model.Response{ID: responseID, Value: body.Value}); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update response")
+			return
+		}
+
+		// Re-derive the document's shared key/values from the edited text.
+		if err := reparseInto(r.Context(), st, doc, m, body.Value); err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not update document")
+			return
 		}
 
 		hydrated, err := st.GetBlock(r.Context(), block.ID)

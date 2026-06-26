@@ -38,6 +38,20 @@ func (s *Store) ListResponses(ctx context.Context, blockID int64) ([]model.Respo
 	return responses, rows.Err()
 }
 
+// UpdateResponse replaces a response's text. The value is stored raw (no
+// trimming), matching CreateResponse.
+func (s *Store) UpdateResponse(ctx context.Context, r model.Response) error {
+	ct, err := s.pool.Exec(ctx,
+		`UPDATE responses SET value = $2 WHERE id = $1`, r.ID, r.Value)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // DeleteResponse removes a response.
 func (s *Store) DeleteResponse(ctx context.Context, id int64) error {
 	ct, err := s.pool.Exec(ctx, `DELETE FROM responses WHERE id = $1`, id)
