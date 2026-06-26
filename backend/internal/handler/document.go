@@ -120,6 +120,27 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	}
 }
 
+// PublicDocumentAttribute returns a single document attribute value without
+// requiring authentication, for the chrome-free markdown view. Access is open by
+// document id (ids are sequential and guessable — by design). Returns an empty
+// value when the document or key does not exist, so it never leaks existence.
+func PublicDocumentAttribute(st *store.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "Invalid document id")
+			return
+		}
+		key := chi.URLParam(r, "key")
+		value, _, err := st.GetDocumentAttribute(r.Context(), id, key)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not load attribute")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"value": value})
+	}
+}
+
 type updateDocument struct {
 	SelectedModel *string            `json:"selectedModel"`
 	Attributes    *map[string]string `json:"attributes"`

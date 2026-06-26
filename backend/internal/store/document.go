@@ -251,6 +251,24 @@ func (s *Store) documentAttributes(ctx context.Context, documentID int64) (map[s
 	return attrs, rows.Err()
 }
 
+// GetDocumentAttribute returns the value of a single document attribute, and
+// whether it exists. A missing document is indistinguishable from a missing key
+// (both return found=false) — callers needing existence checks must do them
+// separately.
+func (s *Store) GetDocumentAttribute(ctx context.Context, documentID int64, key string) (string, bool, error) {
+	var value string
+	err := s.pool.QueryRow(ctx,
+		`SELECT value FROM document_attributes WHERE document_id = $1 AND key = $2`,
+		documentID, key).Scan(&value)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return value, true, nil
+}
+
 // documentLabelNames loads the names of the labels a document is tagged with.
 func (s *Store) documentLabelNames(ctx context.Context, documentID int64) ([]string, error) {
 	rows, err := s.pool.Query(ctx,

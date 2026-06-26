@@ -62,6 +62,7 @@ func main() {
 			r.Delete("/", handler.DeleteLabel(st, sess))
 		})
 		r.Get("/attribute-values", handler.ListAttributeValues(st, sess))
+		r.Get("/public/documents/{id}/attributes/{key}", handler.PublicDocumentAttribute(st))
 		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret)
 		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))
 		r.Get("/reddit/post", handler.GetRedditPost(sess, redditAuth))
