@@ -130,36 +130,42 @@ export default function DocumentList({
               color="inherit"
               sx={{ display: 'block', '&:hover .doc-title': { color: 'primary.main' } }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, py: 1.75 }}>
-                <Typography
-                  className="doc-title"
-                  sx={{ fontFamily: fonts.display, fontSize: '1.15rem', transition: 'color 120ms' }}
-                >
-                  {doc.title || 'Untitled'}
-                </Typography>
-                {(doc.labels ?? []).map((label) => (
-                  <Chip
-                    key={label}
-                    label={label}
-                    size="small"
-                    variant="outlined"
-                    sx={{
-                      fontFamily: fonts.mono,
-                      fontSize: '0.7rem',
-                      height: 20,
-                      color: 'text.secondary',
-                      borderColor: 'divider',
-                    }}
+              <Box sx={{ py: 1.75 }}>
+                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+                  <Typography
+                    className="doc-title"
+                    sx={{ fontFamily: fonts.display, fontSize: '1.15rem', transition: 'color 120ms' }}
+                  >
+                    {doc.title || 'Untitled'}
+                  </Typography>
+                  <Box
+                    sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }}
                   />
-                ))}
-                <Box
-                  sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }}
-                />
-                <Typography
-                  sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}
-                >
-                  {timeAgo(doc.updatedAt)}
-                </Typography>
+                  <Typography
+                    sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}
+                  >
+                    {timeAgo(doc.updatedAt)}
+                  </Typography>
+                </Box>
+                {(doc.labels ?? []).length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
+                    {(doc.labels ?? []).map((label) => (
+                      <Chip
+                        key={label}
+                        label={label}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontFamily: fonts.mono,
+                          fontSize: '0.7rem',
+                          height: 20,
+                          color: 'text.secondary',
+                          borderColor: 'divider',
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
               </Box>
               <Divider sx={{ borderStyle: 'dotted' }} />
             </MuiLink>
