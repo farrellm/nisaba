@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -278,7 +279,14 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
           Cancel
         </Button>
         <Button onClick={handleSave} variant="contained" disabled={submitting}>
-          {submitting ? 'Saving…' : 'Save'}
+          {submitting ? (
+            <>
+              <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+              Saving…
+            </>
+          ) : (
+            'Save'
+          )}
         </Button>
       </DialogActions>
     </Dialog>
