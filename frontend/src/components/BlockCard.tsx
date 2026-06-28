@@ -174,9 +174,10 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
             `/api/documents/${block.documentId}/blocks/${block.id}/run`,
             { attributes: values },
           )
-      // A freshly run response opens in the structured view by default.
+      // A freshly run response opens in the structured view by default — except
+      // for streamed runs, which stay in the raw view the user just watched.
       const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
-      if (fresh) setStructured((prev) => new Set(prev).add(fresh.id))
+      if (fresh && !user?.streamingEnabled) setStructured((prev) => new Set(prev).add(fresh.id))
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
