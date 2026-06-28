@@ -7,8 +7,9 @@ import "time"
 
 // User owns documents and labels. The stored password hash is never serialized.
 type User struct {
-	ID        int64     `json:"id"`
-	Username  string    `json:"username"`
-	CreatedAt time.Time `json:"createdAt"`
-	Subreddit string    `json:"subreddit"`
+	ID               int64     `json:"id"`
+	Username         string    `json:"username"`
+	CreatedAt        time.Time `json:"createdAt"`
+	Subreddit        string    `json:"subreddit"`
+	StreamingEnabled bool      `json:"streamingEnabled"`
 }

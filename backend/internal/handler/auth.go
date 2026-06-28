@@ -130,8 +130,10 @@ func Logout(sess *auth.Sessions) http.HandlerFunc {
 	}
 }
 
-// UpdateMe updates the logged-in user's settings (currently the subreddit) and
-// returns the refreshed user.
+// UpdateMe updates the logged-in user's settings and returns the refreshed user.
+// Body fields are optional pointers, each applied only when present, so a caller
+// can update one setting (e.g. the streaming toggle in the app menu) without
+// clobbering the others.
 func UpdateMe(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := sess.UserID(r)
@@ -141,28 +143,52 @@ func UpdateMe(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		var body struct {
-			Subreddit string `json:"subreddit"`
+			Subreddit        *string `json:"subreddit"`
+			StreamingEnabled *bool   `json:"streamingEnabled"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
 
-		subreddit := strings.TrimSpace(body.Subreddit)
-		if subreddit == "" {
-			subreddit = defaultSubreddit
-		} else if !subredditPattern.MatchString(subreddit) {
-			writeError(w, http.StatusBadRequest, "Invalid subreddit")
-			return
-		}
-
-		user, err := st.UpdateUserSubreddit(r.Context(), id, subreddit)
-		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusUnauthorized, "Not logged in")
+		// Validate up front so a bad subreddit doesn't half-apply a multi-field
+		// update.
+		var subreddit string
+		if body.Subreddit != nil {
+			subreddit = strings.TrimSpace(*body.Subreddit)
+			if subreddit == "" {
+				subreddit = defaultSubreddit
+			} else if !subredditPattern.MatchString(subreddit) {
+				writeError(w, http.StatusBadRequest, "Invalid subreddit")
 				return
 			}
-			writeError(w, http.StatusInternalServerError, "Could not update settings")
+		}
+
+		notFound := func(err error) bool {
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, http.StatusUnauthorized, "Not logged in")
+				return true
+			}
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "Could not update settings")
+				return true
+			}
+			return false
+		}
+
+		if body.Subreddit != nil {
+			if _, err := st.UpdateUserSubreddit(r.Context(), id, subreddit); notFound(err) {
+				return
+			}
+		}
+		if body.StreamingEnabled != nil {
+			if _, err := st.UpdateUserStreamingEnabled(r.Context(), id, *body.StreamingEnabled); notFound(err) {
+				return
+			}
+		}
+
+		user, err := st.GetUser(r.Context(), id)
+		if notFound(err) {
 			return
 		}
 		writeJSON(w, http.StatusOK, user)

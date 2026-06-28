@@ -6,6 +6,7 @@ export interface User {
   username: string
   createdAt: string
   subreddit: string
+  streamingEnabled: boolean
 }
 
 interface AuthContextValue {

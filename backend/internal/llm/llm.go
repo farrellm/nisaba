@@ -134,10 +134,14 @@ func clientFor(id string) (provider.LanguageModel, error) {
 // which is how cache control (Anthropic cache_control) is enabled per-model so the
 // multi-step loop doesn't pay to re-send the prompt each step. With no tools it
 // does a single generation.
-func generate(ctx context.Context, model, system, prompt string, tools []Tool) (*goai.TextResult, error) {
+// buildCall resolves the provider client and assembles the GoAI options shared
+// by the buffered (generate) and streaming (GenerateStream) paths: system +
+// prompt, plus the model's provider options, plus the tool loop (tools,
+// max-steps, tool-only provider options) when tools are attached.
+func buildCall(model, system, prompt string, tools []Tool) (provider.LanguageModel, []goai.Option, error) {
 	client, err := clientFor(model)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	m, _ := lookup(model) // unknown id already rejected by clientFor above
 
@@ -158,6 +162,14 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	}
 	if len(provOpts) > 0 {
 		opts = append(opts, goai.WithProviderOptions(provOpts))
+	}
+	return client, opts, nil
+}
+
+func generate(ctx context.Context, model, system, prompt string, tools []Tool) (*goai.TextResult, error) {
+	client, opts, err := buildCall(model, system, prompt, tools)
+	if err != nil {
+		return nil, err
 	}
 
 	res, err := goai.GenerateText(ctx, client, opts...)
@@ -188,6 +200,34 @@ func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 		return "", err
 	}
 	return combineSteps(res), nil
+}
+
+// GenerateStream is the streaming sibling of Generate. It pushes the model's
+// text to onDelta as it arrives (text only — no <thinking>/tool framing), then
+// returns the same combined per-step output Generate would (via combineSteps on
+// the final result), so the value persisted by the caller is identical whether
+// or not streaming was used. onDelta is called synchronously from this
+// goroutine; the caller decides what to do with each chunk (e.g. flush it to an
+// HTTP client).
+func GenerateStream(ctx context.Context, model, system, prompt string, tools []Tool, onDelta func(string)) (string, error) {
+	client, opts, err := buildCall(model, system, prompt, tools)
+	if err != nil {
+		return "", err
+	}
+
+	ts, err := goai.StreamText(ctx, client, opts...)
+	if err != nil {
+		return "", err
+	}
+	for delta := range ts.TextStream() {
+		if onDelta != nil {
+			onDelta(delta)
+		}
+	}
+	if err := ts.Err(); err != nil {
+		return "", err
+	}
+	return combineSteps(ts.Result()), nil
 }
 
 // combineSteps joins every generation step's output in order. For each step the
