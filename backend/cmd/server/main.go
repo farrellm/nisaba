@@ -10,10 +10,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/cors"
 
+	"golang.org/x/time/rate"
+
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/config"
 	"github.com/farrellm/nisaba/internal/db"
 	"github.com/farrellm/nisaba/internal/handler"
+	appmiddleware "github.com/farrellm/nisaba/internal/middleware"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/store"
 )
@@ -47,8 +50,9 @@ func main() {
 		r.Get("/healthz", handler.Health(pool))
 
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", handler.Register(st, sess))
-			r.Post("/login", handler.Login(st, sess))
+			// Limit auth endpoints to 5 req/min, burst 10
+			r.With(appmiddleware.RateLimit(rate.Limit(5.0/60.0), 10)).Post("/register", handler.Register(st, sess))
+			r.With(appmiddleware.RateLimit(rate.Limit(5.0/60.0), 10)).Post("/login", handler.Login(st, sess))
 			r.Post("/logout", handler.Logout(sess))
 			r.Get("/me", handler.Me(st, sess))
 			r.Put("/me", handler.UpdateMe(st, sess))
