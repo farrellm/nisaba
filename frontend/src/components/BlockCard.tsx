@@ -305,13 +305,6 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                   label={key}
                   value={`${value.slice(0, 40)}…`}
                   onClick={() => reveal(key)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      reveal(key)
-                    }
-                  }}
-                  inputProps={{ tabIndex: 0 }}
                   InputProps={{
                     readOnly: true,
                     endAdornment: (

@@ -68,7 +68,6 @@ export default function ModelSelector({ doc, onChange }: ModelSelectorProps) {
         displayEmpty
         disabled={saving}
         variant="standard"
-        inputProps={{ 'aria-label': 'Select model' }}
         sx={{ fontFamily: fonts.body, fontSize: '0.85rem', minWidth: 160 }}
       >
         <MenuItem value="" disabled>

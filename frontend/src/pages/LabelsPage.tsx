@@ -21,10 +21,6 @@ import Masthead from '../components/Masthead'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
-// ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
-// Improves alpha sort performance by ~100x for large label lists.
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
 const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 const newestFirst = (a: Document, b: Document) =>
   b.updatedAt < a.updatedAt ? -1 : b.updatedAt > a.updatedAt ? 1 : 0
@@ -62,7 +58,7 @@ export default function LabelsPage() {
       }
     }
     return [...byLabel.entries()]
-      .sort((a, b) => collator.compare(a[0], b[0]))
+      .sort((a, b) => a[0].localeCompare(b[0], undefined, { sensitivity: 'base' }))
       .map(([name, group]) => ({ name, docs: group.sort(newestFirst) }))
   }, [docs])
 

@@ -98,7 +98,6 @@ export default function DocumentList({
               size="small"
               variant="standard"
               disableUnderline
-              inputProps={{ 'aria-label': 'Sort documents' }}
               sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}
             >
               {sortOptions.map((o) => (

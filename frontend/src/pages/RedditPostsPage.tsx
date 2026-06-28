@@ -62,19 +62,7 @@ export default function RedditPostsPage() {
             <Box
               key={`${i}-${post.url}`}
               onClick={() => openPost(post)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  openPost(post)
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              sx={{
-                cursor: 'pointer',
-                '&:hover .post-title': { color: 'primary.main' },
-                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '2px', borderRadius: 1 }
-              }}
+              sx={{ cursor: 'pointer', '&:hover .post-title': { color: 'primary.main' } }}
             >
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, py: 1.75 }}>
                 <Typography

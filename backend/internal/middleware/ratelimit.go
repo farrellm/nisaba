@@ -3,7 +3,6 @@ package middleware
 import (
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,15 +16,6 @@ type visitor struct {
 
 // getIP extracts the remote IP from the request.
 func getIP(r *http.Request) string {
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip != "" {
-		// X-Forwarded-For can be a comma-separated list of IPs. The first one is the client.
-		if strings.Contains(ip, ",") {
-			ip = strings.Split(ip, ",")[0]
-		}
-		return strings.TrimSpace(ip)
-	}
-
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
@@ -63,10 +53,8 @@ func RateLimit(limit rate.Limit, burst int) func(http.Handler) http.Handler {
 			v, exists := visitors[ip]
 			if !exists {
 				limiter := rate.NewLimiter(limit, burst)
-				visitors[ip] = &visitor{limiter: limiter, lastSeen: time.Now()}
-				mu.Unlock()
-				next.ServeHTTP(w, r)
-				return
+				v = &visitor{limiter: limiter, lastSeen: time.Now()}
+				visitors[ip] = v
 			}
 
 			v.lastSeen = time.Now()
