@@ -21,6 +21,7 @@ import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api, ApiError } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import AuthorField from './AuthorField'
 import Markdown from './Markdown'
 import type { Block, Mode } from '../api/types'
@@ -47,10 +48,14 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
     for (const key of keys) seed[key] = block.attributes[key] ?? ''
     return seed
   })
+  const { user } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [copying, setCopying] = useState(false)
   const [running, setRunning] = useState(false)
+  // Transient text accumulated while a streamed run is in flight; null when not
+  // streaming. Rendered as a live preview until the final block replaces it.
+  const [streamingText, setStreamingText] = useState<string | null>(null)
   const [armed, setArmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
@@ -158,18 +163,27 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
     setError(null)
     setRunning(true)
     try {
-      const updated = await api.post<Block>(
-        `/api/documents/${block.documentId}/blocks/${block.id}/run`,
-        { attributes: values },
-      )
-      // A freshly run response opens in the structured view by default.
+      const updated = user?.streamingEnabled
+        ? await api.postStream<Block>(
+            `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
+            { attributes: values },
+            (text) => setStreamingText((prev) => (prev ?? '') + text),
+            'block',
+          )
+        : await api.post<Block>(
+            `/api/documents/${block.documentId}/blocks/${block.id}/run`,
+            { attributes: values },
+          )
+      // A freshly run response opens in the structured view by default — except
+      // for streamed runs, which stay in the raw view the user just watched.
       const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
-      if (fresh) setStructured((prev) => new Set(prev).add(fresh.id))
+      if (fresh && !user?.streamingEnabled) setStructured((prev) => new Set(prev).add(fresh.id))
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not run. Try again.')
     } finally {
+      setStreamingText(null)
       setRunning(false)
     }
   }
@@ -399,6 +413,30 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
             </span>
           </Tooltip>
         </Stack>
+
+        {streamingText !== null && (
+          <Box sx={{ mt: 3 }}>
+            <Typography
+              variant="overline"
+              sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem', display: 'block', mb: 1 }}
+            >
+              streaming…
+            </Typography>
+            <Typography
+              sx={{
+                fontFamily: fonts.mono,
+                fontSize: '0.85rem',
+                whiteSpace: 'pre-wrap',
+                bgcolor: 'action.hover',
+                borderRadius: 2,
+                p: 2,
+              }}
+            >
+              {streamingText}
+              <Box component="span" sx={{ opacity: 0.5 }}>▌</Box>
+            </Typography>
+          </Box>
+        )}
 
         {(block.responses ?? []).length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 3 }}>

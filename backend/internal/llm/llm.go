@@ -134,10 +134,14 @@ func clientFor(id string) (provider.LanguageModel, error) {
 // which is how cache control (Anthropic cache_control) is enabled per-model so the
 // multi-step loop doesn't pay to re-send the prompt each step. With no tools it
 // does a single generation.
-func generate(ctx context.Context, model, system, prompt string, tools []Tool) (*goai.TextResult, error) {
+// buildCall resolves the provider client and assembles the GoAI options shared
+// by the buffered (generate) and streaming (GenerateStream) paths: system +
+// prompt, plus the model's provider options, plus the tool loop (tools,
+// max-steps, tool-only provider options) when tools are attached.
+func buildCall(model, system, prompt string, tools []Tool) (provider.LanguageModel, []goai.Option, error) {
 	client, err := clientFor(model)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	m, _ := lookup(model) // unknown id already rejected by clientFor above
 
@@ -158,6 +162,14 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	}
 	if len(provOpts) > 0 {
 		opts = append(opts, goai.WithProviderOptions(provOpts))
+	}
+	return client, opts, nil
+}
+
+func generate(ctx context.Context, model, system, prompt string, tools []Tool) (*goai.TextResult, error) {
+	client, opts, err := buildCall(model, system, prompt, tools)
+	if err != nil {
+		return nil, err
 	}
 
 	res, err := goai.GenerateText(ctx, client, opts...)
@@ -190,6 +202,82 @@ func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	return combineSteps(res), nil
 }
 
+// thinkingOpen/thinkingClose frame a step's reasoning text. Shared by
+// combineSteps (the final, persisted value) and GenerateStream (the live
+// preview) so the two stay in sync.
+const (
+	thinkingOpen  = "<thinking>\n"
+	thinkingClose = "\n</thinking>\n"
+)
+
+// GenerateStream is the streaming sibling of Generate. It pushes the model's
+// reply to onDelta as it arrives and returns the same combined per-step output
+// Generate would (via combineSteps on the final result), so the value persisted
+// by the caller is identical whether or not streaming was used.
+//
+// It consumes GoAI's raw chunk stream (ts.Stream()) so reasoning streams live,
+// framed exactly like combineSteps: reasoning deltas are wrapped in
+// <thinking>…</thinking> (opened on the first reasoning token of a run, closed
+// when text or a tool call follows), text deltas are emitted as-is, and each
+// tool call the model requests is emitted as a <toolname>…</toolname> block.
+// GoAI still runs the automatic tool loop (WithMaxSteps) and executes tools
+// itself; we only observe the ChunkToolCall events for display, so the tool
+// *result* isn't shown live — it lands only in the final combineSteps value
+// that replaces the preview. Everything runs in this goroutine, so onDelta is
+// called sequentially with no locking.
+func GenerateStream(ctx context.Context, model, system, prompt string, tools []Tool, onDelta func(string)) (string, error) {
+	emit := func(s string) {
+		if onDelta != nil && s != "" {
+			onDelta(s)
+		}
+	}
+
+	client, opts, err := buildCall(model, system, prompt, tools)
+	if err != nil {
+		return "", err
+	}
+
+	ts, err := goai.StreamText(ctx, client, opts...)
+	if err != nil {
+		return "", err
+	}
+
+	inThinking := false
+	closeThinking := func() {
+		if inThinking {
+			emit(thinkingClose)
+			inThinking = false
+		}
+	}
+	for chunk := range ts.Stream() {
+		switch chunk.Type {
+		case provider.ChunkReasoning:
+			if chunk.Text == "" {
+				continue // trailing signature/metadata chunk carries no text
+			}
+			if !inThinking {
+				emit(thinkingOpen)
+				inThinking = true
+			}
+			emit(chunk.Text)
+		case provider.ChunkText:
+			closeThinking()
+			emit(chunk.Text)
+		case provider.ChunkToolCall:
+			// Mirror combineSteps' tool framing, minus the result (GoAI executes
+			// the tool after emitting this; the result lands in the final value).
+			closeThinking()
+			emit("<" + chunk.ToolName + ">\narguments: " + chunk.ToolInput + "\n</" + chunk.ToolName + ">\n")
+		}
+	}
+	closeThinking()
+
+	if err := ts.Err(); err != nil {
+		return "", err
+	}
+	return combineSteps(ts.Result()), nil
+}
+
 // combineSteps joins every generation step's output in order. For each step the
 // thinking (when present) is wrapped as "<thinking>\n…\n</thinking>\n", followed
 // by the step's text, followed by one block per tool call tagged with the tool
@@ -208,9 +296,9 @@ func combineSteps(res *goai.TextResult) string {
 			"cache_write_tokens", u.CacheWriteTokens,
 		)
 		if s.Reasoning != "" {
-			b.WriteString("<thinking>\n")
+			b.WriteString(thinkingOpen)
 			b.WriteString(s.Reasoning)
-			b.WriteString("\n</thinking>\n")
+			b.WriteString(thinkingClose)
 		}
 		b.WriteString(s.Text)
 		// Index this step's results by call ID so each call pairs with its own

@@ -16,9 +16,9 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string) (
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO users (username, password_hash)
 		 VALUES ($1, $2)
-		 RETURNING id, username, created_at, subreddit`,
+		 RETURNING id, username, created_at, subreddit, streaming_enabled`,
 		username, passwordHash,
-	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit)
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit, &u.StreamingEnabled)
 	return u, err
 }
 
@@ -26,8 +26,8 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string) (
 func (s *Store) GetUser(ctx context.Context, id int64) (model.User, error) {
 	var u model.User
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, username, created_at, subreddit FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit)
+		`SELECT id, username, created_at, subreddit, streaming_enabled FROM users WHERE id = $1`, id,
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit, &u.StreamingEnabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return u, ErrNotFound
 	}
@@ -40,9 +40,25 @@ func (s *Store) UpdateUserSubreddit(ctx context.Context, id int64, subreddit str
 	var u model.User
 	err := s.pool.QueryRow(ctx,
 		`UPDATE users SET subreddit = $2 WHERE id = $1
-		 RETURNING id, username, created_at, subreddit`,
+		 RETURNING id, username, created_at, subreddit, streaming_enabled`,
 		id, subreddit,
-	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit)
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit, &u.StreamingEnabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return u, ErrNotFound
+	}
+	return u, err
+}
+
+// UpdateUserStreamingEnabled sets whether the user wants streamed model
+// responses and returns the refreshed record, or ErrNotFound if no such user
+// exists.
+func (s *Store) UpdateUserStreamingEnabled(ctx context.Context, id int64, enabled bool) (model.User, error) {
+	var u model.User
+	err := s.pool.QueryRow(ctx,
+		`UPDATE users SET streaming_enabled = $2 WHERE id = $1
+		 RETURNING id, username, created_at, subreddit, streaming_enabled`,
+		id, enabled,
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit, &u.StreamingEnabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return u, ErrNotFound
 	}

@@ -1,20 +1,42 @@
 import { useState } from 'react'
-import { Divider, IconButton, ListItemText, Menu, MenuItem, Tooltip, Typography } from '@mui/material'
+import {
+  Divider,
+  IconButton,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Switch,
+  Tooltip,
+  Typography,
+} from '@mui/material'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
 // AccountMenu is the masthead's account dropdown: a generic more_vert button
 // that opens a menu holding the username, a Settings link, and Log out. Shared
 // by every page's masthead so the logout/navigation plumbing lives in one place.
 export default function AccountMenu() {
-  const { user, logout } = useAuth()
+  const { user, logout, refresh } = useAuth()
   const navigate = useNavigate()
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+  const [savingStreaming, setSavingStreaming] = useState(false)
   const open = Boolean(anchorEl)
 
   function close() {
     setAnchorEl(null)
+  }
+
+  async function toggleStreaming() {
+    if (savingStreaming) return
+    setSavingStreaming(true)
+    try {
+      await api.put('/api/auth/me', { streamingEnabled: !user?.streamingEnabled })
+      await refresh()
+    } finally {
+      setSavingStreaming(false)
+    }
   }
 
   function goToSettings() {
@@ -52,6 +74,16 @@ export default function AccountMenu() {
           {user?.username}
         </Typography>
         <Divider />
+        <MenuItem onClick={toggleStreaming} disabled={savingStreaming}>
+          <ListItemText>Streaming</ListItemText>
+          <Switch
+            edge="end"
+            size="small"
+            checked={user?.streamingEnabled ?? false}
+            tabIndex={-1}
+            disableRipple
+          />
+        </MenuItem>
         <MenuItem onClick={goToSettings}>
           <ListItemText>Settings</ListItemText>
         </MenuItem>

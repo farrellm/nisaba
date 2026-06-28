@@ -231,59 +231,8 @@ func CopyBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // before the run.
 func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, block, m, prompt, system, ok := prepareRun(w, r, st, sess)
 		if !ok {
-			return
-		}
-		block, ok := findBlock(w, r, doc)
-		if !ok {
-			return
-		}
-
-		m, ok := mode.Get(block.Mode)
-		if !ok {
-			writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
-			return
-		}
-
-		if doc.SelectedModel == "" {
-			writeError(w, http.StatusBadRequest, "No model selected")
-			return
-		}
-
-		// Save the caller's edits (empty body falls back to existing values) and
-		// promote them into the document's shared attributes before running.
-		var body updateBlock
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
-			writeError(w, http.StatusBadRequest, "Invalid request body")
-			return
-		}
-		attrs := mergedBlockAttrs(block, m, body.Attributes)
-		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update block")
-			return
-		}
-		if err := st.MergeDocumentAttributes(r.Context(), doc.ID, attrs); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update document")
-			return
-		}
-
-		// Resolve a per-user template override (falls back to the embedded
-		// default when the user has none); a lookup failure degrades gracefully.
-		username := ""
-		if u, err := st.GetUser(r.Context(), doc.UserID); err == nil {
-			username = u.Username
-		}
-
-		prompt, err := mustache.Render(mode.TemplateFor(username, m), attrs)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not render prompt")
-			return
-		}
-
-		system, err := mustache.Render(mode.SystemPrompt(username), attrs)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not render system prompt")
 			return
 		}
 
@@ -293,29 +242,155 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		if _, err := st.CreateResponse(r.Context(), model.Response{
-			BlockID:  block.ID,
-			Value:    output,
-			Model:    doc.SelectedModel,
-			Position: len(block.Responses),
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not save response")
-			return
-		}
-
-		// Feed the result back into the document's shared key/values.
-		if err := reparseInto(r.Context(), st, doc, m, output); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update document")
-			return
-		}
-
-		hydrated, err := st.GetBlock(r.Context(), block.ID)
+		hydrated, err := finishRun(r.Context(), st, doc, block, m, output)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load block")
+			writeError(w, http.StatusInternalServerError, "Could not save response")
 			return
 		}
 		writeJSON(w, http.StatusOK, hydrated)
 	}
+}
+
+// RunBlockStream is the streaming variant of RunBlock: it runs the model with
+// llm.GenerateStream and pushes the reply to the client as it arrives, framed as
+// newline-delimited JSON (NDJSON). Each line is one event:
+//
+//	{"type":"delta","text":"..."}   incremental text
+//	{"type":"error","message":"..."} terminal failure (after streaming began)
+//	{"type":"done","block":{...}}    the fully hydrated block, like RunBlock's body
+//
+// Setup/validation failures before streaming begins still use the normal JSON
+// error path (prepareRun); once the 200 NDJSON stream has started, errors can
+// only be reported as an "error" event.
+func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		doc, block, m, prompt, system, ok := prepareRun(w, r, st, sess)
+		if !ok {
+			return
+		}
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			writeError(w, http.StatusInternalServerError, "Streaming unsupported")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(http.StatusOK)
+
+		enc := json.NewEncoder(w)
+		writeEvent := func(v any) {
+			// Errors here mean the client went away; nothing useful to do but
+			// stop. The encoder appends the newline that delimits each event.
+			_ = enc.Encode(v)
+			flusher.Flush()
+		}
+
+		output, err := llm.GenerateStream(r.Context(), doc.SelectedModel, system, prompt, m.Tools,
+			func(delta string) {
+				writeEvent(map[string]string{"type": "delta", "text": delta})
+			})
+		if err != nil {
+			writeEvent(map[string]string{"type": "error", "message": "Model request failed"})
+			return
+		}
+
+		hydrated, err := finishRun(r.Context(), st, doc, block, m, output)
+		if err != nil {
+			writeEvent(map[string]string{"type": "error", "message": "Could not save response"})
+			return
+		}
+		writeEvent(map[string]any{"type": "done", "block": hydrated})
+	}
+}
+
+// prepareRun performs the shared setup for a block run: it confirms ownership,
+// resolves the mode and selected model, persists the caller's attribute edits
+// into both the block and the document, and renders the prompt + system prompt
+// (honoring per-user template overrides). On any failure it writes the
+// appropriate JSON error and returns ok=false.
+func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *auth.Sessions) (doc model.Document, block model.Block, m mode.Mode, prompt, system string, ok bool) {
+	doc, ok = ownedDocument(w, r, st, sess)
+	if !ok {
+		return
+	}
+	block, ok = findBlock(w, r, doc)
+	if !ok {
+		return
+	}
+
+	m, ok = mode.Get(block.Mode)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
+		return doc, block, m, "", "", false
+	}
+
+	if doc.SelectedModel == "" {
+		writeError(w, http.StatusBadRequest, "No model selected")
+		return doc, block, m, "", "", false
+	}
+
+	// Save the caller's edits (empty body falls back to existing values) and
+	// promote them into the document's shared attributes before running.
+	var body updateBlock
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return doc, block, m, "", "", false
+	}
+	attrs := mergedBlockAttrs(block, m, body.Attributes)
+	if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
+		writeError(w, http.StatusInternalServerError, "Could not update block")
+		return doc, block, m, "", "", false
+	}
+	if err := st.MergeDocumentAttributes(r.Context(), doc.ID, attrs); err != nil {
+		writeError(w, http.StatusInternalServerError, "Could not update document")
+		return doc, block, m, "", "", false
+	}
+
+	// Resolve a per-user template override (falls back to the embedded
+	// default when the user has none); a lookup failure degrades gracefully.
+	username := ""
+	if u, err := st.GetUser(r.Context(), doc.UserID); err == nil {
+		username = u.Username
+	}
+
+	prompt, err := mustache.Render(mode.TemplateFor(username, m), attrs)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Could not render prompt")
+		return doc, block, m, "", "", false
+	}
+
+	system, err = mustache.Render(mode.SystemPrompt(username), attrs)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Could not render system prompt")
+		return doc, block, m, "", "", false
+	}
+
+	return doc, block, m, prompt, system, true
+}
+
+// finishRun persists a completed model reply and feeds it back into the
+// document: it stores the response, reparses it into the document's shared
+// attributes, and returns the freshly hydrated block. Shared by RunBlock and
+// RunBlockStream.
+func finishRun(ctx context.Context, st *store.Store, doc model.Document, block model.Block, m mode.Mode, output string) (model.Block, error) {
+	if _, err := st.CreateResponse(ctx, model.Response{
+		BlockID:  block.ID,
+		Value:    output,
+		Model:    doc.SelectedModel,
+		Position: len(block.Responses),
+	}); err != nil {
+		return model.Block{}, err
+	}
+
+	// Feed the result back into the document's shared key/values.
+	if err := reparseInto(ctx, st, doc, m, output); err != nil {
+		return model.Block{}, err
+	}
+
+	return st.GetBlock(ctx, block.ID)
 }
 
 // reparseInto re-derives a document's shared attributes from a response's text:
