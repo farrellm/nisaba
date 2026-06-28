@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/zendev-sh/goai"
 	"github.com/zendev-sh/goai/provider"
@@ -202,27 +203,62 @@ func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	return combineSteps(res), nil
 }
 
+// thinkingOpen/thinkingClose frame a step's reasoning text. Shared by
+// combineSteps (the final, persisted value) and GenerateStream (the live
+// preview) so the two stay in sync.
+const (
+	thinkingOpen  = "<thinking>\n"
+	thinkingClose = "\n</thinking>\n"
+)
+
 // GenerateStream is the streaming sibling of Generate. It pushes the model's
-// text to onDelta as it arrives (text only — no <thinking>/tool framing), then
-// returns the same combined per-step output Generate would (via combineSteps on
-// the final result), so the value persisted by the caller is identical whether
-// or not streaming was used. onDelta is called synchronously from this
-// goroutine; the caller decides what to do with each chunk (e.g. flush it to an
-// HTTP client).
+// reply to onDelta as it arrives and returns the same combined per-step output
+// Generate would (via combineSteps on the final result), so the value persisted
+// by the caller is identical whether or not streaming was used.
+//
+// Text deltas stream live from ts.TextStream(); each step's reasoning and
+// tool-call tags are emitted from the WithOnStepFinish hook when the step
+// completes, framed like combineSteps. Tool *results* are not available live
+// (they run after the hook fires and GoAI doesn't stream them) — they appear
+// only in the final value. Because the hook runs in GoAI's goroutine,
+// concurrently with the text-stream drain in ours, onDelta is serialized
+// through a mutex; a step's thinking/tool block may therefore land after (or
+// interleaved with) that step's streamed text, but the final combineSteps value
+// that replaces it keeps the canonical order.
 func GenerateStream(ctx context.Context, model, system, prompt string, tools []Tool, onDelta func(string)) (string, error) {
+	var mu sync.Mutex
+	emit := func(s string) {
+		if onDelta == nil || s == "" {
+			return
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		onDelta(s)
+	}
+
+	hook := goai.WithOnStepFinish(func(step goai.StepResult) {
+		if step.Reasoning != "" {
+			emit(thinkingOpen + step.Reasoning + thinkingClose)
+		}
+		// Mirror combineSteps' tool framing, minus the result (empty here — tools
+		// execute after this hook fires).
+		for _, c := range step.ToolCalls {
+			emit("<" + c.Name + ">\narguments: " + string(c.Input) + "\n</" + c.Name + ">\n")
+		}
+	})
+
 	client, opts, err := buildCall(model, system, prompt, tools)
 	if err != nil {
 		return "", err
 	}
+	opts = append(opts, hook)
 
 	ts, err := goai.StreamText(ctx, client, opts...)
 	if err != nil {
 		return "", err
 	}
 	for delta := range ts.TextStream() {
-		if onDelta != nil {
-			onDelta(delta)
-		}
+		emit(delta)
 	}
 	if err := ts.Err(); err != nil {
 		return "", err
@@ -248,9 +284,9 @@ func combineSteps(res *goai.TextResult) string {
 			"cache_write_tokens", u.CacheWriteTokens,
 		)
 		if s.Reasoning != "" {
-			b.WriteString("<thinking>\n")
+			b.WriteString(thinkingOpen)
 			b.WriteString(s.Reasoning)
-			b.WriteString("\n</thinking>\n")
+			b.WriteString(thinkingClose)
 		}
 		b.WriteString(s.Text)
 		// Index this step's results by call ID so each call pairs with its own
