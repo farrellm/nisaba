@@ -7,3 +7,6 @@
 ## 2026-06-27 - String sorting optimization
 **Learning:** String.prototype.localeCompare initializes a new collator on every invocation when options are passed, which scales poorly in array sorting. Using a pre-initialized Intl.Collator is significantly faster.
 **Action:** Use a pre-initialized Intl.Collator module constant for repeated string comparisons, especially when sorting lists based on strings.
+## 2024-06-29 - [ListDocuments unconstrained label fetch]
+**Learning:** Using a user-scoped JOIN to fetch labels during pagination fetches unconstrained labels for all of a user's documents even those off-page, which degrades list performance for large archives.
+**Action:** Use ANY($1) on the fetched document IDs rather than the user ID to scope side-loading.

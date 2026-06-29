@@ -84,7 +84,15 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 		return nil, err
 	}
 
-	labels, err := s.labelsByDocument(ctx, userID)
+	if len(docs) == 0 {
+		return docs, nil
+	}
+
+	var docIDs []int64
+	for _, d := range docs {
+		docIDs = append(docIDs, d.ID)
+	}
+	labels, err := s.labelsForDocuments(ctx, docIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -101,16 +109,15 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 	return docs, nil
 }
 
-// labelsByDocument returns, for every document owned by the user, its label names
-// keyed by document id. Documents without labels are absent from the map.
-func (s *Store) labelsByDocument(ctx context.Context, userID int64) (map[int64][]string, error) {
+// labelsForDocuments returns label names keyed by document id for the given documents.
+// Documents without labels are absent from the map.
+func (s *Store) labelsForDocuments(ctx context.Context, documentIDs []int64) (map[int64][]string, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT dl.document_id, l.name
 		   FROM labels l
 		   JOIN document_labels dl ON dl.label_id = l.id
-		   JOIN documents d ON d.id = dl.document_id
-		  WHERE d.user_id = $1
-		  ORDER BY l.name`, userID)
+		  WHERE dl.document_id = ANY($1)
+		  ORDER BY l.name`, documentIDs)
 	if err != nil {
 		return nil, err
 	}
