@@ -47,6 +47,9 @@ func (s *Store) GetDocument(ctx context.Context, id int64) (model.Document, erro
 	if d.Labels, err = s.documentLabelNames(ctx, id); err != nil {
 		return d, err
 	}
+	if d.PostURLs, err = s.documentPostURLs(ctx, id); err != nil {
+		return d, err
+	}
 	if d.Blocks, err = s.documentBlocks(ctx, id); err != nil {
 		return d, err
 	}
@@ -91,6 +94,9 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 		} else {
 			docs[i].Labels = []string{}
 		}
+		// Summaries don't load post URLs; default to an empty slice so the JSON
+		// is [] rather than null.
+		docs[i].PostURLs = []string{}
 	}
 	return docs, nil
 }
@@ -305,4 +311,36 @@ func (s *Store) documentLabelNames(ctx context.Context, documentID int64) ([]str
 		names = append(names, name)
 	}
 	return names, rows.Err()
+}
+
+// AddDocumentPost records a post URL published from a document. Re-adding an
+// existing URL is a no-op (ON CONFLICT DO NOTHING), so retries don't error.
+func (s *Store) AddDocumentPost(ctx context.Context, documentID int64, url string) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO document_posts (document_id, url) VALUES ($1, $2)
+		 ON CONFLICT (document_id, url) DO NOTHING`,
+		documentID, url)
+	return err
+}
+
+// documentPostURLs loads a document's published post URLs, oldest first. It
+// always returns a non-nil slice so the JSON is [] rather than null.
+func (s *Store) documentPostURLs(ctx context.Context, documentID int64) ([]string, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT url FROM document_posts WHERE document_id = $1 ORDER BY created_at, url`,
+		documentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	urls := []string{}
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return nil, err
+		}
+		urls = append(urls, url)
+	}
+	return urls, rows.Err()
 }
