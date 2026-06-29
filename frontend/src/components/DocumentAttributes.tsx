@@ -149,7 +149,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                     component="a"
                     href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
                     target="_blank"
-                    rel="noopener"
+                    rel="noopener noreferrer"
                     aria-label={`View ${key} as markdown`}
                     size="small"
                     sx={{ mt: 1, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
