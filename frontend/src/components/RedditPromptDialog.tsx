@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -97,7 +98,14 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
             Cancel
           </Button>
           <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
-            {submitting ? 'Creating…' : 'Create'}
+            {submitting ? (
+              <>
+                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                Creating…
+              </>
+            ) : (
+              'Create'
+            )}
           </Button>
         </DialogActions>
       </form>

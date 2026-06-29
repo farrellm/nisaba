@@ -158,7 +158,14 @@ export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: Red
           </Button>
           {!posted && (
             <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
-              {submitting ? 'Posting…' : 'Post'}
+              {submitting ? (
+                <>
+                  <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                  Posting…
+                </>
+              ) : (
+                'Post'
+              )}
             </Button>
           )}
         </DialogActions>
