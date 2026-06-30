@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -76,7 +77,14 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
             Cancel
           </Button>
           <Button type="submit" variant="contained" disabled={loading || !url.trim()}>
-            {loading ? 'Loading…' : 'Continue'}
+            {loading ? (
+              <>
+                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                Loading…
+              </>
+            ) : (
+              'Continue'
+            )}
           </Button>
         </DialogActions>
       </form>
