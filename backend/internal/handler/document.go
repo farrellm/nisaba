@@ -74,9 +74,10 @@ func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		doc, err := st.CreateDocument(r.Context(), model.Document{
-			UserID: id,
-			Title:  title,
-			URL:    url,
+			UserID:        id,
+			Title:         title,
+			URL:           url,
+			SelectedModel: "claude-sonnet-5",
 		})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "Could not create document")
