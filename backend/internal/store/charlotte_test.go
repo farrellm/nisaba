@@ -82,8 +82,8 @@ func TestParseCharlotteDocArchivedAndDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCharlotteDoc: %v", err)
 	}
-	if doc.Title != "archive/2024-08/ceo.yaml" {
-		t.Errorf("Title = %q, want name fallback", doc.Title)
+	if doc.Title != "2024-08/ceo.yaml" {
+		t.Errorf("Title = %q, want archive/ prefix stripped from name fallback", doc.Title)
 	}
 	if !doc.IsArchived {
 		t.Error("IsArchived = false, want true for archive/ name")

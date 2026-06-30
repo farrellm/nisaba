@@ -60,7 +60,7 @@ func (s *CharlotteStore) ListCharlotteDocuments(ctx context.Context) ([]model.Do
 	for i, name := range names {
 		docs = append(docs, model.Document{
 			ID:         int64(i + 1),
-			Title:      name,
+			Title:      displayTitle(name),
 			IsArchived: strings.HasPrefix(name, "archive/"),
 			Attributes: map[string]string{},
 			Blocks:     []model.Block{},
@@ -90,6 +90,12 @@ func (s *CharlotteStore) GetCharlotteDocument(ctx context.Context, id int64) (mo
 		return model.Document{}, fmt.Errorf("charlotte --doc %q: %w", name, err)
 	}
 	return parseCharlotteDoc(out, id, name)
+}
+
+// displayTitle is the human-facing title for a document name: the "archive/" prefix
+// is dropped (the archived state is shown separately), the rest of the path is kept.
+func displayTitle(name string) string {
+	return strings.TrimPrefix(name, "archive/")
 }
 
 // charlotteDoc / charlotteBlock mirror the JSON shape emitted by `charlotte-cli --doc`.
@@ -127,7 +133,7 @@ func parseCharlotteDoc(data []byte, id int64, name string) (model.Document, erro
 		PostURLs:   []string{},
 	}
 	if doc.Title == "" {
-		doc.Title = name
+		doc.Title = displayTitle(name)
 	}
 	if doc.Attributes == nil {
 		doc.Attributes = map[string]string{}
