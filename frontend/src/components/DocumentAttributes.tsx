@@ -129,6 +129,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                   sx: {
                     cursor: 'pointer',
                     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                    '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
                   },
                 }}
               />
