@@ -2,8 +2,9 @@ package llm
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 
 	"github.com/zendev-sh/goai"
@@ -76,9 +77,17 @@ func pickAllowed(names []string) (string, error) {
 
 	switch {
 	case len(unmatched) > 0:
-		return unmatched[rand.Intn(len(unmatched))], nil
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(unmatched))))
+		if err != nil {
+			return "", fmt.Errorf("failed to pick name: %w", err)
+		}
+		return unmatched[n.Int64()], nil
 	case len(matched) > 0:
-		return matched[rand.Intn(len(matched))], nil
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(matched))))
+		if err != nil {
+			return "", fmt.Errorf("failed to pick name: %w", err)
+		}
+		return matched[n.Int64()], nil
 	default:
 		return "", fmt.Errorf("no names were generated")
 	}
