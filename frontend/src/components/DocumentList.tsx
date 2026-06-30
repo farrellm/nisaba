@@ -3,8 +3,10 @@ import {
   Box,
   Container,
   Divider,
+  FormControlLabel,
   MenuItem,
   Select,
+  Switch,
   Typography,
   type SelectChangeEvent,
 } from '@mui/material'
@@ -61,10 +63,16 @@ export default function DocumentList({
   children,
 }: DocumentListProps) {
   const [sort, setSort] = useState<SortOrder>(defaultSort)
+  // Mixed-state lists (Anansi/Charlotte, which pass showArchived) hide archived
+  // documents by default; this toggle reveals them. Single-state lists never
+  // render the toggle, so its value is irrelevant there.
+  const [showArchivedDocs, setShowArchivedDocs] = useState(false)
 
   const sorted = useMemo(() => {
     if (!documents) return documents
-    const copy = [...documents]
+    const filtered =
+      showArchived && !showArchivedDocs ? documents.filter((d) => !d.isArchived) : documents
+    const copy = [...filtered]
     copy.sort((a, b) => {
       switch (sort) {
         case 'alpha':
@@ -77,9 +85,11 @@ export default function DocumentList({
       }
     })
     return copy
-  }, [documents, sort])
+  }, [documents, sort, showArchived, showArchivedDocs])
 
-  const hasDocuments = sorted !== null && sorted.length > 0
+  // Controls row is driven by the raw list so the archive toggle stays reachable
+  // even when filtering has hidden every (archived) document.
+  const hasDocuments = documents !== null && documents.length > 0
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -94,30 +104,49 @@ export default function DocumentList({
           <Box
             sx={{
               display: 'flex',
-              alignItems: 'baseline',
-              justifyContent: 'flex-end',
+              alignItems: 'center',
+              justifyContent: showArchived ? 'space-between' : 'flex-end',
               gap: 1.25,
               mb: 0.5,
             }}
           >
-            <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-              Sort
-            </Typography>
-            <Select
-              value={sort}
-              onChange={(e: SelectChangeEvent) => setSort(e.target.value as SortOrder)}
-              size="small"
-              variant="standard"
-              disableUnderline
-              inputProps={{ 'aria-label': 'Sort documents' }}
-              sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}
-            >
-              {sortOptions.map((o) => (
-                <MenuItem key={o.value} value={o.value} sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </Select>
+            {showArchived && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={showArchivedDocs}
+                    onChange={(e) => setShowArchivedDocs(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+                    Show archived
+                  </Typography>
+                }
+                sx={{ ml: 0, gap: 0.5 }}
+              />
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary' }}>
+                Sort
+              </Typography>
+              <Select
+                value={sort}
+                onChange={(e: SelectChangeEvent) => setSort(e.target.value as SortOrder)}
+                size="small"
+                variant="standard"
+                disableUnderline
+                inputProps={{ 'aria-label': 'Sort documents' }}
+                sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}
+              >
+                {sortOptions.map((o) => (
+                  <MenuItem key={o.value} value={o.value} sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
           </Box>
         )}
 
