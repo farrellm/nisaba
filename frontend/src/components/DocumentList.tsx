@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import {
   Box,
+  Button,
+  Chip,
   Container,
   Divider,
   FormControlLabel,
@@ -26,6 +28,10 @@ const sortOptions: { value: SortOrder; label: string }[] = [
 // ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
 // Improves alpha sort performance by ~100x for large document lists.
 const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
+
+// Labels are user-global and lowercase-unique, but match case-insensitively to
+// mirror EditLabelsDialog's convention and stay robust to legacy data.
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 interface DocumentListProps {
   heading: string
@@ -67,12 +73,28 @@ export default function DocumentList({
   // documents by default; this toggle reveals them. Single-state lists never
   // render the toggle, so its value is irrelevant there.
   const [showArchivedDocs, setShowArchivedDocs] = useState(false)
+  // Active label filters. Multiple selected labels narrow with AND: a document
+  // must carry every selected label to remain visible.
+  const [selected, setSelected] = useState<string[]>([])
+
+  const toggleLabel = (name: string) =>
+    setSelected((prev) =>
+      prev.some((l) => sameName(l, name)) ? prev.filter((l) => !sameName(l, name)) : [...prev, name],
+    )
+
+  // base: documents after the archived toggle, before label filtering.
+  const base = useMemo(() => {
+    if (!documents) return documents
+    return showArchived && !showArchivedDocs ? documents.filter((d) => !d.isArchived) : documents
+  }, [documents, showArchived, showArchivedDocs])
 
   const sorted = useMemo(() => {
-    if (!documents) return documents
-    const filtered =
-      showArchived && !showArchivedDocs ? documents.filter((d) => !d.isArchived) : documents
-    const copy = [...filtered]
+    if (!base) return base
+    // visible: base narrowed to docs carrying *all* selected labels (AND).
+    const visible = base.filter((d) =>
+      selected.every((sel) => (d.labels ?? []).some((l) => sameName(l, sel))),
+    )
+    const copy = [...visible]
     copy.sort((a, b) => {
       switch (sort) {
         case 'alpha':
@@ -85,7 +107,24 @@ export default function DocumentList({
       }
     })
     return copy
-  }, [documents, sort, showArchived, showArchivedDocs])
+  }, [base, sort, selected])
+
+  // Pills: selected labels always show (so they can be removed); unselected pills
+  // are pruned to those present on at least one currently visible document, so the
+  // user can never build a filter combination that yields nothing.
+  const candidatePills = useMemo(() => {
+    if (!sorted) return []
+    const seen = new Map<string, string>()
+    for (const doc of sorted) {
+      for (const label of doc.labels ?? []) {
+        const key = label.toLowerCase()
+        if (!seen.has(key) && !selected.some((sel) => sameName(sel, label))) seen.set(key, label)
+      }
+    }
+    return [...seen.values()].sort((a, b) => collator.compare(a, b))
+  }, [sorted, selected])
+
+  const hasPills = selected.length > 0 || candidatePills.length > 0
 
   // Controls row is driven by the raw list so the archive toggle stays reachable
   // even when filtering has hidden every (archived) document.
@@ -99,6 +138,47 @@ export default function DocumentList({
         <Typography variant="h1" sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)', mb: 4 }}>
           {heading}
         </Typography>
+
+        {hasDocuments && hasPills && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mb: 2 }}>
+            {selected.map((name) => (
+              <Chip
+                key={name}
+                label={name}
+                size="small"
+                color="primary"
+                variant="filled"
+                onClick={() => toggleLabel(name)}
+                onDelete={() => toggleLabel(name)}
+                sx={{ fontFamily: fonts.mono, fontSize: '0.72rem' }}
+              />
+            ))}
+            {candidatePills.map((name) => (
+              <Chip
+                key={name}
+                label={name}
+                size="small"
+                variant="outlined"
+                onClick={() => toggleLabel(name)}
+                sx={{
+                  fontFamily: fonts.mono,
+                  fontSize: '0.72rem',
+                  color: 'text.secondary',
+                  borderColor: 'divider',
+                }}
+              />
+            ))}
+            {selected.length > 0 && (
+              <Button
+                size="small"
+                onClick={() => setSelected([])}
+                sx={{ fontFamily: fonts.mono, fontSize: '0.72rem', color: 'text.secondary', minWidth: 0 }}
+              >
+                Clear
+              </Button>
+            )}
+          </Box>
+        )}
 
         {hasDocuments && (
           <Box
