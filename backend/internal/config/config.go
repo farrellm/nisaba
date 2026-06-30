@@ -11,6 +11,7 @@ type Config struct {
 	CORSOrigins        []string
 	SessionSecret      string
 	ModeTemplatesDir   string
+	ReflexDBPath       string
 	RedditClientID     string
 	RedditClientSecret string
 	RedditUsername     string
@@ -48,6 +49,14 @@ func Load() Config {
 		modeTemplatesDir = "internal/mode/templates"
 	}
 
+	// reflexDBPath points at the legacy SQLite database (reflex.db) browsed
+	// read-only by the "Anansi" pages. The default is relative to the
+	// `make backend` working directory (backend/); the file lives at the repo root.
+	reflexDBPath := os.Getenv("REFLEX_DB_PATH")
+	if reflexDBPath == "" {
+		reflexDBPath = "../reflex.db"
+	}
+
 	// Reddit application-only OAuth credentials, from a registered app at
 	// https://www.reddit.com/prefs/apps. Without these the Reddit posts endpoint
 	// reports that the integration is not configured. REDDIT_USERNAME/PASSWORD are
@@ -59,6 +68,7 @@ func Load() Config {
 		CORSOrigins:        strings.Split(originsEnv, ","),
 		SessionSecret:      sessionSecret,
 		ModeTemplatesDir:   modeTemplatesDir,
+		ReflexDBPath:       reflexDBPath,
 		RedditClientID:     os.Getenv("REDDIT_CLIENT_ID"),
 		RedditClientSecret: os.Getenv("REDDIT_CLIENT_SECRET"),
 		RedditUsername:     os.Getenv("REDDIT_USERNAME"),

@@ -30,10 +30,15 @@ interface DocumentListProps {
   documents: Document[] | null
   loading: boolean
   error: string | null
-  // Which page we're on, so the masthead links to the other view.
-  active: 'documents' | 'archive'
+  // Which page we're on, so the masthead links to the other view. Omitted on
+  // the read-only Anansi list, which highlights no masthead section.
+  active?: 'documents' | 'archive'
   // Initial sort order; differs per page (Documents: newest, Archive: alpha).
   defaultSort: SortOrder
+  // Route prefix each row links to; defaults to the live document view.
+  basePath?: string
+  // Mark archived rows beside their timestamp (for lists that mix both states).
+  showArchived?: boolean
   // Optional extra content (e.g. a floating action button).
   children?: ReactNode
 }
@@ -47,6 +52,8 @@ export default function DocumentList({
   error,
   active,
   defaultSort,
+  basePath,
+  showArchived,
   children,
 }: DocumentListProps) {
   const [sort, setSort] = useState<SortOrder>(defaultSort)
@@ -121,7 +128,9 @@ export default function DocumentList({
             Loading…
           </Typography>
         ) : sorted && sorted.length > 0 ? (
-          sorted.map((doc) => <DocumentRow key={doc.id} doc={doc} />)
+          sorted.map((doc) => (
+            <DocumentRow key={doc.id} doc={doc} basePath={basePath} showArchived={showArchived} />
+          ))
         ) : (
           <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
             Nothing here yet.

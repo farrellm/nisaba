@@ -9,16 +9,19 @@ interface DocumentRowProps {
   // When true, an archived document is marked beside its timestamp. Off by default
   // so the Documents and Archive lists (single-state pages) stay unmarked.
   showArchived?: boolean
+  // Route prefix the title links to; defaults to the live document view. The
+  // read-only Anansi list passes '/anansi' to open the legacy viewer.
+  basePath?: string
 }
 
 // DocumentRow is one ledger line in a list of documents: a serif title that links
 // to the document, a dotted leader, and a mono "time ago" stamp. Shared by the
 // Documents/Archive lists and the Labels index so rows look identical everywhere.
-export default function DocumentRow({ doc, showArchived = false }: DocumentRowProps) {
+export default function DocumentRow({ doc, showArchived = false, basePath = '/documents' }: DocumentRowProps) {
   return (
     <MuiLink
       component={RouterLink}
-      to={`/documents/${doc.id}`}
+      to={`${basePath}/${doc.id}`}
       underline="none"
       color="inherit"
       sx={{ display: 'block', '&:hover .doc-title': { color: 'primary.main' } }}

@@ -4,6 +4,7 @@ import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined'
 import LocalOfferOutlined from '@mui/icons-material/LocalOfferOutlined'
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined'
 import AutoAwesomeOutlined from '@mui/icons-material/AutoAwesomeOutlined'
+import AutoStoriesOutlined from '@mui/icons-material/AutoStoriesOutlined'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { Link as RouterLink } from 'react-router-dom'
 import { fonts } from '../theme'
@@ -22,6 +23,7 @@ const cards: NavCard[] = [
   { title: 'Archive', to: '/archive', Icon: Inventory2Outlined },
   { title: 'Labels', to: '/labels', Icon: LocalOfferOutlined },
   { title: 'Prompts', to: '/reddit', Icon: AutoAwesomeOutlined },
+  { title: 'Anansi', to: '/anansi', Icon: AutoStoriesOutlined },
 ]
 
 export default function IndexPage() {
