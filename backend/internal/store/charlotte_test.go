@@ -82,8 +82,11 @@ func TestParseCharlotteDocArchivedAndDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseCharlotteDoc: %v", err)
 	}
-	if doc.Title != "2024-08/ceo.yaml" {
-		t.Errorf("Title = %q, want archive/ prefix stripped from name fallback", doc.Title)
+	if doc.Title != "ceo.yaml" {
+		t.Errorf("Title = %q, want trailing name segment from archive/label/name", doc.Title)
+	}
+	if len(doc.Labels) != 1 || doc.Labels[0] != "2024-08" {
+		t.Errorf("Labels = %v, want [2024-08]", doc.Labels)
 	}
 	if !doc.IsArchived {
 		t.Error("IsArchived = false, want true for archive/ name")
@@ -93,6 +96,35 @@ func TestParseCharlotteDocArchivedAndDefaults(t *testing.T) {
 	}
 	if doc.Attributes == nil {
 		t.Error("Attributes is nil, want empty map")
+	}
+}
+
+func TestParseCharlotteName(t *testing.T) {
+	cases := []struct {
+		name       string
+		wantTitle  string
+		wantLabels []string
+	}{
+		{"archive/2024-08/ceo.yaml", "ceo.yaml", []string{"2024-08"}},
+		{"archive/2024-08/sub/ceo.yaml", "sub/ceo.yaml", []string{"2024-08"}},
+		{"archive/ceo.yaml", "ceo.yaml", nil},
+		{"ceo.yaml", "ceo.yaml", nil},
+	}
+	for _, c := range cases {
+		title, labels := parseCharlotteName(c.name)
+		if title != c.wantTitle {
+			t.Errorf("parseCharlotteName(%q) title = %q, want %q", c.name, title, c.wantTitle)
+		}
+		if len(labels) != len(c.wantLabels) {
+			t.Errorf("parseCharlotteName(%q) labels = %v, want %v", c.name, labels, c.wantLabels)
+			continue
+		}
+		for i := range labels {
+			if labels[i] != c.wantLabels[i] {
+				t.Errorf("parseCharlotteName(%q) labels = %v, want %v", c.name, labels, c.wantLabels)
+				break
+			}
+		}
 	}
 }
 
