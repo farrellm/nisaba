@@ -1,6 +1,3 @@
-## 2026-06-26 - Added loading spinners to async dialogs
-**Learning:** Found that `submitting` states exist on async dialogs (`NewDocumentDialog`, `AddBlockDialog`) but lacked visual indicators besides text changes.
-**Action:** Consistently apply `CircularProgress` within submit buttons during async actions for better visual feedback.
-## 2023-10-27 - Keyboard Navigation for Custom Interactive Elements
-**Learning:** Found custom interactive elements (e.g., `Box` mimicking a button on the RedditPostsPage, `TextField` acting as an expander in BlockCard) that lacked proper keyboard support. While they had `onClick` handlers, they couldn't be triggered via keyboard (Enter/Space) and were missing from the tab order.
-**Action:** When using non-native interactive elements (like `Box`) or repurposing inputs (like a read-only `TextField` for a collapsible area), explicitly add `tabIndex={0}`, an `onKeyDown` handler that listens for 'Enter' and ' ', and `role="button"` (if semantically a button). Also ensure focus visibility with CSS styles.
+## 2026-06-30 - Focus-visible styling on read-only TextFields
+**Learning:** MUI readOnly TextFields do not natively apply the .Mui-focused class when receiving keyboard focus, making them invisible to tab navigation even with tabIndex=0. Relying on pseudo-class :focus-within directly targets the inner elements accurately.
+**Action:** Use &:focus-within .MuiOutlinedInput-notchedOutline for custom focus styling on any read-only/clickable MUI text fields.
