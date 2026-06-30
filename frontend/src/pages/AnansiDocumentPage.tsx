@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, Container, Divider, Link as MuiLink, Typography } from '@mui/material'
+import {
+  Box,
+  Container,
+  IconButton,
+  InputAdornment,
+  Link as MuiLink,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material'
+import DataObjectIcon from '@mui/icons-material/DataObject'
+import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api } from '../api/client'
-import type { Block, DocumentDetail } from '../api/types'
+import type { Block, DocumentDetail, Response } from '../api/types'
 import Masthead from '../components/Masthead'
 import Markdown from '../components/Markdown'
 import { parseResponseSegments } from '../lib/responseSegments'
@@ -18,17 +30,29 @@ const postLinkSx = {
   '&:hover': { textDecoration: 'underline' },
 } as const
 
-const labelSx = {
-  fontFamily: fonts.mono,
-  fontSize: '0.75rem',
-  color: 'text.secondary',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
+// Shared <summary> styling: a flex row whose default disclosure marker is hidden
+// so the mode/attribute header + dotted leader read like the live document page.
+const summarySx = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: 2,
+  mb: 2,
+  cursor: 'pointer',
+  listStyle: 'none',
+  '&::-webkit-details-marker': { display: 'none' },
 } as const
 
-// AnansiDocumentPage renders a single legacy reflex.db document read-only:
-// title, each block's responses (parsed and rendered as markdown, mirroring the
-// live BlockCard), and the document's attributes. It has no editing affordances.
+const leaderSx = {
+  flex: 1,
+  borderBottom: '1px dotted',
+  borderColor: 'divider',
+  transform: 'translateY(-3px)',
+} as const
+
+// AnansiDocumentPage renders a single legacy reflex.db document read-only,
+// mirroring the live document page's structure (collapsible block cards with
+// mode headers, structured/raw response views, and a collapsible Attributes
+// section) but with no editing affordances.
 export default function AnansiDocumentPage() {
   const { id } = useParams<{ id: string }>()
   const [doc, setDoc] = useState<DocumentDetail | null>(null)
@@ -81,8 +105,8 @@ export default function AnansiDocumentPage() {
               </Box>
             </Box>
 
-            {(doc.blocks ?? []).map((block) => (
-              <BlockSection key={block.id} block={block} />
+            {(doc.blocks ?? []).map((block, i, arr) => (
+              <BlockSection key={block.id} block={block} defaultOpen={i === arr.length - 1} />
             ))}
 
             <Attributes attributes={doc.attributes ?? {}} />
@@ -93,73 +117,267 @@ export default function AnansiDocumentPage() {
   )
 }
 
-// BlockSection renders one block's mode/model heading and each of its responses.
-function BlockSection({ block }: { block: Block }) {
-  const responses = block.responses ?? []
-  const model = responses.length > 0 ? responses[0].model : ''
+// ReadOnlyField renders a key/value as a read-only TextField, collapsing long
+// values to a truncated preview that expands on click (mirroring BlockCard /
+// DocumentAttributes).
+function ReadOnlyField({
+  fieldKey,
+  value,
+  expanded,
+  onReveal,
+}: {
+  fieldKey: string
+  value: string
+  expanded: boolean
+  onReveal: () => void
+}) {
+  const collapsed = !expanded && value.length > 80
+  if (collapsed) {
+    return (
+      <TextField
+        label={fieldKey}
+        value={`${value.slice(0, 40)}…`}
+        onClick={onReveal}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onReveal()
+          }
+        }}
+        inputProps={{ tabIndex: 0 }}
+        InputProps={{
+          readOnly: true,
+          endAdornment: (
+            <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
+              <UnfoldMore fontSize="small" />
+            </InputAdornment>
+          ),
+          sx: {
+            cursor: 'pointer',
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+          },
+        }}
+      />
+    )
+  }
   return (
-    <Box component="section" sx={{ py: 3, borderTop: '1px dotted', borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 1.5, ...labelSx }}>
-        <span>{block.mode}</span>
-        {model && <span style={{ opacity: 0.7 }}>{model}</span>}
+    <TextField
+      label={fieldKey}
+      value={value}
+      InputProps={{ readOnly: true }}
+      multiline
+      minRows={1}
+    />
+  )
+}
+
+// BlockSection is a read-only port of BlockCard: a collapsible card with the
+// mode header, the block's input key/values, and its responses.
+function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boolean }) {
+  const keys = Object.keys(block.attributes)
+  const responses = block.responses ?? []
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // The last block's newest response opens in the structured view by default.
+  const [structured, setStructured] = useState<Set<number>>(() =>
+    defaultOpen && responses.length > 0
+      ? new Set([responses[responses.length - 1].id])
+      : new Set(),
+  )
+
+  function reveal(key: string) {
+    setExpanded((prev) => new Set(prev).add(key))
+  }
+
+  function toggleStructured(id: number) {
+    setStructured((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  return (
+    <Box component="section" sx={{ pt: 4 }}>
+      <Box
+        component="details"
+        {...(defaultOpen ? { open: true } : {})}
+        sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
+      >
+        <Box component="summary" sx={summarySx}>
+          <Typography
+            variant="overline"
+            sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
+          >
+            {block.mode}
+          </Typography>
+          <Box sx={leaderSx} />
+        </Box>
+
+        {keys.length > 0 && (
+          <Stack spacing={2}>
+            {keys.map((key) => (
+              <ReadOnlyField
+                key={key}
+                fieldKey={key}
+                value={block.attributes[key] ?? ''}
+                expanded={expanded.has(key)}
+                onReveal={() => reveal(key)}
+              />
+            ))}
+          </Stack>
+        )}
+
+        {responses.length > 0 && (
+          <Stack spacing={1.5} sx={{ mt: 3 }}>
+            {responses
+              .slice()
+              .reverse()
+              .map((response, idx) => (
+                <ResponseDetails
+                  key={response.id}
+                  response={response}
+                  open={idx === 0}
+                  structured={structured.has(response.id)}
+                  onToggle={() => toggleStructured(response.id)}
+                />
+              ))}
+          </Stack>
+        )}
       </Box>
-      {responses.length === 0 ? (
-        <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
-          No response.
+    </Box>
+  )
+}
+
+// ResponseDetails renders one response as a collapsible with the model as its
+// header and a structured/raw toggle (read-only port of BlockCard's response).
+function ResponseDetails({
+  response,
+  open,
+  structured,
+  onToggle,
+}: {
+  response: Response
+  open: boolean
+  structured: boolean
+  onToggle: () => void
+}) {
+  return (
+    <Box component="details" {...(open ? { open: true } : {})}>
+      <Box
+        component="summary"
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          cursor: 'pointer',
+          listStyle: 'none',
+          '&::-webkit-details-marker': { display: 'none' },
+          mb: 1,
+        }}
+      >
+        <Typography
+          variant="overline"
+          sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
+        >
+          {response.model || 'no model'}
         </Typography>
-      ) : (
-        responses.map((response) => (
-          <Box key={response.id} sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2, mb: 2 }}>
-            {parseResponseSegments(response.value).map((seg, segIdx) =>
-              seg.kind === 'text' ? (
-                <Markdown key={segIdx}>{seg.text}</Markdown>
-              ) : (
+        <Box sx={{ flexGrow: 1 }} />
+        <Tooltip title={structured ? 'Raw view' : 'Structured view'}>
+          <IconButton
+            size="small"
+            aria-label={structured ? 'Show raw response' : 'Show structured response'}
+            onClick={(e) => {
+              e.preventDefault()
+              onToggle()
+            }}
+            sx={{
+              color: structured ? 'primary.main' : 'text.disabled',
+              '&:hover': { color: 'primary.main' },
+            }}
+          >
+            <DataObjectIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+      {structured ? (
+        <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
+          {parseResponseSegments(response.value).map((seg, segIdx) =>
+            seg.kind === 'text' ? (
+              <Markdown key={segIdx}>{seg.text}</Markdown>
+            ) : (
+              <Box
+                key={segIdx}
+                component="details"
+                open
+                sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
+              >
                 <Box
-                  key={segIdx}
-                  component="details"
-                  open
-                  sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
+                  component="summary"
+                  sx={{ cursor: 'pointer', fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary' }}
                 >
-                  <Box
-                    component="summary"
-                    sx={{ cursor: 'pointer', fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary' }}
-                  >
-                    {seg.name}
-                  </Box>
-                  <Box
-                    component="blockquote"
-                    sx={{ my: 1, ml: 0, pl: 2.5, borderLeft: '3px solid', borderColor: 'divider', color: 'text.secondary' }}
-                  >
-                    {/* Escape '<' so nested tags render as literal text:
-                        react-markdown drops raw HTML. */}
-                    <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
-                  </Box>
+                  {seg.name}
                 </Box>
-              ),
-            )}
-          </Box>
-        ))
+                <Box
+                  component="blockquote"
+                  sx={{ my: 1, ml: 0, pl: 2.5, borderLeft: '3px solid', borderColor: 'divider', color: 'text.secondary' }}
+                >
+                  {/* Escape '<' so nested tags render as literal text:
+                      react-markdown drops raw HTML. */}
+                  <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
+                </Box>
+              </Box>
+            ),
+          )}
+        </Box>
+      ) : (
+        <Typography
+          sx={{
+            fontFamily: fonts.mono,
+            fontSize: '0.85rem',
+            whiteSpace: 'pre-wrap',
+            bgcolor: 'action.hover',
+            borderRadius: 2,
+            p: 2,
+          }}
+        >
+          {response.value}
+        </Typography>
       )}
     </Box>
   )
 }
 
-// Attributes renders the document's shared key/value namespace read-only.
+// Attributes renders the document's shared key/value namespace read-only,
+// mirroring DocumentAttributes' collapsible section.
 function Attributes({ attributes }: { attributes: Record<string, string> }) {
   const keys = Object.keys(attributes).sort()
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   if (keys.length === 0) return null
   return (
     <Box component="section" sx={{ py: 4, borderTop: '1px dotted', borderColor: 'divider', mt: 2 }}>
-      <Typography variant="overline" sx={{ color: 'text.secondary' }}>
-        Attributes
-      </Typography>
-      {keys.map((key) => (
-        <Box key={key} sx={{ mt: 2 }}>
-          <Typography sx={labelSx}>{key}</Typography>
-          <Divider sx={{ my: 1, borderStyle: 'dotted' }} />
-          <Markdown>{attributes[key].split('<').join('\\<')}</Markdown>
+      <Box component="details" sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}>
+        <Box component="summary" sx={{ ...summarySx, mb: 3 }}>
+          <Typography
+            variant="overline"
+            sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
+          >
+            Attributes
+          </Typography>
+          <Box sx={leaderSx} />
         </Box>
-      ))}
+
+        <Stack spacing={2}>
+          {keys.map((key) => (
+            <ReadOnlyField
+              key={key}
+              fieldKey={key}
+              value={attributes[key] ?? ''}
+              expanded={expanded.has(key)}
+              onReveal={() => setExpanded((prev) => new Set(prev).add(key))}
+            />
+          ))}
+        </Stack>
+      </Box>
     </Box>
   )
 }
