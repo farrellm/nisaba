@@ -39,6 +39,9 @@ interface DocumentListProps {
   basePath?: string
   // Mark archived rows beside their timestamp (for lists that mix both states).
   showArchived?: boolean
+  // Hide the "time ago" stamp on rows (for sources without real timestamps, e.g.
+  // the Charlotte list); passed through to each DocumentRow.
+  hideTime?: boolean
   // Optional extra content (e.g. a floating action button).
   children?: ReactNode
 }
@@ -54,6 +57,7 @@ export default function DocumentList({
   defaultSort,
   basePath,
   showArchived,
+  hideTime,
   children,
 }: DocumentListProps) {
   const [sort, setSort] = useState<SortOrder>(defaultSort)
@@ -129,7 +133,7 @@ export default function DocumentList({
           </Typography>
         ) : sorted && sorted.length > 0 ? (
           sorted.map((doc) => (
-            <DocumentRow key={doc.id} doc={doc} basePath={basePath} showArchived={showArchived} />
+            <DocumentRow key={doc.id} doc={doc} basePath={basePath} showArchived={showArchived} hideTime={hideTime} />
           ))
         ) : (
           <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>

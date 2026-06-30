@@ -12,6 +12,7 @@ type Config struct {
 	SessionSecret      string
 	ModeTemplatesDir   string
 	ReflexDBPath       string
+	CharlotteCLI       string
 	RedditClientID     string
 	RedditClientSecret string
 	RedditUsername     string
@@ -57,6 +58,14 @@ func Load() Config {
 		reflexDBPath = "../reflex.db"
 	}
 
+	// charlotteCLI is the executable browsed read-only by the "Charlotte" pages,
+	// an older file-based version of this app (`--list` / `--doc <name>`). The
+	// default resolves on PATH; handlers report errors per request if it is missing.
+	charlotteCLI := os.Getenv("CHARLOTTE_CLI")
+	if charlotteCLI == "" {
+		charlotteCLI = "charlotte-cli"
+	}
+
 	// Reddit application-only OAuth credentials, from a registered app at
 	// https://www.reddit.com/prefs/apps. Without these the Reddit posts endpoint
 	// reports that the integration is not configured. REDDIT_USERNAME/PASSWORD are
@@ -69,6 +78,7 @@ func Load() Config {
 		SessionSecret:      sessionSecret,
 		ModeTemplatesDir:   modeTemplatesDir,
 		ReflexDBPath:       reflexDBPath,
+		CharlotteCLI:       charlotteCLI,
 		RedditClientID:     os.Getenv("REDDIT_CLIENT_ID"),
 		RedditClientSecret: os.Getenv("REDDIT_CLIENT_SECRET"),
 		RedditUsername:     os.Getenv("REDDIT_USERNAME"),
