@@ -29,7 +29,16 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Legacy reflex.db, browsed read-only by the "Anansi" pages.
+	reflexDB, err := db.OpenSQLite(cfg.ReflexDBPath)
+	if err != nil {
+		slog.Error("reflex sqlite open failed", "path", cfg.ReflexDBPath, "err", err)
+		os.Exit(1)
+	}
+	defer reflexDB.Close()
+
 	st := store.New(pool)
+	rs := store.NewReflexStore(reflexDB)
 	// Mark the cookie Secure in production (HTTPS); SESSION_SECURE=true enables it.
 	sess := auth.NewSessions(cfg.SessionSecret, os.Getenv("SESSION_SECURE") == "true")
 
@@ -62,6 +71,11 @@ func main() {
 			r.Delete("/", handler.DeleteLabel(st, sess))
 		})
 		r.Get("/attribute-values", handler.ListAttributeValues(st, sess))
+
+		r.Route("/anansi/documents", func(r chi.Router) {
+			r.Get("/", handler.ListReflexDocuments(rs, sess))
+			r.Get("/{id}", handler.GetReflexDocument(rs, sess))
+		})
 		r.Get("/public/documents/{id}/attributes/{key}", handler.PublicDocumentAttribute(st))
 		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
 		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))

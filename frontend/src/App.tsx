@@ -11,6 +11,8 @@ import BlockAttributeDiffPage from './pages/BlockAttributeDiffPage'
 import ArchivePage from './pages/ArchivePage'
 import RedditPostsPage from './pages/RedditPostsPage'
 import SettingsPage from './pages/SettingsPage'
+import AnansiPage from './pages/AnansiPage'
+import AnansiDocumentPage from './pages/AnansiDocumentPage'
 
 export default function App() {
   return (
@@ -79,6 +81,22 @@ export default function App() {
         element={
           <RequireAuth>
             <SettingsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/anansi"
+        element={
+          <RequireAuth>
+            <AnansiPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/anansi/:id"
+        element={
+          <RequireAuth>
+            <AnansiDocumentPage />
           </RequireAuth>
         }
       />
