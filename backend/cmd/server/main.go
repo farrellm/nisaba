@@ -39,6 +39,8 @@ func main() {
 
 	st := store.New(pool)
 	rs := store.NewReflexStore(reflexDB)
+	// Legacy file-based app, browsed read-only by the "Charlotte" pages via charlotte-cli.
+	cs := store.NewCharlotteStore(cfg.CharlotteCLI)
 	// Mark the cookie Secure in production (HTTPS); SESSION_SECURE=true enables it.
 	sess := auth.NewSessions(cfg.SessionSecret, os.Getenv("SESSION_SECURE") == "true")
 
@@ -75,6 +77,10 @@ func main() {
 		r.Route("/anansi/documents", func(r chi.Router) {
 			r.Get("/", handler.ListReflexDocuments(rs, sess))
 			r.Get("/{id}", handler.GetReflexDocument(rs, sess))
+		})
+		r.Route("/charlotte/documents", func(r chi.Router) {
+			r.Get("/", handler.ListCharlotteDocuments(cs, sess))
+			r.Get("/{id}", handler.GetCharlotteDocument(cs, sess))
 		})
 		r.Get("/public/documents/{id}/attributes/{key}", handler.PublicDocumentAttribute(st))
 		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)

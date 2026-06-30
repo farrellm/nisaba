@@ -12,12 +12,24 @@ interface DocumentRowProps {
   // Route prefix the title links to; defaults to the live document view. The
   // read-only Anansi list passes '/anansi' to open the legacy viewer.
   basePath?: string
+  // Hide the "time ago" stamp for sources without meaningful timestamps (the
+  // Charlotte list, whose CLI only exposes file names). The archived marker remains.
+  hideTime?: boolean
 }
 
 // DocumentRow is one ledger line in a list of documents: a serif title that links
 // to the document, a dotted leader, and a mono "time ago" stamp. Shared by the
 // Documents/Archive lists and the Labels index so rows look identical everywhere.
-export default function DocumentRow({ doc, showArchived = false, basePath = '/documents' }: DocumentRowProps) {
+export default function DocumentRow({ doc, showArchived = false, basePath = '/documents', hideTime = false }: DocumentRowProps) {
+  // With hideTime, show only the bare "archived" marker (no timestamp), else the
+  // usual "time ago" optionally prefixed with "archived · ".
+  const stamp = hideTime
+    ? showArchived && doc.isArchived
+      ? 'archived'
+      : ''
+    : showArchived && doc.isArchived
+      ? `archived · ${timeAgo(doc.updatedAt)}`
+      : timeAgo(doc.updatedAt)
   return (
     <MuiLink
       component={RouterLink}
@@ -40,7 +52,7 @@ export default function DocumentRow({ doc, showArchived = false, basePath = '/do
           <Typography
             sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}
           >
-            {showArchived && doc.isArchived ? `archived · ${timeAgo(doc.updatedAt)}` : timeAgo(doc.updatedAt)}
+            {stamp}
           </Typography>
         </Box>
         {(doc.labels ?? []).length > 0 && (

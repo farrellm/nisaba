@@ -13,6 +13,8 @@ import RedditPostsPage from './pages/RedditPostsPage'
 import SettingsPage from './pages/SettingsPage'
 import AnansiPage from './pages/AnansiPage'
 import AnansiDocumentPage from './pages/AnansiDocumentPage'
+import CharlottePage from './pages/CharlottePage'
+import CharlotteDocumentPage from './pages/CharlotteDocumentPage'
 
 export default function App() {
   return (
@@ -97,6 +99,22 @@ export default function App() {
         element={
           <RequireAuth>
             <AnansiDocumentPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/charlotte"
+        element={
+          <RequireAuth>
+            <CharlottePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/charlotte/:id"
+        element={
+          <RequireAuth>
+            <CharlotteDocumentPage />
           </RequireAuth>
         }
       />
