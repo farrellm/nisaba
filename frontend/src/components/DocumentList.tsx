@@ -91,9 +91,12 @@ export default function DocumentList({
   const sorted = useMemo(() => {
     if (!base) return base
     // visible: base narrowed to docs carrying *all* selected labels (AND).
-    const visible = base.filter((d) =>
-      selected.every((sel) => (d.labels ?? []).some((l) => sameName(l, sel))),
-    )
+    // ⚡ Bolt: Pre-computing lowercase labels avoids O(N*M) repeated string allocations in the loop.
+    const selectedLower = selected.map((s) => s.toLowerCase())
+    const visible = base.filter((d) => {
+      const docLabelsLower = (d.labels ?? []).map((l) => l.toLowerCase())
+      return selectedLower.every((selLower) => docLabelsLower.includes(selLower))
+    })
     const copy = [...visible]
     copy.sort((a, b) => {
       switch (sort) {
@@ -115,10 +118,16 @@ export default function DocumentList({
   const candidatePills = useMemo(() => {
     if (!sorted) return []
     const seen = new Map<string, string>()
+    // ⚡ Bolt: Using a pre-computed Set of lowercased selected labels prevents
+    // repetitive .toLowerCase() allocation and allows O(1) existence checks.
+    const selectedLowerSet = new Set(selected.map((s) => s.toLowerCase()))
+
     for (const doc of sorted) {
       for (const label of doc.labels ?? []) {
         const key = label.toLowerCase()
-        if (!seen.has(key) && !selected.some((sel) => sameName(sel, label))) seen.set(key, label)
+        if (!seen.has(key) && !selectedLowerSet.has(key)) {
+          seen.set(key, label)
+        }
       }
     }
     return [...seen.values()].sort((a, b) => collator.compare(a, b))

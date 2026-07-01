@@ -7,3 +7,6 @@
 ## 2026-06-27 - String sorting optimization
 **Learning:** String.prototype.localeCompare initializes a new collator on every invocation when options are passed, which scales poorly in array sorting. Using a pre-initialized Intl.Collator is significantly faster.
 **Action:** Use a pre-initialized Intl.Collator module constant for repeated string comparisons, especially when sorting lists based on strings.
+## 2026-07-01 - Prevent redundant allocations in nested loops
+**Learning:** React re-renders with heavy list-processing operations like string transformations (`.toLowerCase()`) or `Intl.Collator` initializations can create hidden memory/CPU spikes, especially if inside `useMemo` hooks mapping arrays against other arrays.
+**Action:** Always pre-compute primitive transformations outside of inner maps/filters (like moving `.toLowerCase()` to a Set outside the loop) to change O(n*m) allocations to O(n) + O(m) lookups.
