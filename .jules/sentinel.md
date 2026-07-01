@@ -7,3 +7,7 @@
 **Vulnerability:** Weak random number generation using `math/rand` in `backend/internal/llm/names.go`. The model was selecting allowed character names randomly but insecurely, which can allow predictability and pseudo-random predictability.
 **Learning:** For security tasks, any random number selection that drives application behavior, especially those evaluated as "High Severity" by `gosec` (rule G404), should be migrated from `math/rand` to `crypto/rand`. `crypto/rand` provides cryptographically secure randomness via the operating system's random entropy source.
 **Prevention:** Instead of `math/rand.Intn(len)`, use `crypto/rand.Int(rand.Reader, big.NewInt(int64(len)))`. Note that `crypto/rand.Int` can panic if the limit is `<= 0`, so ensure the bound is strictly greater than 0 before calling. Also, the function returns an error that must be handled.
+## 2024-05-24 - Missing Go HTTP Server Timeouts
+**Vulnerability:** Go net/http `ListenAndServe` method has no support for setting timeouts.
+**Learning:** This exposes the application to resource exhaustion and Slowloris denial-of-service (DoS) attacks.
+**Prevention:** Instantiate a custom `http.Server` and set `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout` and `IdleTimeout`.
