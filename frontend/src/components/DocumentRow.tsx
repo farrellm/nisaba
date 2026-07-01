@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Box, Chip, Divider, Link as MuiLink, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { timeAgo } from '../lib/relativeTime'
@@ -20,7 +21,8 @@ interface DocumentRowProps {
 // DocumentRow is one ledger line in a list of documents: a serif title that links
 // to the document, a dotted leader, and a mono "time ago" stamp. Shared by the
 // Documents/Archive lists and the Labels index so rows look identical everywhere.
-export default function DocumentRow({ doc, showArchived = false, basePath = '/documents', hideTime = false }: DocumentRowProps) {
+// ⚡ Bolt: Wrapping in React.memo prevents expensive re-renders when the list state changes.
+const DocumentRow = memo(function DocumentRow({ doc, showArchived = false, basePath = '/documents', hideTime = false }: DocumentRowProps) {
   // With hideTime, show only the bare "archived" marker (no timestamp), else the
   // usual "time ago" optionally prefixed with "archived · ".
   const stamp = hideTime
@@ -78,4 +80,6 @@ export default function DocumentRow({ doc, showArchived = false, basePath = '/do
       <Divider sx={{ borderStyle: 'dotted' }} />
     </MuiLink>
   )
-}
+})
+
+export default DocumentRow
