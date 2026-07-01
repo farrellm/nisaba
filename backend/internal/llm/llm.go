@@ -71,6 +71,8 @@ var models = []Model{
 		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
 	{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
+	{ID: "claude-fable-5", Label: "Claude Fable 5", Provider: "anthropic",
+		ToolProviderOptions: anthropicCaching},
 	{ID: "gpt-5.4", Label: "GPT-5.4", Provider: "openai"},
 	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
