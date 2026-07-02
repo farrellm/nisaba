@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -114,7 +115,17 @@ func main() {
 	})
 
 	slog.Info("server listening", "addr", cfg.Addr)
-	if err := http.ListenAndServe(cfg.Addr, r); err != nil {
+
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	if err := srv.ListenAndServe(); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)
 	}
