@@ -35,9 +35,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 // postStream POSTs a JSON body and consumes a newline-delimited JSON (NDJSON)
 // response stream. Each line is one event: {type:"delta",text} streams text to
-// onDelta, {type:"error",message} throws, and {type:"done",<key>} resolves the
-// promise with that payload (the server sends the final value under `doneKey`,
-// e.g. "block"). Mirrors RunBlockStream on the backend.
+// onDelta, {type:"ping"} is an ignored keepalive, {type:"error",message} throws,
+// and {type:"done",<key>} resolves the promise with that payload (the server
+// sends the final value under `doneKey`, e.g. "block"). Mirrors RunBlockStream
+// on the backend.
 async function postStream<T>(
   path: string,
   body: unknown,
@@ -72,6 +73,7 @@ async function postStream<T>(
     if (!trimmed) return
     const event = JSON.parse(trimmed)
     if (event.type === 'delta') onDelta(event.text as string)
+    else if (event.type === 'ping') return // keepalive; nothing to do
     else if (event.type === 'error') throw new ApiError(502, event.message ?? 'Stream error')
     else if (event.type === 'done') result = event[doneKey] as T
   }
