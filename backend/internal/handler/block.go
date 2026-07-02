@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
@@ -393,7 +394,12 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *a
 		return doc, block, m, "", "", false
 	}
 
-	system, err = mustache.Render(mode.SystemPrompt(username), attrs)
+	provider := llm.ProviderFor(doc.SelectedModel)
+	systemTmpl, systemSource := mode.SystemPrompt(username, provider)
+	slog.Info("system prompt",
+		"user", username, "provider", provider,
+		"model", doc.SelectedModel, "source", systemSource)
+	system, err = mustache.Render(systemTmpl, attrs)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Could not render system prompt")
 		return doc, block, m, "", "", false

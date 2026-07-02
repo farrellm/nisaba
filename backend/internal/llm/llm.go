@@ -101,6 +101,16 @@ func Valid(id string) bool {
 	return ok
 }
 
+// ProviderFor returns the provider name for a model id from the fixed list
+// (e.g. "anthropic"), or "" if the id is unknown.
+func ProviderFor(id string) string {
+	m, ok := lookup(id)
+	if !ok {
+		return ""
+	}
+	return m.Provider
+}
+
 // clientFor returns the GoAI provider client for a model id from the fixed list,
 // routing to the provider named in its Model.Provider. Unknown ids error.
 func clientFor(id string) (provider.LanguageModel, error) {
