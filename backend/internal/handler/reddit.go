@@ -19,6 +19,16 @@ import (
 // handler indefinitely.
 var redditClient = &http.Client{Timeout: 10 * time.Second}
 
+// redditNoRedirectClient is used to peek at the Location of a Reddit share link
+// (…/s/<id>) without following it, so we can extract and re-validate the
+// canonical permalink it points at rather than chasing the redirect blindly.
+var redditNoRedirectClient = &http.Client{
+	Timeout: 10 * time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
 // redditUserAgent identifies this app to Reddit. Reddit requires a descriptive
 // User-Agent on every request, including the OAuth token exchange.
 const redditUserAgent = "nisaba/1.0 (writing prompt importer)"
@@ -286,9 +296,11 @@ func redditPostPath(raw string) (path string, ok bool) {
 	if host != "reddit.com" && !strings.HasSuffix(host, ".reddit.com") {
 		return "", false
 	}
-	// Only a post permalink (…/comments/<id>/…) returns the 2-element array the
-	// caller decodes. Reject subreddit/user/home URLs up front.
-	if !strings.Contains(parsed.Path, "/comments/") {
+	// Accept post permalinks (…/comments/<id>/…), which return the 2-element
+	// array the caller decodes, and share links (…/s/<id>), which redirect to a
+	// permalink and are resolved before the API call. Reject subreddit/user/home
+	// URLs up front.
+	if !strings.Contains(parsed.Path, "/comments/") && !isRedditShareLink(parsed.Path) {
 		return "", false
 	}
 	for _, seg := range strings.Split(parsed.Path, "/") {
@@ -310,6 +322,43 @@ func redditPostPath(raw string) (path string, ok bool) {
 
 	// Use the escaped path so reserved characters survive the round-trip.
 	return strings.TrimRight(parsed.EscapedPath(), "/"), true
+}
+
+// isRedditShareLink reports whether path is a Reddit share link of the form
+// /r/<sub>/s/<id> (or /u/... , /user/...), which Reddit issues from the mobile
+// "share" action and redirects to the canonical comments permalink.
+func isRedditShareLink(path string) bool {
+	segs := strings.Split(strings.Trim(path, "/"), "/")
+	return len(segs) == 4 && segs[2] == "s"
+}
+
+// resolveRedditSharePath expands a Reddit share link (…/s/<id>) to its canonical
+// comments permalink path by reading the redirect Reddit issues for it. Paths
+// that are already permalinks are returned unchanged. The redirect target is
+// re-validated through redditPostPath so the SSRF guards apply to it too.
+func resolveRedditSharePath(ctx context.Context, path string) (string, bool) {
+	if !isRedditShareLink(path) {
+		return path, true
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.reddit.com"+path, nil)
+	if err != nil {
+		return "", false
+	}
+	req.Header.Set("User-Agent", redditUserAgent)
+	resp, err := redditNoRedirectClient.Do(req)
+	if err != nil {
+		return "", false
+	}
+	defer resp.Body.Close()
+	loc := resp.Header.Get("Location")
+	if loc == "" {
+		return "", false
+	}
+	resolved, ok := redditPostPath(loc)
+	if !ok || isRedditShareLink(resolved) {
+		return "", false
+	}
+	return resolved, true
 }
 
 // GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
@@ -334,6 +383,11 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 		path, ok := redditPostPath(raw)
 		if !ok {
 			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
+			return
+		}
+		path, ok = resolveRedditSharePath(r.Context(), path)
+		if !ok {
+			writeError(w, http.StatusBadGateway, "Could not resolve Reddit share link")
 			return
 		}
 

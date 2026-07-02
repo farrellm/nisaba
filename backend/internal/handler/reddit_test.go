@@ -28,6 +28,12 @@ func TestRedditPostPath(t *testing.T) {
 			wantOK:   true,
 		},
 		{
+			name:     "share link",
+			in:       "https://www.reddit.com/r/WritingPrompts/s/Fjx2tnO4PR",
+			wantPath: "/r/WritingPrompts/s/Fjx2tnO4PR",
+			wantOK:   true,
+		},
+		{
 			name:   "empty",
 			in:     "   ",
 			wantOK: false,
