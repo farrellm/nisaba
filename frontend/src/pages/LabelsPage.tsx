@@ -91,7 +91,7 @@ export default function LabelsPage() {
           sections.map((section) => (
             <Box
               key={section.name}
-              sx={{ mb: 5, '&:hover .label-controls': { opacity: 1 } }}
+              sx={{ mb: 5, '&:hover .label-controls, &:focus-within .label-controls': { opacity: 1 } }}
             >
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                 <Typography
@@ -171,7 +171,7 @@ function ControlLink({ onClick, children }: { onClick: () => void; children: str
         textTransform: 'uppercase',
         letterSpacing: '0.08em',
         color: 'text.secondary',
-        '&:hover': { color: 'primary.main' },
+        '&:hover, &:focus-visible': { color: 'primary.main' },
       }}
     >
       {children}

@@ -38,7 +38,7 @@ const DocumentRow = memo(function DocumentRow({ doc, showArchived = false, baseP
       to={`${basePath}/${doc.id}`}
       underline="none"
       color="inherit"
-      sx={{ display: 'block', '&:hover .doc-title': { color: 'primary.main' } }}
+      sx={{ display: 'block', '&:hover .doc-title, &:focus-visible .doc-title': { color: 'primary.main' } }}
     >
       <Box sx={{ py: 1.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>

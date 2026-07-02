@@ -5,3 +5,7 @@
 ## 2026-06-30 - ARIA labels for nested Switch components
 **Learning:** MUI Switch components nested inside MenuItem often lack intrinsic labels for screen readers unless explicitly provided via inputProps, even if a visible ListItemText exists nearby.
 **Action:** Use inputProps={{ 'aria-label': 'Action Name' }} or aria-labelledby for Switch components inside MenuItems or other list items to ensure clear accessibility.
+
+## 2026-06-30 - Keyboard visibility for hover-revealed controls
+**Learning:** Hover-revealed controls (like actions that appear or become fully opaque on container `:hover`) are invisible or fail contrast requirements for keyboard users navigating via Tab unless `:focus-within` is also applied to the container.
+**Action:** Whenever using `&:hover` on a container to reveal or highlight child controls, always pair it with `&:focus-within` on the container or `&:focus-visible` on the element itself to ensure full keyboard accessibility.
