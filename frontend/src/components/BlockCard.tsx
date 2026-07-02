@@ -163,17 +163,17 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
     setError(null)
     setRunning(true)
     try {
-      const updated = user?.streamingEnabled
-        ? await api.postStream<Block>(
-            `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
-            { attributes: values },
-            (text) => setStreamingText((prev) => (prev ?? '') + text),
-            'block',
-          )
-        : await api.post<Block>(
-            `/api/documents/${block.documentId}/blocks/${block.id}/run`,
-            { attributes: values },
-          )
+      // Always stream so the server's keepalive pings keep the connection warm
+      // through a long run (avoids proxy 504s). The streamingEnabled setting only
+      // controls whether the incoming text is displayed live.
+      const updated = await api.postStream<Block>(
+        `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
+        { attributes: values },
+        user?.streamingEnabled
+          ? (text) => setStreamingText((prev) => (prev ?? '') + text)
+          : () => {},
+        'block',
+      )
       // A freshly run response opens in the structured view by default — except
       // for streamed runs, which stay in the raw view the user just watched.
       const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]

@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/cbroglie/mustache"
 	"github.com/go-chi/chi/v5"
@@ -256,6 +258,7 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // newline-delimited JSON (NDJSON). Each line is one event:
 //
 //	{"type":"delta","text":"..."}   incremental text
+//	{"type":"ping"}                  keepalive while the model runs (client ignores)
 //	{"type":"error","message":"..."} terminal failure (after streaming began)
 //	{"type":"done","block":{...}}    the fully hydrated block, like RunBlock's body
 //
@@ -281,17 +284,45 @@ func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 
 		enc := json.NewEncoder(w)
+		// writeEvent is called from both the generation goroutine (via the delta
+		// callback) and the keepalive ticker goroutine, so serialize writes.
+		var mu sync.Mutex
 		writeEvent := func(v any) {
 			// Errors here mean the client went away; nothing useful to do but
 			// stop. The encoder appends the newline that delimits each event.
+			mu.Lock()
+			defer mu.Unlock()
 			_ = enc.Encode(v)
 			flusher.Flush()
 		}
+
+		// Keepalive: emit a ping every 10s while the model runs so an
+		// intermediate proxy (e.g. the Vite dev proxy's 120s inactivity timeout)
+		// doesn't drop a long, quiet generation. The client ignores ping events.
+		stop := make(chan struct{})
+		finished := make(chan struct{})
+		go func() {
+			defer close(finished)
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					writeEvent(map[string]string{"type": "ping"})
+				case <-stop:
+					return
+				}
+			}
+		}()
 
 		output, err := llm.GenerateStream(r.Context(), doc.SelectedModel, system, prompt, m.Tools,
 			func(delta string) {
 				writeEvent(map[string]string{"type": "delta", "text": delta})
 			})
+		// Stop the keepalive and wait for its goroutine to exit before writing the
+		// terminal event, so no stray ping can land after done/error.
+		close(stop)
+		<-finished
 		if err != nil {
 			writeEvent(map[string]string{"type": "error", "message": "Model request failed"})
 			return
