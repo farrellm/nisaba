@@ -120,25 +120,47 @@ func TemplateFor(username string, m Mode) string {
 	return override(username, m.Name, m.Template)
 }
 
-// SystemPrompt returns the mustache template for the LLM system prompt,
-// preferring a per-user override at "<TemplatesBaseDir>-<username>/system.mustache"
-// (the same dir as mode overrides) when present, otherwise the embedded default.
-func SystemPrompt(username string) string {
-	return override(username, "system", systemTmpl)
+// SystemPrompt returns the mustache template for the LLM system prompt and a
+// short label naming which source it came from ("system-<provider>.mustache",
+// "system.mustache", or "default"). When provider is non-empty it first tries a
+// per-provider override at "<TemplatesBaseDir>-<username>/system-<provider>.mustache",
+// then falls back to the plain per-user "system.mustache" override, then the
+// embedded default.
+func SystemPrompt(username, provider string) (tmpl, source string) {
+	if provider != "" {
+		name := "system-" + provider
+		if s, ok := lookupOverride(username, name); ok {
+			return s, name + ".mustache"
+		}
+	}
+	if s, ok := lookupOverride(username, "system"); ok {
+		return s, "system.mustache"
+	}
+	return systemTmpl, "default"
+}
+
+// lookupOverride reads the per-user override file
+// "<TemplatesBaseDir>-<username>/<name>.mustache", reporting whether it existed
+// and was readable. A non-safe username never resolves.
+func lookupOverride(username, name string) (string, bool) {
+	if !safeUsername(username) {
+		return "", false
+	}
+	b, err := os.ReadFile(filepath.Join(TemplatesBaseDir+"-"+username, name+".mustache"))
+	if err != nil {
+		return "", false
+	}
+	return string(b), true
 }
 
 // override returns the per-user override file
 // "<TemplatesBaseDir>-<username>/<name>.mustache" when it exists and is readable,
 // otherwise fallback. A non-safe username always yields fallback.
 func override(username, name, fallback string) string {
-	if !safeUsername(username) {
-		return fallback
+	if s, ok := lookupOverride(username, name); ok {
+		return s
 	}
-	b, err := os.ReadFile(filepath.Join(TemplatesBaseDir+"-"+username, name+".mustache"))
-	if err != nil {
-		return fallback
-	}
-	return string(b)
+	return fallback
 }
 
 // safeUsername reports whether username is safe to use as a path component.
