@@ -58,13 +58,17 @@ func (s *CharlotteStore) ListCharlotteDocuments(ctx context.Context) ([]model.Do
 	}
 	docs := make([]model.Document, 0, len(names))
 	for i, name := range names {
+		title, labels := parseCharlotteName(name)
+		if labels == nil {
+			labels = []string{}
+		}
 		docs = append(docs, model.Document{
 			ID:         int64(i + 1),
-			Title:      displayTitle(name),
+			Title:      title,
 			IsArchived: strings.HasPrefix(name, "archive/"),
 			Attributes: map[string]string{},
 			Blocks:     []model.Block{},
-			Labels:     []string{},
+			Labels:     labels,
 			PostURLs:   []string{},
 		})
 	}
@@ -92,10 +96,19 @@ func (s *CharlotteStore) GetCharlotteDocument(ctx context.Context, id int64) (mo
 	return parseCharlotteDoc(out, id, name)
 }
 
-// displayTitle is the human-facing title for a document name: the "archive/" prefix
-// is dropped (the archived state is shown separately), the rest of the path is kept.
-func displayTitle(name string) string {
-	return strings.TrimPrefix(name, "archive/")
+// parseCharlotteName splits a document name into its display title and any labels.
+// Archived names follow "archive/${label}/${name}": the leading "archive/" marks
+// the archived state, the next path segment becomes a label, and the remainder is
+// the title. Names with no label segment ("archive/${name}" or a bare name) yield
+// the name unchanged and no labels.
+func parseCharlotteName(name string) (title string, labels []string) {
+	rest := strings.TrimPrefix(name, "archive/")
+	if rest != name { // archived
+		if i := strings.Index(rest, "/"); i >= 0 {
+			return rest[i+1:], []string{rest[:i]}
+		}
+	}
+	return rest, nil
 }
 
 // charlotteDoc / charlotteBlock mirror the JSON shape emitted by `charlotte-cli --doc`.
@@ -123,17 +136,21 @@ func parseCharlotteDoc(data []byte, id int64, name string) (model.Document, erro
 		return model.Document{}, fmt.Errorf("charlotte parse %q: %w", name, err)
 	}
 
+	title, labels := parseCharlotteName(name)
+	if labels == nil {
+		labels = []string{}
+	}
 	doc := model.Document{
 		ID:         id,
 		Title:      cd.DocTitle,
 		IsArchived: strings.HasPrefix(name, "archive/"),
 		Attributes: cd.DocTags,
 		Blocks:     []model.Block{},
-		Labels:     []string{},
+		Labels:     labels,
 		PostURLs:   []string{},
 	}
 	if doc.Title == "" {
-		doc.Title = displayTitle(name)
+		doc.Title = title
 	}
 	if doc.Attributes == nil {
 		doc.Attributes = map[string]string{}
