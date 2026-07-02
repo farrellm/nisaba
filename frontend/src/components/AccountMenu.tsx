@@ -82,6 +82,7 @@ export default function AccountMenu() {
             checked={user?.streamingEnabled ?? false}
             tabIndex={-1}
             disableRipple
+            inputProps={{ 'aria-label': 'Toggle streaming' }}
           />
         </MenuItem>
         <MenuItem onClick={goToSettings}>
