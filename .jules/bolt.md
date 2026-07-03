@@ -10,3 +10,6 @@
 ## 2026-07-01 - Prevent redundant allocations in nested loops
 **Learning:** React re-renders with heavy list-processing operations like string transformations (`.toLowerCase()`) or `Intl.Collator` initializations can create hidden memory/CPU spikes, especially if inside `useMemo` hooks mapping arrays against other arrays.
 **Action:** Always pre-compute primitive transformations outside of inner maps/filters (like moving `.toLowerCase()` to a Set outside the loop) to change O(n*m) allocations to O(n) + O(m) lookups.
+## 2024-11-21 - useMemo dependency tracking with object fallbacks
+**Learning:** If a variable is initialized with a fallback object like `const attributes = doc.attributes ?? {}`, using `attributes` in a `useMemo` dependency array (`[attributes]`) will trigger continuous re-renders whenever `doc.attributes` is undefined, because a new empty object reference is created on every pass.
+**Action:** When memoizing derived state based on potentially undefined props, use the original prop (e.g., `doc.attributes`) as the `useMemo` dependency instead of an intermediate variable that creates a new reference.

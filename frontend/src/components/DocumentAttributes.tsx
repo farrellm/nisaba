@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import OpenInNew from '@mui/icons-material/OpenInNew'
@@ -15,8 +15,11 @@ interface DocumentAttributesProps {
 // editable value field per key (keys are created by running blocks, so they are
 // fixed here), with a Save button at the top of the section.
 export default function DocumentAttributes({ doc, onChange }: DocumentAttributesProps) {
+  // ⚡ Bolt: Memoize sorted keys to prevent allocating and sorting an array on every re-render.
+  // Use doc.attributes as the dependency directly to avoid creating a new {} reference on every render
+  // when doc.attributes is null/undefined.
+  const keys = useMemo(() => Object.keys(doc.attributes ?? {}).sort(), [doc.attributes])
   const attributes = doc.attributes ?? {}
-  const keys = Object.keys(attributes).sort()
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
     for (const key of keys) seed[key] = attributes[key] ?? ''
