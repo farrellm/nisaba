@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   Box,
@@ -353,7 +353,8 @@ function ResponseDetails({
 // Attributes renders the document's shared key/value namespace read-only,
 // mirroring DocumentAttributes' collapsible section.
 function Attributes({ attributes }: { attributes: Record<string, string> }) {
-  const keys = Object.keys(attributes).sort()
+  // ⚡ Bolt: Memoize sorted keys to prevent allocating and sorting an array on every re-render.
+  const keys = useMemo(() => Object.keys(attributes).sort(), [attributes])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   if (keys.length === 0) return null
   return (
