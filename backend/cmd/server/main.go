@@ -91,6 +91,7 @@ func main() {
 		r.Route("/documents", func(r chi.Router) {
 			r.Get("/", handler.ListDocuments(st, sess))
 			r.Post("/", handler.CreateDocument(st, sess))
+			r.Get("/search", handler.SearchDocuments(st, sess))
 
 			r.Route("/{id}", func(r chi.Router) {
 				r.Get("/", handler.GetDocument(st, sess))
