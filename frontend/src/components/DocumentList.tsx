@@ -93,9 +93,11 @@ export default function DocumentList({
     // visible: base narrowed to docs carrying *all* selected labels (AND).
     // ⚡ Bolt: Pre-computing lowercase labels avoids O(N*M) repeated string allocations in the loop.
     const selectedLower = selected.map((s) => s.toLowerCase())
-    const visible = base.filter((d) => {
-      const docLabelsLower = (d.labels ?? []).map((l) => l.toLowerCase())
-      return selectedLower.every((selLower) => docLabelsLower.includes(selLower))
+    // ⚡ Bolt: Bypass filter if no labels selected, and use .some() instead of allocating a new mapped array per doc
+    const visible = selectedLower.length === 0 ? base : base.filter((d) => {
+      return selectedLower.every((selLower) =>
+        (d.labels ?? []).some((l) => l.toLowerCase() === selLower)
+      )
     })
     const copy = [...visible]
     copy.sort((a, b) => {
