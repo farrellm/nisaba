@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import { Box, Button, CircularProgress, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import OpenInNew from '@mui/icons-material/OpenInNew'
 import { api, ApiError } from '../api/client'
@@ -96,9 +96,20 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         </Box>
 
         <Stack direction="row" spacing={1.5} sx={{ mb: 3 }}>
-          <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || saving}>
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
+          <Tooltip title={!dirty && !saving ? 'No unsaved changes' : ''}>
+            <span>
+              <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || saving}>
+                {saving ? (
+                  <>
+                    <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                    Saving…
+                  </>
+                ) : (
+                  'Save'
+                )}
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
 
         {keys.length === 0 ? (
