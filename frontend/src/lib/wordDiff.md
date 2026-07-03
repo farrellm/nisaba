@@ -12,7 +12,11 @@ function wordDiff(before: string, after: string): DiffSegment[]
 Each segment marks a run of text that is unchanged (`equal`), present only in
 `after` (`add`), or present only in `before` (`remove`). Concatenating the
 `equal`+`remove` text reproduces `before`; concatenating `equal`+`add`
-reproduces `after`.
+reproduces `after` — with one caveat: text *absorbed* by the semantic-cleanup
+pass (step 5) exists identically in both inputs and appears in both a `remove`
+and an `add` segment, so the invariant is exact per side (drop the `add`
+segments to get `before`, drop the `remove` segments to get `after`) even
+though a naive `equal`-only concatenation would miss the absorbed spans.
 
 ## 1. Tokenize
 
@@ -20,15 +24,18 @@ Each input is split into a flat array of tokens, where every token is exactly
 one of:
 
 - a **whitespace run** — `\s+`
-- an **alphanumeric word run** — `[\p{L}\p{N}]+` (the Unicode `u` flag keeps
-  accented and non-Latin letters inside one token, e.g. `résumé`)
+- a **word run** — `[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*`: alphanumerics plus
+  *internal* apostrophes and hyphens, so `don't`, `it’s`, and `re-read` are
+  single tokens (the Unicode `u` flag keeps accented and non-Latin letters
+  inside one token, e.g. `résumé`)
 - a **single punctuation/symbol character** — `[^\s\p{L}\p{N}]`
 
 ```ts
-s.match(/\s+|[\p{L}\p{N}]+|[^\s\p{L}\p{N}]/gu) ?? []
+s.match(/\s+|[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*|[^\s\p{L}\p{N}]/gu) ?? []
 ```
 
-So `"Hi, world!"` → `["Hi", ",", " ", "world", "!"]`.
+So `"Hi, world!"` → `["Hi", ",", " ", "world", "!"]`, and `"don't"` →
+`["don't"]`.
 
 Two consequences of this token granularity:
 
@@ -38,14 +45,25 @@ Two consequences of this token granularity:
 - **Punctuation is separated from adjacent words**, so editing the text around a
   word doesn't mark the word itself as changed. `room.` → `room and smiled.`
   diffs as `room`(equal) + ` and smiled`(add) + `.`(equal), not a wholesale
-  replacement. The flip side: intra-word marks also split (`don't` →
-  `don` `'` `t`).
+  replacement. Only *internal* `'`/`’`/`-` bind to a word: leading, trailing,
+  or doubled marks (`'tis`, `well--known`) still split off as punctuation.
 
-## 2. Longest common subsequence (LCS)
+## 2. Trim the common prefix and suffix
 
-Given token arrays `a` (from `before`) and `b` (from `after`), build a table
-where `lcs[i][j]` is the length of the longest common subsequence of the
-suffixes `a[i:]` and `b[j:]`. Filled bottom-up from the ends:
+Before any table is built, the longest common token prefix and suffix of the
+two arrays are stripped and emitted directly as `equal` segments; the LCS core
+runs only on the differing middle. The suffix scan stops at the prefix
+boundary so the two never overlap.
+
+This is the main defense against the LCS's `O(n·m)` cost: the typical input is
+a near-identical variant of a long attribute value, where trimming collapses
+the problem to the edited region.
+
+## 3. Longest common subsequence (LCS)
+
+Given the middle token arrays `a` (from `before`) and `b` (from `after`), build
+a table where `lcs[i][j]` is the length of the longest common subsequence of
+the suffixes `a[i:]` and `b[j:]`. Filled bottom-up from the ends:
 
 ```
 lcs[i][j] = a[i] === b[j]
@@ -54,9 +72,21 @@ lcs[i][j] = a[i] === b[j]
 ```
 
 Tokens are compared by exact string equality. The LCS is the set of tokens that
-stay put; everything else is an insertion or deletion.
+stay put; everything else is an insertion or deletion. The table is stored as a
+single flat `Int32Array` of `(n+1)·(m+1)` cells (row-major) rather than
+`number[][]` — same algorithm, roughly an order of magnitude less memory.
 
-## 3. Backtrack into segments
+### Size guard
+
+The table is only allocated up to a cap (`maxLcsCells`, 25M cells ≈ 100 MB).
+If the trimmed middle would exceed it, the middle is re-tokenized at **line
+granularity** (`/\n+|[^\n]+/` — whole lines and newline runs) and the same
+LCS/backtrack runs over lines instead of words: coarser, but bounded. In the
+pathological case where even the line-level table would exceed the cap, the
+middle is emitted as one wholesale `remove` + `add` pair. All paths preserve
+the reconstruction invariant.
+
+## 4. Backtrack into segments
 
 Walk forward from `(0, 0)` using the table to decide each step:
 
@@ -76,39 +106,58 @@ Adjacent tokens of the same type are merged into one segment as they're emitted
 This turns token-level output into readable runs — e.g. a contiguous insertion
 of several words/spaces becomes a single `add` segment rather than many.
 
-## 4. Group consecutive changes
+## 5. Semantic cleanup (`groupChanges`)
 
-Because inter-word whitespace tokens match, a change spanning several adjacent
-words gets fragmented by the LCS into edits separated by tiny `equal` spaces —
-e.g. `the quick brown fox` → `the slow red fox` backtracks to
-`="the " −"quick" +"slow" =" " −"brown" +"red" =" fox"`, which reads as
-alternating struck/inserted words.
+Two artifacts make the raw backtrack output hard to read:
 
-A final `groupChanges` pass merges each maximal run of edits into **one `remove`
-block followed by one `add` block**, absorbing any **whitespace-only `equal` that
-sits between two edits** into both sides (the space exists identically in the
-before- and after-text). The example becomes
-`="the " −"quick brown" +"slow red" =" fox"`.
+- Inter-word whitespace tokens match, so a change spanning adjacent words
+  fragments into edits separated by tiny `equal` spaces —
+  `the quick brown fox` → `the slow red fox` backtracks to
+  `="the " −"quick" +"slow" =" " −"brown" +"red" =" fox"`.
+- The LCS maximizes matched tokens, so a heavy rewrite still matches stray
+  common tokens (`the`, `a`, a comma), splintering what a human reads as "this
+  passage was replaced" into confetti of alternating strikes and inserts.
 
-Only whitespace-only equalities are absorbed: a preserved word or punctuation
-mark between two edits is genuinely unchanged and stays an `equal` boundary, so
-unchanged spans are never swallowed. The reconstruction invariant still holds —
-an absorbed space is identical in both inputs, so including it in both blocks
-keeps `equal`+`remove` = `before` and `equal`+`add` = `after`.
+`groupChanges` fixes both. It pairs each maximal run of edits into **one
+`remove` block followed by one `add` block**, and absorbs an `equal` that sits
+between two edits into both sides when it wouldn't stand on its own:
 
-## 5. Word counts
+- **never** when it contains a newline — absorbed text renders twice (once
+  struck, once inserted), which must not duplicate paragraph breaks; a line
+  boundary is a natural end to an edit run anyway;
+- **always** when it's whitespace-only (the space exists identically in the
+  before- and after-text);
+- otherwise when it's **small relative to the edits on both sides**: its word
+  count is ≤ each neighboring edit's larger side (`max(wordCount(remove),
+  wordCount(add))`). This is diff-match-patch's `cleanupSemantic` rule adapted
+  to word counts; a pure-punctuation equality (a matched comma) counts 0 words
+  and is always absorbed between edits.
 
-`wordCount(s)` counts alphanumeric word runs only (`[\p{L}\p{N}]+` with the `u`
-flag), ignoring whitespace and punctuation. The diff page sums it over the
-`add` and `remove` segments to show a `−N / +M words` summary, so a
-punctuation-only change (e.g. a stray `.`) contributes `0` and isn't reported as
-a changed word.
+Absorption repeats until stable, because each merge widens the neighboring
+edits and can unlock absorbing the next equality over. The first example
+becomes `="the " −"quick brown" +"slow red" =" fox"`; a rewrite that shares
+only function words collapses to a single strike + insert pair.
+
+Equalities that fail the rule — a preserved phrase between two edits — stay
+`equal` boundaries, so genuinely-unchanged spans are never swallowed.
+
+## 6. Word counts
+
+`wordCount(s)` counts word runs only (the same word shape as the tokenizer, so
+`don't` is one word), ignoring whitespace and punctuation. The diff page sums
+it over the `add` and `remove` segments to show a `−N / +M words` summary, so
+a punctuation-only change (e.g. a stray `.`) contributes `0` and isn't reported
+as a changed word. Because absorbed equalities land in both the `remove` and
+`add` segments, the counts describe the *rendered markup* — exactly the words
+shown struck and inserted — not a minimal edit script.
 
 ## Complexity & edge cases
 
-- **Time / space:** `O(n·m)` for token arrays of length `n` and `m` (the LCS
-  table). Fine for prose-sized attribute values; not intended for very large
-  inputs.
+- **Time / space:** `O(n·m)` in the trimmed middle, capped at `maxLcsCells`
+  table cells (with line-level, then wholesale, fallbacks beyond the cap).
+  Prefix/suffix trimming makes the common case — a long value with a localized
+  edit — effectively linear.
 - **Empty inputs:** `tokenize("")` yields `[]`. Empty `before` → everything is
   `add`; empty `after` → everything is `remove`; both empty → `[]`.
-- **Identical inputs** collapse to a single `equal` segment.
+- **Identical inputs** collapse to a single `equal` segment (fully consumed by
+  the prefix trim).
