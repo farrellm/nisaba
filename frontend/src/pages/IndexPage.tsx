@@ -3,6 +3,7 @@ import type { SvgIconComponent } from '@mui/icons-material'
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined'
 import LocalOfferOutlined from '@mui/icons-material/LocalOfferOutlined'
 import Inventory2Outlined from '@mui/icons-material/Inventory2Outlined'
+import SearchOutlined from '@mui/icons-material/SearchOutlined'
 import AutoAwesomeOutlined from '@mui/icons-material/AutoAwesomeOutlined'
 import AutoStoriesOutlined from '@mui/icons-material/AutoStoriesOutlined'
 import HistoryEduOutlined from '@mui/icons-material/HistoryEduOutlined'
@@ -22,6 +23,7 @@ type NavCard = {
 const cards: NavCard[] = [
   { title: 'Documents', to: '/documents', Icon: DescriptionOutlined, highlight: true },
   { title: 'Archive', to: '/archive', Icon: Inventory2Outlined },
+  { title: 'Search', to: '/search', Icon: SearchOutlined },
   { title: 'Labels', to: '/labels', Icon: LocalOfferOutlined },
   { title: 'Prompts', to: '/reddit', Icon: AutoAwesomeOutlined },
   { title: 'Anansi', to: '/anansi', Icon: AutoStoriesOutlined },

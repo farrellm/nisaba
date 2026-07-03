@@ -38,6 +38,33 @@ func ListDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	}
 }
 
+// SearchDocuments returns the logged-in user's documents whose `story` attribute
+// matches the ?q= full-text query, most-relevant first, as summaries. Archived
+// documents are included (the frontend marks them). An empty query returns [].
+func SearchDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := sess.UserID(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+		q := strings.TrimSpace(r.URL.Query().Get("q"))
+		if q == "" {
+			writeJSON(w, http.StatusOK, []model.Document{})
+			return
+		}
+		docs, err := st.SearchDocuments(r.Context(), id, q)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Could not search documents")
+			return
+		}
+		if docs == nil {
+			docs = []model.Document{}
+		}
+		writeJSON(w, http.StatusOK, docs)
+	}
+}
+
 type newDocument struct {
 	Title string  `json:"title"`
 	URL   *string `json:"url"`

@@ -101,6 +101,56 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 	return docs, nil
 }
 
+// SearchDocuments returns a user's documents whose `story` attribute matches the
+// full-text query, ranked by relevance then recency, as summaries (same shape as
+// ListDocuments). Archived documents are always included; the caller marks them.
+func (s *Store) SearchDocuments(ctx context.Context, userID int64, query string) ([]model.Document, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT d.id, d.user_id, d.created_at, d.updated_at, d.title,
+		        d.selected_model, d.metadata, d.is_archived, d.url
+		   FROM documents d
+		   JOIN document_attributes da ON da.document_id = d.id AND da.key = 'story'
+		  WHERE d.user_id = $1
+		    AND to_tsvector('english', da.value) @@ websearch_to_tsquery('english', $2)
+		  ORDER BY ts_rank(to_tsvector('english', da.value),
+		                   websearch_to_tsquery('english', $2)) DESC,
+		           d.updated_at DESC`,
+		userID, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var docs []model.Document
+	for rows.Next() {
+		var d model.Document
+		if err := rows.Scan(&d.ID, &d.UserID, &d.CreatedAt, &d.UpdatedAt,
+			&d.Title, &d.SelectedModel, &d.Metadata, &d.IsArchived, &d.URL); err != nil {
+			return nil, err
+		}
+		docs = append(docs, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	labels, err := s.labelsByDocument(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range docs {
+		if names := labels[docs[i].ID]; names != nil {
+			docs[i].Labels = names
+		} else {
+			docs[i].Labels = []string{}
+		}
+		// Summaries don't load post URLs; default to an empty slice so the JSON
+		// is [] rather than null.
+		docs[i].PostURLs = []string{}
+	}
+	return docs, nil
+}
+
 // labelsByDocument returns, for every document owned by the user, its label names
 // keyed by document id. Documents without labels are absent from the map.
 func (s *Store) labelsByDocument(ctx context.Context, userID int64) (map[int64][]string, error) {

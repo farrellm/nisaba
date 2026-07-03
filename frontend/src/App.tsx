@@ -4,6 +4,7 @@ import IndexPage from './pages/IndexPage'
 import LoginPage from './pages/LoginPage'
 import CreateUserPage from './pages/CreateUserPage'
 import DocumentsPage from './pages/DocumentsPage'
+import SearchPage from './pages/SearchPage'
 import LabelsPage from './pages/LabelsPage'
 import DocumentPage from './pages/DocumentPage'
 import AttributePage from './pages/AttributePage'
@@ -34,6 +35,14 @@ export default function App() {
         element={
           <RequireAuth>
             <DocumentsPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/search"
+        element={
+          <RequireAuth>
+            <SearchPage />
           </RequireAuth>
         }
       />
