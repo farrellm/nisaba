@@ -116,12 +116,16 @@ func main() {
 
 	slog.Info("server listening", "addr", cfg.Addr)
 
+	// ReadHeaderTimeout closes the Slowloris vector (slow header trickling)
+	// that gosec G114 flags; IdleTimeout reaps idle keep-alive connections.
+	// ReadTimeout/WriteTimeout are intentionally left unset: they are absolute
+	// deadlines on the whole request, and the block-run and NDJSON streaming
+	// endpoints call the LLM (up to maxToolIterations tool round-trips), which
+	// routinely runs far longer than any fixed cap.
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           r,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
