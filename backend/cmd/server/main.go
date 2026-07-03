@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -114,7 +115,21 @@ func main() {
 	})
 
 	slog.Info("server listening", "addr", cfg.Addr)
-	if err := http.ListenAndServe(cfg.Addr, r); err != nil {
+
+	// ReadHeaderTimeout closes the Slowloris vector (slow header trickling)
+	// that gosec G114 flags; IdleTimeout reaps idle keep-alive connections.
+	// ReadTimeout/WriteTimeout are intentionally left unset: they are absolute
+	// deadlines on the whole request, and the block-run and NDJSON streaming
+	// endpoints call the LLM (up to maxToolIterations tool round-trips), which
+	// routinely runs far longer than any fixed cap.
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+
+	if err := srv.ListenAndServe(); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)
 	}
