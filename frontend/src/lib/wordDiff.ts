@@ -8,8 +8,11 @@
 // reconstructs the original spacing and newlines exactly. The diff itself is a
 // classic longest-common-subsequence over the token arrays (run only on the
 // middle left after trimming the common prefix/suffix), backtracked into
-// equal/remove/add segments. A final semantic-cleanup pass (groupChanges)
-// merges fragmented edit runs into readable strike/insert blocks.
+// equal/remove/add segments. When the word-level table would exceed the size
+// cap, lines are diffed first as an alignment and each changed region is
+// re-diffed at word level (diffLinesRefined). A final semantic-cleanup pass
+// (groupChanges) merges fragmented edit runs into readable strike/insert
+// blocks.
 
 export type DiffSegment = { type: 'equal' | 'add' | 'remove'; text: string }
 
@@ -32,14 +35,10 @@ function tokenizeLines(s: string): string[] {
 // willing to allocate before dropping to a coarser diff granularity.
 const maxLcsCells = 25_000_000
 
-export function wordDiff(before: string, after: string): DiffSegment[] {
-  const a = tokenize(before)
-  const b = tokenize(after)
-
-  // Trim the common token prefix and suffix so the O(n·m) LCS core only sees
-  // the edited middle — the typical input here is a near-identical variant,
-  // where this collapses the table to a sliver. The suffix scan stops at the
-  // prefix boundary so the two never overlap.
+// trimCommonEnds strips the longest common token prefix and suffix of two
+// token arrays, returning [prefixLength, middleA, middleB]. The suffix scan
+// stops at the prefix boundary so the two never overlap.
+function trimCommonEnds(a: string[], b: string[]): [number, string[], string[]] {
   let start = 0
   while (start < a.length && start < b.length && a[start] === b[start]) start++
   let endA = a.length
@@ -48,6 +47,21 @@ export function wordDiff(before: string, after: string): DiffSegment[] {
     endA--
     endB--
   }
+  return [start, a.slice(start, endA), b.slice(start, endB)]
+}
+
+function fitsCap(a: string[], b: string[]): boolean {
+  return (a.length + 1) * (b.length + 1) <= maxLcsCells
+}
+
+export function wordDiff(before: string, after: string): DiffSegment[] {
+  const a = tokenize(before)
+  const b = tokenize(after)
+
+  // Trim the common token prefix and suffix so the O(n·m) LCS core only sees
+  // the edited middle — the typical input here is a near-identical variant,
+  // where this collapses the table to a sliver.
+  const [start, midA, midB] = trimCommonEnds(a, b)
 
   const segments: DiffSegment[] = []
   const push = (type: DiffSegment['type'], text: string) => {
@@ -59,24 +73,65 @@ export function wordDiff(before: string, after: string): DiffSegment[] {
 
   push('equal', a.slice(0, start).join(''))
 
-  let midA = a.slice(start, endA)
-  let midB = b.slice(start, endB)
-  if ((midA.length + 1) * (midB.length + 1) > maxLcsCells) {
-    // The word-level table would be too large — retry at line granularity.
-    midA = tokenizeLines(midA.join(''))
-    midB = tokenizeLines(midB.join(''))
-  }
-  if ((midA.length + 1) * (midB.length + 1) > maxLcsCells) {
-    // Too large even line-by-line: give up on alignment, wholesale replace.
-    push('remove', midA.join(''))
-    push('add', midB.join(''))
-  } else {
+  if (fitsCap(midA, midB)) {
     diffTokens(midA, midB, push)
+  } else {
+    // The word-level table would be too large — align at line granularity
+    // instead, then refine each changed region back to word level.
+    const lineA = tokenizeLines(midA.join(''))
+    const lineB = tokenizeLines(midB.join(''))
+    if (fitsCap(lineA, lineB)) {
+      diffLinesRefined(lineA, lineB, push)
+    } else {
+      // Too large even line-by-line: give up on alignment, wholesale replace.
+      push('remove', midA.join(''))
+      push('add', midB.join(''))
+    }
   }
 
-  push('equal', a.slice(endA).join(''))
+  push('equal', a.slice(start + midA.length).join(''))
 
   return groupChanges(segments)
+}
+
+// diffLinesRefined runs the LCS core over line tokens, but uses the result as
+// an alignment rather than the output: unchanged lines pass through as equal,
+// and each maximal run of changed lines (a region bounded by matching lines
+// or blank-line runs) is re-diffed at word granularity. Since edits are
+// typically paragraph-local, each region is small enough for a full
+// word-level table even when the document as a whole was not. Only a region
+// that is itself over the cap degrades to a wholesale remove+add — a changed
+// region has no common lines left, so there is nothing coarser to anchor on.
+function diffLinesRefined(lineA: string[], lineB: string[], push: (type: DiffSegment['type'], text: string) => void) {
+  let removed = ''
+  let added = ''
+  const flush = () => {
+    if (!removed && !added) return
+    const a = tokenize(removed)
+    const b = tokenize(added)
+    const [start, midA, midB] = trimCommonEnds(a, b)
+    push('equal', a.slice(0, start).join(''))
+    if (fitsCap(midA, midB)) {
+      diffTokens(midA, midB, push)
+    } else {
+      push('remove', midA.join(''))
+      push('add', midB.join(''))
+    }
+    push('equal', a.slice(start + midA.length).join(''))
+    removed = ''
+    added = ''
+  }
+  diffTokens(lineA, lineB, (type, text) => {
+    if (type === 'equal') {
+      flush()
+      push('equal', text)
+    } else if (type === 'remove') {
+      removed += text
+    } else {
+      added += text
+    }
+  })
+  flush()
 }
 
 // diffTokens runs the LCS + backtrack core over two token arrays, emitting
