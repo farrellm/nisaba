@@ -80,11 +80,21 @@ single flat `Int32Array` of `(n+1)·(m+1)` cells (row-major) rather than
 
 The table is only allocated up to a cap (`maxLcsCells`, 25M cells ≈ 100 MB).
 If the trimmed middle would exceed it, the middle is re-tokenized at **line
-granularity** (`/\n+|[^\n]+/` — whole lines and newline runs) and the same
-LCS/backtrack runs over lines instead of words: coarser, but bounded. In the
-pathological case where even the line-level table would exceed the cap, the
-middle is emitted as one wholesale `remove` + `add` pair. All paths preserve
-the reconstruction invariant.
+granularity** (`/\n+|[^\n]+/` — whole lines and newline runs) and the LCS runs
+over lines instead of words — but as an **alignment**, not as the output
+(`diffLinesRefined`). Unchanged lines pass through as `equal`; each maximal
+run of changed lines (a region bounded by matching lines or blank-line runs,
+so typically one edited paragraph) is then re-diffed at **word granularity**:
+its removed and added text are word-tokenized, prefix/suffix-trimmed, and run
+through the same LCS core. Edits are usually paragraph-local, so each region's
+table is tiny even when the whole document blew the cap — the output stays
+word-level instead of striking entire paragraphs.
+
+Two bounded degradations remain: a single changed region that itself exceeds
+the cap (a massive rewrite with no common lines to anchor on) is emitted as
+one wholesale `remove` + `add` pair for that region, and in the pathological
+case where even the line-level table would exceed the cap, the entire middle
+is emitted wholesale. All paths preserve the reconstruction invariant.
 
 ## 4. Backtrack into segments
 
@@ -154,7 +164,8 @@ shown struck and inserted — not a minimal edit script.
 ## Complexity & edge cases
 
 - **Time / space:** `O(n·m)` in the trimmed middle, capped at `maxLcsCells`
-  table cells (with line-level, then wholesale, fallbacks beyond the cap).
+  table cells (beyond the cap: line-level alignment with per-region word
+  refinement, then wholesale, each region and table individually capped).
   Prefix/suffix trimming makes the common case — a long value with a localized
   edit — effectively linear.
 - **Empty inputs:** `tokenize("")` yields `[]`. Empty `before` → everything is
