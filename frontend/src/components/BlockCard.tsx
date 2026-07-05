@@ -574,6 +574,8 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                     minRows={6}
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
+                    autoFocus
+                    inputProps={{ 'aria-label': 'Edit response value' }}
                     InputProps={{
                       sx: { fontFamily: fonts.mono, fontSize: '0.85rem' },
                     }}
