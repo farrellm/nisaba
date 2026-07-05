@@ -47,15 +47,25 @@ func TestParseCharlotteDoc(t *testing.T) {
 		t.Fatalf("len(Blocks) = %d, want 2", len(doc.Blocks))
 	}
 
+	// charlotte-cli lists blocks newest-first, so the mapped document reverses them:
+	// the "edit" block (last in the dump) becomes block0.
 	b0 := doc.Blocks[0]
-	if b0.Mode != "story-full" || b0.Position != 0 || b0.DocumentID != 7 {
+	if b0.Mode != "edit" || b0.Position != 0 || b0.DocumentID != 7 {
 		t.Errorf("block0 = %+v", b0)
 	}
-	if len(b0.Responses) != 2 {
-		t.Fatalf("len(block0.Responses) = %d, want 2", len(b0.Responses))
+	if len(b0.Responses) != 1 || b0.Responses[0].Value != "revised" || b0.Responses[0].Model != "claude-3-opus" {
+		t.Errorf("block0 responses = %+v", b0.Responses)
 	}
-	if b0.Responses[0].Value != "once upon a time" || b0.Responses[0].Model != "gemini-2.5-pro" {
-		t.Errorf("block0 response0 = %+v", b0.Responses[0])
+
+	b1 := doc.Blocks[1]
+	if b1.Mode != "story-full" || b1.Position != 1 {
+		t.Errorf("block1 = %+v", b1)
+	}
+	if len(b1.Responses) != 2 {
+		t.Fatalf("len(block1.Responses) = %d, want 2", len(b1.Responses))
+	}
+	if b1.Responses[0].Value != "once upon a time" || b1.Responses[0].Model != "gemini-2.5-pro" {
+		t.Errorf("block1 response0 = %+v", b1.Responses[0])
 	}
 
 	// Block and response ids must be unique across the whole document.

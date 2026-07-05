@@ -160,8 +160,11 @@ func parseCharlotteDoc(data []byte, id int64, name string) (model.Document, erro
 		doc.URL = &url
 	}
 
+	// charlotte-cli emits blocks newest-first; iterate in reverse so the mapped
+	// document reads oldest-first like the live app expects.
 	var blockID, responseID int64
-	for i, cb := range cd.DocBlocks {
+	for i := len(cd.DocBlocks) - 1; i >= 0; i-- {
+		cb := cd.DocBlocks[i]
 		blockID++
 		attrs := cb.BlockTags
 		if attrs == nil {
@@ -171,7 +174,7 @@ func parseCharlotteDoc(data []byte, id int64, name string) (model.Document, erro
 			ID:         blockID,
 			DocumentID: id,
 			Mode:       cb.BlockMode,
-			Position:   i,
+			Position:   len(cd.DocBlocks) - 1 - i,
 			Attributes: attrs,
 			Responses:  []model.Response{},
 		}
