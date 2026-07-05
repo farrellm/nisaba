@@ -244,7 +244,7 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			slog.Error("run failed: model request",
 				"err", err, "user", doc.UserID, "doc", doc.ID,
 				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
-			writeError(w, http.StatusBadGateway, "Model request failed")
+			writeError(w, http.StatusBadGateway, "Model request failed: "+err.Error())
 			return
 		}
 
@@ -334,7 +334,7 @@ func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			slog.Error("run failed: model request (stream)",
 				"err", err, "user", doc.UserID, "doc", doc.ID,
 				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
-			writeEvent(map[string]string{"type": "error", "message": "Model request failed"})
+			writeEvent(map[string]string{"type": "error", "message": "Model request failed: " + err.Error()})
 			return
 		}
 
