@@ -132,7 +132,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                     reveal(key)
                   }
                 }}
-                inputProps={{ tabIndex: 0 }}
+                inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
                 InputProps={{
                   readOnly: true,
                   endAdornment: (

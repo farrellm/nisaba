@@ -12,3 +12,6 @@
 ## 2024-07-04 - Add autoFocus and aria-label to inline editing TextFields
 **Learning:** React Material-UI `TextField` components used for inline editing of block responses lack accessibility context when toggled via a button, as screen readers only announce "edit text". Furthermore, the UX is clunky because the user must click again to focus the newly revealed input.
 **Action:** Always include `autoFocus` and `inputProps={{ 'aria-label': 'Descriptive label' }}` on inline edit input fields to eliminate the extra click and provide proper screen reader context.
+## 2026-07-05 - ARIA labels for readOnly clickable TextFields
+**Learning:** MUI `TextField` components used as clickable read-only elements to reveal full content lack accessible names, making their interactive nature unclear to screen reader users. The label prop only serves as visual/semantic context, but does not convey action.
+**Action:** Always include an `aria-label` inside `inputProps` for any `TextField` or similar component that functions as a button or toggle, clearly describing the resulting action (e.g., "Expand [key]").
