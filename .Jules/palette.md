@@ -9,3 +9,6 @@
 ## 2026-06-30 - Keyboard visibility for hover-revealed controls
 **Learning:** Hover-revealed controls (like actions that appear or become fully opaque on container `:hover`) are invisible or fail contrast requirements for keyboard users navigating via Tab unless `:focus-within` is also applied to the container.
 **Action:** Whenever using `&:hover` on a container to reveal or highlight child controls, always pair it with `&:focus-within` on the container or `&:focus-visible` on the element itself to ensure full keyboard accessibility.
+## 2024-07-04 - Add autoFocus and aria-label to inline editing TextFields
+**Learning:** React Material-UI `TextField` components used for inline editing of block responses lack accessibility context when toggled via a button, as screen readers only announce "edit text". Furthermore, the UX is clunky because the user must click again to focus the newly revealed input.
+**Action:** Always include `autoFocus` and `inputProps={{ 'aria-label': 'Descriptive label' }}` on inline edit input fields to eliminate the extra click and provide proper screen reader context.
