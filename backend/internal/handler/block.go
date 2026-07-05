@@ -239,7 +239,14 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		output, err := llm.Generate(r.Context(), doc.SelectedModel, system, prompt, m.Tools)
+		// Detach the model call + save from the client connection so a mid-run
+		// disconnect (e.g. an nginx proxy_read_timeout) can't discard finished
+		// work: the run completes and the response is saved even if the browser
+		// is gone. Bounded so a hung provider call can't leak this goroutine.
+		genCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 15*time.Minute)
+		defer cancel()
+
+		output, err := llm.Generate(genCtx, doc.SelectedModel, system, prompt, m.Tools)
 		if err != nil {
 			slog.Error("run failed: model request",
 				"err", err, "user", doc.UserID, "doc", doc.ID,
@@ -248,7 +255,7 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		hydrated, err := finishRun(r.Context(), st, doc, block, m, output)
+		hydrated, err := finishRun(genCtx, st, doc, block, m, output)
 		if err != nil {
 			slog.Error("run failed: save response",
 				"err", err, "user", doc.UserID, "doc", doc.ID,
@@ -290,6 +297,13 @@ func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
 
+		// Detach the model call + save from the client connection so a mid-run
+		// disconnect (e.g. an nginx proxy_read_timeout) can't discard finished
+		// work: the run completes and the response is saved even if the browser
+		// is gone. Bounded so a hung provider call can't leak this goroutine.
+		genCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 15*time.Minute)
+		defer cancel()
+
 		enc := json.NewEncoder(w)
 		// writeEvent is called from both the generation goroutine (via the delta
 		// callback) and the keepalive ticker goroutine, so serialize writes.
@@ -322,7 +336,7 @@ func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			}
 		}()
 
-		output, err := llm.GenerateStream(r.Context(), doc.SelectedModel, system, prompt, m.Tools,
+		output, err := llm.GenerateStream(genCtx, doc.SelectedModel, system, prompt, m.Tools,
 			func(delta string) {
 				writeEvent(map[string]string{"type": "delta", "text": delta})
 			})
@@ -338,7 +352,7 @@ func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		hydrated, err := finishRun(r.Context(), st, doc, block, m, output)
+		hydrated, err := finishRun(genCtx, st, doc, block, m, output)
 		if err != nil {
 			slog.Error("run failed: save response (stream)",
 				"err", err, "user", doc.UserID, "doc", doc.ID,

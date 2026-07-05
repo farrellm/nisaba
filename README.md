@@ -77,6 +77,28 @@ export GEMINI_API_KEY=...      # Gemini models (or GOOGLE_GENERATIVE_AI_API_KEY)
 
 GoAI reads each key from the environment automatically; you only need the keys for the providers whose models you actually run.
 
+### Reverse proxy (production/remote)
+
+Running a block streams the model's reply back over a single long-lived NDJSON connection, kept warm by a keepalive `ping` every 10s. A slow, thinking-heavy model (e.g. Claude Opus) can run for minutes, so **any proxy in front of the app must disable response buffering and raise its read timeout** — otherwise the default 60s cutoff drops the connection mid-run and the request fails with `context canceled`.
+
+For nginx, on the API location:
+
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:5173;   # or :8080 to skip the Vite dev proxy
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+
+    proxy_buffering off;        # flush keepalive pings + deltas immediately
+    proxy_cache off;
+    proxy_read_timeout 3600s;   # default is 60s — too short for long runs
+    proxy_send_timeout 3600s;
+}
+```
+
+`proxy_buffering off` is the critical line. The backend itself sets no request deadline, and a completed run is now saved even if the client disconnects mid-stream, but live streaming still requires the proxy to stay out of the way.
+
 ## Project Structure
 
 ```
