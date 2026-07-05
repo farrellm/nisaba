@@ -17,3 +17,6 @@
 ## 2024-07-03 - [Array Allocation in Hot Loops]
 **Learning:** React render loops that perform filtering on large lists (like DocumentList.tsx) were allocating new arrays via `.map` for every document processed, generating significant garbage. Furthermore, omitting an early return when no filters are active forced an O(N) pass for every render.
 **Action:** When filtering lists in React, check if the filter criteria are empty first to bypass the `.filter()` entirely. Replace `.map().includes()` with `.some()` to avoid generating temporary arrays during the iteration.
+## 2026-07-04 - Prevent React.memo invalidation from inline fallback objects
+**Learning:** Passing an inline object fallback like `doc.attributes ?? {}` as a prop to a `React.memo` component defeats the memoization entirely when `doc.attributes` is undefined, because a new empty object reference is created on every render pass.
+**Action:** Extract empty fallback objects to module-level constants (e.g., `const EMPTY_ATTRIBUTES = {}`) when passing them as props to memoized components to maintain reference stability.

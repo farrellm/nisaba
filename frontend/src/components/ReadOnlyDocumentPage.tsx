@@ -21,6 +21,8 @@ import { parseResponseSegments } from '../lib/responseSegments'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
+const EMPTY_ATTRIBUTES: Record<string, string> = {}
+
 const postLinkSx = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -111,7 +113,7 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
               <BlockSection key={block.id} block={block} defaultOpen={i === arr.length - 1} />
             ))}
 
-            <Attributes attributes={doc.attributes ?? {}} />
+            <Attributes attributes={doc.attributes ?? EMPTY_ATTRIBUTES} />
           </>
         )}
       </Container>

@@ -26,6 +26,8 @@ import ModelSelector from '../components/ModelSelector'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
+const EMPTY_ATTRIBUTES: Record<string, string> = {}
+
 // Shared style for the "Original post" / "Posted" permalink chips under the title.
 const postLinkSx = {
   display: 'inline-flex',
@@ -249,7 +251,7 @@ export default function DocumentPage() {
                   key={block.id}
                   block={block}
                   mode={modesByName.get(block.mode)}
-                  documentAttributes={doc.attributes ?? {}}
+                  documentAttributes={doc.attributes ?? EMPTY_ATTRIBUTES}
                   onBlockUpdated={replaceBlock}
                   onBlockDeleted={removeBlock}
                   onAfterRun={reloadDocument}
