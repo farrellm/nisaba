@@ -6,7 +6,7 @@ require (
 	github.com/cbroglie/mustache v1.4.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/gorilla/sessions v1.4.0
-	github.com/jackc/pgx/v5 v5.7.1
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/rs/cors v1.11.1
 	github.com/zendev-sh/goai v0.8.5
 	golang.org/x/crypto v0.53.0

@@ -316,7 +316,8 @@ func redditPostPath(raw string) (path string, ok bool) {
 	lowerPath := strings.ToLower(parsed.Path)
 	lowerRawPath := strings.ToLower(parsed.RawPath)
 	if strings.Contains(lowerPath, "%2e") || strings.Contains(lowerPath, "%2f") ||
-		strings.Contains(lowerRawPath, "%2e") || strings.Contains(lowerRawPath, "%2f") {
+		strings.Contains(lowerRawPath, "%2e") || strings.Contains(lowerRawPath, "%2f") ||
+		strings.Contains(lowerRawPath, "%252e") || strings.Contains(lowerRawPath, "%252f") {
 		return "", false
 	}
 
