@@ -241,12 +241,18 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 		output, err := llm.Generate(r.Context(), doc.SelectedModel, system, prompt, m.Tools)
 		if err != nil {
-			writeError(w, http.StatusBadGateway, "Model request failed")
+			slog.Error("run failed: model request",
+				"err", err, "user", doc.UserID, "doc", doc.ID,
+				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
+			writeError(w, http.StatusBadGateway, "Model request failed: "+err.Error())
 			return
 		}
 
 		hydrated, err := finishRun(r.Context(), st, doc, block, m, output)
 		if err != nil {
+			slog.Error("run failed: save response",
+				"err", err, "user", doc.UserID, "doc", doc.ID,
+				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
 			writeError(w, http.StatusInternalServerError, "Could not save response")
 			return
 		}
@@ -325,12 +331,18 @@ func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		close(stop)
 		<-finished
 		if err != nil {
-			writeEvent(map[string]string{"type": "error", "message": "Model request failed"})
+			slog.Error("run failed: model request (stream)",
+				"err", err, "user", doc.UserID, "doc", doc.ID,
+				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
+			writeEvent(map[string]string{"type": "error", "message": "Model request failed: " + err.Error()})
 			return
 		}
 
 		hydrated, err := finishRun(r.Context(), st, doc, block, m, output)
 		if err != nil {
+			slog.Error("run failed: save response (stream)",
+				"err", err, "user", doc.UserID, "doc", doc.ID,
+				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
 			writeEvent(map[string]string{"type": "error", "message": "Could not save response"})
 			return
 		}
@@ -355,11 +367,15 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *a
 
 	m, ok = mode.Get(block.Mode)
 	if !ok {
+		slog.Warn("run failed: unknown mode",
+			"user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
 		return doc, block, m, "", "", false
 	}
 
 	if doc.SelectedModel == "" {
+		slog.Warn("run failed: no model selected",
+			"user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusBadRequest, "No model selected")
 		return doc, block, m, "", "", false
 	}
@@ -368,15 +384,21 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *a
 	// promote them into the document's shared attributes before running.
 	var body updateBlock
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+		slog.Error("run failed: decode request body",
+			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return doc, block, m, "", "", false
 	}
 	attrs := mergedBlockAttrs(block, m, body.Attributes)
 	if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
+		slog.Error("run failed: update block attributes",
+			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusInternalServerError, "Could not update block")
 		return doc, block, m, "", "", false
 	}
 	if err := st.MergeDocumentAttributes(r.Context(), doc.ID, attrs); err != nil {
+		slog.Error("run failed: merge document attributes",
+			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusInternalServerError, "Could not update document")
 		return doc, block, m, "", "", false
 	}
@@ -390,6 +412,8 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *a
 
 	prompt, err := mustache.Render(mode.TemplateFor(username, m), attrs)
 	if err != nil {
+		slog.Error("run failed: render prompt",
+			"err", err, "user", username, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusInternalServerError, "Could not render prompt")
 		return doc, block, m, "", "", false
 	}
@@ -401,6 +425,9 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *a
 		"model", doc.SelectedModel, "source", systemSource)
 	system, err = mustache.Render(systemTmpl, attrs)
 	if err != nil {
+		slog.Error("run failed: render system prompt",
+			"err", err, "user", username, "provider", provider,
+			"doc", doc.ID, "block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
 		writeError(w, http.StatusInternalServerError, "Could not render system prompt")
 		return doc, block, m, "", "", false
 	}
