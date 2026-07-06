@@ -29,6 +29,9 @@ import (
 // that keeps requesting tools can't spin forever.
 const maxToolIterations = 5
 
+// defaultMaxTokens caps output length when a model sets no MaxTokens override.
+const defaultMaxTokens = 64000
+
 // Tool is a tool/function a mode can attach to its LLM calls. Aliased to GoAI's
 // type so callers (e.g. internal/mode) configure tools without importing the
 // vendor library directly; build one with goai.NewTool (see names.go).
@@ -45,6 +48,8 @@ type Model struct {
 	// ToolProviderOptions are provider options applied only when the call carries
 	// tools (merged over ProviderOptions).
 	ToolProviderOptions map[string]any `json:"-"`
+	// MaxTokens overrides the default output-token cap for this model; 0 uses defaultMaxTokens.
+	MaxTokens int `json:"-"`
 }
 
 // Shared Anthropic provider options. anthropicThinking enables adaptive thinking
@@ -157,7 +162,36 @@ func buildCall(model, system, prompt string, tools []Tool) (provider.LanguageMod
 	}
 	m, _ := lookup(model) // unknown id already rejected by clientFor above
 
-	opts := []goai.Option{goai.WithSystem(system), goai.WithPrompt(prompt)}
+	maxTokens := defaultMaxTokens
+	if m.MaxTokens > 0 {
+		maxTokens = m.MaxTokens
+	}
+
+	// Log every model API call in one place: the hook fires in all paths
+	// (buffered + streaming, success + error, once per tool-loop step), so the
+	// finish reason is recorded even when the call errors.
+	logResponse := func(info goai.ResponseInfo) {
+		u := info.Usage
+		slog.Info("llm generate",
+			"model", model,
+			"finish_reason", info.FinishReason,
+			"error", info.Error,
+			"status", info.StatusCode,
+			"input_tokens", u.InputTokens,
+			"output_tokens", u.OutputTokens,
+			"total_tokens", u.TotalTokens,
+			"reasoning_tokens", u.ReasoningTokens,
+			"cache_read_tokens", u.CacheReadTokens,
+			"cache_write_tokens", u.CacheWriteTokens,
+		)
+	}
+
+	opts := []goai.Option{
+		goai.WithSystem(system),
+		goai.WithPrompt(prompt),
+		goai.WithMaxOutputTokens(maxTokens),
+		goai.WithOnResponse(logResponse),
+	}
 
 	provOpts := map[string]any{}
 	for k, v := range m.ProviderOptions {
@@ -188,17 +222,6 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	if err != nil {
 		return nil, err
 	}
-	u := res.TotalUsage
-	slog.Info("llm generate",
-		"model", model,
-		"finish_reason", res.FinishReason,
-		"input_tokens", u.InputTokens,
-		"output_tokens", u.OutputTokens,
-		"total_tokens", u.TotalTokens,
-		"reasoning_tokens", u.ReasoningTokens,
-		"cache_read_tokens", u.CacheReadTokens,
-		"cache_write_tokens", u.CacheWriteTokens,
-	)
 	return res, nil
 }
 
@@ -298,15 +321,6 @@ func GenerateStream(ctx context.Context, model, system, prompt string, tools []T
 func combineSteps(res *goai.TextResult) string {
 	var b strings.Builder
 	for _, s := range res.Steps {
-		u := s.Usage
-		slog.Info("llm step",
-			"input_tokens", u.InputTokens,
-			"output_tokens", u.OutputTokens,
-			"total_tokens", u.TotalTokens,
-			"reasoning_tokens", u.ReasoningTokens,
-			"cache_read_tokens", u.CacheReadTokens,
-			"cache_write_tokens", u.CacheWriteTokens,
-		)
 		if s.Reasoning != "" {
 			b.WriteString(thinkingOpen)
 			b.WriteString(s.Reasoning)
