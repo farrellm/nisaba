@@ -197,6 +197,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                     color="primary"
                     onDelete={() => removeLabel(name)}
                     sx={{ fontFamily: fonts.mono }}
+                    aria-label={`Remove label ${name}`}
                   />
                 ))}
               </Box>
@@ -228,6 +229,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                       variant={on ? 'filled' : 'outlined'}
                       onClick={() => toggleLabel(name)}
                       sx={{ fontFamily: fonts.mono, color: on ? undefined : 'text.secondary' }}
+                      aria-label={on ? `Remove suggested label ${name}` : `Add suggested label ${name}`}
                     />
                   )
                 })}
@@ -266,6 +268,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                       color={rec ? 'primary' : 'default'}
                       onClick={() => applyLabel(name)}
                       sx={{ fontFamily: fonts.mono, color: rec ? undefined : 'text.secondary' }}
+                      aria-label={`Add label ${name}`}
                     />
                   )
                 })}

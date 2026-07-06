@@ -67,6 +67,7 @@ export default function SearchPage() {
           fullWidth
           autoFocus
           placeholder="Search stories — press space or enter…"
+          inputProps={{ 'aria-label': 'Search stories' }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
