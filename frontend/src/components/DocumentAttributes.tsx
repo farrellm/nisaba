@@ -4,6 +4,7 @@ import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import OpenInNew from '@mui/icons-material/OpenInNew'
 import { api, ApiError } from '../api/client'
 import type { DocumentDetail } from '../api/types'
+import { EMPTY_ATTRIBUTES } from '../lib/constants'
 import { fonts } from '../theme'
 
 interface DocumentAttributesProps {
@@ -18,8 +19,8 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
   // ⚡ Bolt: Memoize sorted keys to prevent allocating and sorting an array on every re-render.
   // Use doc.attributes as the dependency directly to avoid creating a new {} reference on every render
   // when doc.attributes is null/undefined.
-  const keys = useMemo(() => Object.keys(doc.attributes ?? {}).sort(), [doc.attributes])
-  const attributes = doc.attributes ?? {}
+  const keys = useMemo(() => Object.keys(doc.attributes ?? EMPTY_ATTRIBUTES).sort(), [doc.attributes])
+  const attributes = doc.attributes ?? EMPTY_ATTRIBUTES
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
     for (const key of keys) seed[key] = attributes[key] ?? ''
@@ -32,7 +33,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
   // hasn't locally diverged on, tracked against the last server snapshot.
   const serverRef = useRef<Record<string, string>>(attributes)
   useEffect(() => {
-    const server = doc.attributes ?? {}
+    const server = doc.attributes ?? EMPTY_ATTRIBUTES
     setValues((prev) => {
       const next = { ...prev }
       for (const key of Object.keys(server)) {

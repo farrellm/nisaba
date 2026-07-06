@@ -16,6 +16,7 @@ import {
 import { api, ApiError } from '../api/client'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
+import { EMPTY_ARRAY } from '../lib/constants'
 
 // ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
 // Improves alpha sort performance by ~100x for large label lists.
@@ -47,7 +48,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
   // Seed from the document and load the user's full label pool when opened.
   useEffect(() => {
     if (!open) return
-    const seeded = doc.labels ?? []
+    const seeded = doc.labels ?? EMPTY_ARRAY
     setApplied(seeded)
     setAllLabels(seeded)
     setSuggested([])
@@ -58,7 +59,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
     setError(null)
     api
       .get<string[]>('/api/labels')
-      .then((names) => setAllLabels(names ?? []))
+      .then((names) => setAllLabels(names ?? EMPTY_ARRAY))
       .catch(() => {
         /* keep the seeded labels; the document's own labels still toggle */
       })
@@ -93,7 +94,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
     setSuggesting(true)
     try {
       const names = await api.post<string[]>(`/api/documents/${doc.id}/suggest-labels`)
-      setSuggested(names ?? [])
+      setSuggested(names ?? EMPTY_ARRAY)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not suggest labels. Try again.')
     } finally {
@@ -108,7 +109,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
     setRecommending(true)
     try {
       const names = await api.post<string[]>(`/api/documents/${doc.id}/recommend-labels`)
-      setRecommended(names ?? [])
+      setRecommended(names ?? EMPTY_ARRAY)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not recommend labels. Try again.')
     } finally {

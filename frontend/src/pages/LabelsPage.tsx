@@ -20,6 +20,7 @@ import DocumentRow from '../components/DocumentRow'
 import Masthead from '../components/Masthead'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
+import { EMPTY_ARRAY } from '../lib/constants'
 
 // ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
 // Improves alpha sort performance by ~100x for large label lists.
@@ -55,7 +56,7 @@ export default function LabelsPage() {
     if (!docs) return null
     const byLabel = new Map<string, Document[]>()
     for (const doc of docs) {
-      for (const label of doc.labels ?? []) {
+      for (const label of doc.labels ?? EMPTY_ARRAY) {
         const bucket = byLabel.get(label)
         if (bucket) bucket.push(doc)
         else byLabel.set(label, [doc])
@@ -66,7 +67,7 @@ export default function LabelsPage() {
       .map(([name, group]) => ({ name, docs: group.sort(newestFirst) }))
   }, [docs])
 
-  const labelNames = useMemo(() => sections?.map((s) => s.name) ?? [], [sections])
+  const labelNames = useMemo(() => sections?.map((s) => s.name) ?? EMPTY_ARRAY, [sections])
   const loading = docs === null && error === null
 
   return (

@@ -6,6 +6,7 @@ import type { DocumentDetail } from '../api/types'
 import { usePageTitle } from '../lib/usePageTitle'
 import { wordCount, wordDiff } from '../lib/wordDiff'
 import { fonts } from '../theme'
+import { EMPTY_ARRAY } from '../lib/constants'
 
 // A muted brick red for deletions — desaturated so it sits inside the warm
 // editorial palette rather than shouting like the MUI error color.
@@ -29,7 +30,7 @@ export default function BlockAttributeDiffPage() {
       .catch(() => setError('Could not load this comparison.'))
   }, [id])
 
-  const block = (doc?.blocks ?? []).find((b) => b.id === Number(blockId))
+  const block = (doc?.blocks ?? EMPTY_ARRAY).find((b) => b.id === Number(blockId))
   const before = block?.attributes?.[key] ?? '' // this block (baseline)
   const after = doc?.attributes?.[key] ?? '' // document (variant)
 

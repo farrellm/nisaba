@@ -25,8 +25,7 @@ import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
-
-const EMPTY_ATTRIBUTES: Record<string, string> = {}
+import { EMPTY_ARRAY, EMPTY_ATTRIBUTES } from '../lib/constants'
 
 // Shared style for the "Original post" / "Posted" permalink chips under the title.
 const postLinkSx = {
@@ -130,18 +129,18 @@ export default function DocumentPage() {
 
   const createBlock = useCallback(async (mode: string): Promise<Block> => {
     const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
-    setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? []), block] } : d))
+    setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? EMPTY_ARRAY), block] } : d))
     return block
   }, [id])
 
   const replaceBlock = useCallback((updated: Block) => {
     setDoc((d) =>
-      d ? { ...d, blocks: (d.blocks ?? []).map((b) => (b.id === updated.id ? updated : b)) } : d,
+      d ? { ...d, blocks: (d.blocks ?? EMPTY_ARRAY).map((b) => (b.id === updated.id ? updated : b)) } : d,
     )
   }, [])
 
   const removeBlock = useCallback((blockId: number) => {
-    setDoc((d) => (d ? { ...d, blocks: (d.blocks ?? []).filter((b) => b.id !== blockId) } : d))
+    setDoc((d) => (d ? { ...d, blocks: (d.blocks ?? EMPTY_ARRAY).filter((b) => b.id !== blockId) } : d))
   }, [])
 
   // Running a block mutates the document's shared attributes, so reload it.
@@ -182,7 +181,7 @@ export default function DocumentPage() {
                       Original post ↗
                     </MuiLink>
                   )}
-                  {(doc.postUrls ?? []).map((postUrl, i) => (
+                  {(doc.postUrls ?? EMPTY_ARRAY).map((postUrl, i) => (
                     <MuiLink
                       key={postUrl}
                       href={postUrl}
@@ -191,7 +190,7 @@ export default function DocumentPage() {
                       variant="overline"
                       sx={postLinkSx}
                     >
-                      {(doc.postUrls ?? []).length > 1 ? `Posted #${i + 1} ↗` : 'Posted ↗'}
+                      {(doc.postUrls ?? EMPTY_ARRAY).length > 1 ? `Posted #${i + 1} ↗` : 'Posted ↗'}
                     </MuiLink>
                   ))}
                 </Box>
@@ -241,12 +240,12 @@ export default function DocumentPage() {
               </Menu>
             </Box>
 
-            {(doc.blocks ?? []).length === 0 ? (
+            {(doc.blocks ?? EMPTY_ARRAY).length === 0 ? (
               <Typography sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}>
                 No blocks yet. Add one to get started.
               </Typography>
             ) : (
-              (doc.blocks ?? []).map((block, i, arr) => (
+              (doc.blocks ?? EMPTY_ARRAY).map((block, i, arr) => (
                 <BlockCard
                   key={block.id}
                   block={block}

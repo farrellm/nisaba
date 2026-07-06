@@ -20,8 +20,7 @@ import Markdown from './Markdown'
 import { parseResponseSegments } from '../lib/responseSegments'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
-
-const EMPTY_ATTRIBUTES: Record<string, string> = {}
+import { EMPTY_ARRAY, EMPTY_ATTRIBUTES } from '../lib/constants'
 
 const postLinkSx = {
   display: 'inline-flex',
@@ -109,7 +108,7 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
               </Box>
             </Box>
 
-            {(doc.blocks ?? []).map((block, i, arr) => (
+            {(doc.blocks ?? EMPTY_ARRAY).map((block, i, arr) => (
               <BlockSection key={block.id} block={block} defaultOpen={i === arr.length - 1} />
             ))}
 
@@ -180,7 +179,7 @@ function ReadOnlyField({
 // mode header, the block's input key/values, and its responses.
 function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boolean }) {
   const keys = Object.keys(block.attributes)
-  const responses = block.responses ?? []
+  const responses = block.responses ?? EMPTY_ARRAY
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   // The last block's newest response opens in the structured view by default.
   const [structured, setStructured] = useState<Set<number>>(() =>

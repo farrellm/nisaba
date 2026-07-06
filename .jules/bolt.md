@@ -20,3 +20,6 @@
 ## 2026-07-04 - Prevent React.memo invalidation from inline fallback objects
 **Learning:** Passing an inline object fallback like `doc.attributes ?? {}` as a prop to a `React.memo` component defeats the memoization entirely when `doc.attributes` is undefined, because a new empty object reference is created on every render pass.
 **Action:** Extract empty fallback objects to module-level constants (e.g., `const EMPTY_ATTRIBUTES = {}`) when passing them as props to memoized components to maintain reference stability.
+## 2024-07-04 - Eliminate reference thrashing with empty fallbacks
+**Learning:** Using inline fallback values like `?? []` or `?? {}` causes new object references to be created on every evaluation when the base value is undefined. This defeats `React.memo` and `useMemo` hooks, triggering unnecessary re-renders when mapping over lists or passing props. Using `any[]` for arrays removes static typing protections downstream.
+**Action:** Always use the centralized `EMPTY_ARRAY: never[] = []` and `EMPTY_ATTRIBUTES: Record<string, string> = {}` from `frontend/src/lib/constants.ts` to maintain reference stability across renders and ensure typing safety.

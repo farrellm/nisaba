@@ -16,6 +16,7 @@ import { fonts } from '../theme'
 import DocumentRow from './DocumentRow'
 import Masthead from './Masthead'
 import type { Document } from '../api/types'
+import { EMPTY_ARRAY } from '../lib/constants'
 
 export type SortOrder = 'alpha' | 'oldest' | 'newest'
 
@@ -96,7 +97,7 @@ export default function DocumentList({
     // ⚡ Bolt: Bypass filter if no labels selected, and use .some() instead of allocating a new mapped array per doc
     const visible = selectedLower.length === 0 ? base : base.filter((d) => {
       return selectedLower.every((selLower) =>
-        (d.labels ?? []).some((l) => l.toLowerCase() === selLower)
+        (d.labels ?? EMPTY_ARRAY).some((l) => l.toLowerCase() === selLower)
       )
     })
     const copy = [...visible]
@@ -125,7 +126,7 @@ export default function DocumentList({
     const selectedLowerSet = new Set(selected.map((s) => s.toLowerCase()))
 
     for (const doc of sorted) {
-      for (const label of doc.labels ?? []) {
+      for (const label of doc.labels ?? EMPTY_ARRAY) {
         const key = label.toLowerCase()
         if (!seen.has(key) && !selectedLowerSet.has(key)) {
           seen.set(key, label)

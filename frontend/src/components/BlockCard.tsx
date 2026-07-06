@@ -27,6 +27,7 @@ import Markdown from './Markdown'
 import type { Block, Mode } from '../api/types'
 import { parseResponseSegments } from '../lib/responseSegments'
 import { fonts } from '../theme'
+import { EMPTY_ARRAY } from '../lib/constants'
 
 interface BlockCardProps {
   block: Block
@@ -65,7 +66,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [structured, setStructured] = useState<Set<number>>(() => {
     // The last block's newest response opens in the structured view by default.
-    const responses = block.responses ?? []
+    const responses = block.responses ?? EMPTY_ARRAY
     return defaultOpen && responses.length > 0
       ? new Set([responses[responses.length - 1].id])
       : new Set()
@@ -176,7 +177,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       )
       // A freshly run response opens in the structured view by default — except
       // for streamed runs, which stay in the raw view the user just watched.
-      const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
+      const fresh = (updated.responses ?? EMPTY_ARRAY)[(updated.responses ?? EMPTY_ARRAY).length - 1]
       if (fresh && !user?.streamingEnabled) setStructured((prev) => new Set(prev).add(fresh.id))
       onBlockUpdated(updated)
       onAfterRun()
@@ -446,9 +447,9 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
           </Box>
         )}
 
-        {(block.responses ?? []).length > 0 && (
+        {(block.responses ?? EMPTY_ARRAY).length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 3 }}>
-            {(block.responses ?? []).slice().reverse().map((response, idx) => (
+            {(block.responses ?? EMPTY_ARRAY).slice().reverse().map((response, idx) => (
               <Box key={response.id} component="details" {...(idx === 0 ? { open: true } : {})}>
                 <Box
                   component="summary"
