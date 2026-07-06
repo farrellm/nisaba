@@ -311,7 +311,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                       reveal(key)
                     }
                   }}
-                  inputProps={{ tabIndex: 0 }}
+                  inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
                   InputProps={{
                     readOnly: true,
                     endAdornment: (

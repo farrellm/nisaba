@@ -162,6 +162,7 @@ export default function DocumentList({
                 onClick={() => toggleLabel(name)}
                 onDelete={() => toggleLabel(name)}
                 sx={{ fontFamily: fonts.mono, fontSize: '0.72rem' }}
+                aria-label={`Remove filter ${name}`}
               />
             ))}
             {candidatePills.map((name) => (
@@ -177,6 +178,7 @@ export default function DocumentList({
                   color: 'text.secondary',
                   borderColor: 'divider',
                 }}
+                aria-label={`Filter by ${name}`}
               />
             ))}
             {selected.length > 0 && (
@@ -208,6 +210,7 @@ export default function DocumentList({
                     size="small"
                     checked={showArchivedDocs}
                     onChange={(e) => setShowArchivedDocs(e.target.checked)}
+                    inputProps={{ 'aria-label': 'Toggle show archived' }}
                   />
                 }
                 label={

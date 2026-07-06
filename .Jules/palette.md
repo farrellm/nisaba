@@ -15,3 +15,6 @@
 ## 2026-07-05 - ARIA labels for readOnly clickable TextFields
 **Learning:** MUI `TextField` components used as clickable read-only elements to reveal full content lack accessible names, making their interactive nature unclear to screen reader users. The label prop only serves as visual/semantic context, but does not convey action.
 **Action:** Always include an `aria-label` inside `inputProps` for any `TextField` or similar component that functions as a button or toggle, clearly describing the resulting action (e.g., "Expand [key]").
+## 2024-07-06 - ARIA labels for nested standard HTML input equivalents in MUI
+**Learning:** MUI components that wrap standard inputs, such as `Switch` and `Radio`, or decorative wrappers like `Chip`, often fail to expose their action context to screen readers despite their clear visual function. The label is only visual, not functional metadata for accessibility.
+**Action:** When using MUI `Switch`, `Radio`, or interactive `Chip`s, always explicitly provide `inputProps={{ 'aria-label': 'Action description' }}` (or `aria-label` directly on the `Chip`) to define their purpose to screen readers.

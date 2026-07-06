@@ -148,7 +148,7 @@ function ReadOnlyField({
             onReveal()
           }
         }}
-        inputProps={{ tabIndex: 0 }}
+        inputProps={{ tabIndex: 0, 'aria-label': `Expand ${fieldKey}` }}
         InputProps={{
           readOnly: true,
           endAdornment: (
