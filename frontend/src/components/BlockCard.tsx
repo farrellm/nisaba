@@ -73,7 +73,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   const armedTimer = useRef<ReturnType<typeof setTimeout>>()
 
   function reveal(key: string) {
-    setExpanded((prev) => new Set(prev).add(key))
+    setExpanded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
   }
 
   function toggleStructured(id: number) {
@@ -333,6 +333,9 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                   label={key}
                   value={value}
                   onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                  // Once focused, the field counts as expanded so typing past the
+                  // collapse threshold can't swap the editor out mid-keystroke.
+                  onFocus={() => reveal(key)}
                   multiline
                   minRows={1}
                 />

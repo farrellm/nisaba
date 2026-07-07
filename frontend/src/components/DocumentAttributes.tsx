@@ -48,7 +48,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   function reveal(key: string) {
-    setExpanded((prev) => new Set(prev).add(key))
+    setExpanded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
   }
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (attributes[key] ?? ''))
@@ -152,6 +152,9 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                 label={key}
                 value={value}
                 onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                // Once focused, the field counts as expanded so typing past the
+                // collapse threshold can't swap the editor out mid-keystroke.
+                onFocus={() => reveal(key)}
                 multiline
                 minRows={1}
               />
