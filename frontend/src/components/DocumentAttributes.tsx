@@ -180,29 +180,31 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
             return (
               <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
                 <Box sx={{ flex: 1 }}>{field}</Box>
-                <Tooltip title="Edit rich text">
-                  <IconButton
-                    onClick={() => setEditingKey(key)}
-                    aria-label={`Edit ${key} in rich text editor`}
-                    size="small"
-                    sx={{ mt: 1, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                  >
-                    <EditNote fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="View as markdown">
-                  <IconButton
-                    component="a"
-                    href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
-                    target="_blank"
-                    rel="noopener"
-                    aria-label={`View ${key} as markdown`}
-                    size="small"
-                    sx={{ mt: 1, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                  >
-                    <OpenInNew fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <Stack spacing={0.25} sx={{ mt: 1 }}>
+                  <Tooltip title="View as markdown">
+                    <IconButton
+                      component="a"
+                      href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
+                      target="_blank"
+                      rel="noopener"
+                      aria-label={`View ${key} as markdown`}
+                      size="small"
+                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                    >
+                      <OpenInNew fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Edit rich text">
+                    <IconButton
+                      onClick={() => setEditingKey(key)}
+                      aria-label={`Edit ${key} in rich text editor`}
+                      size="small"
+                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                    >
+                      <EditNote fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
               </Stack>
             )
           })}
