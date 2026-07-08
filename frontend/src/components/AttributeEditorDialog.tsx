@@ -169,16 +169,6 @@ export default function AttributeEditorDialog({
             // Collapse the stray dividers left by the emptied toolbar groups
             // (the top bar renders a divider before every group, even empty).
             '& .top-bar-divider + .top-bar-divider': { display: 'none' },
-            // Keep the toolbar to a single row; overflow scrolls horizontally
-            // (drag on touch). Items must not shrink or they'd squish instead.
-            '& .milkdown-top-bar .top-bar-inner': {
-              flexWrap: 'nowrap',
-              overflowX: 'auto',
-              WebkitOverflowScrolling: 'touch',
-            },
-            '& .top-bar-item, & .top-bar-heading-selector, & .top-bar-divider': {
-              flexShrink: 0,
-            },
           }}
         >
           <div ref={editorRootRef} />
