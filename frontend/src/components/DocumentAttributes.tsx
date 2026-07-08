@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, CircularProgress, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import OpenInNew from '@mui/icons-material/OpenInNew'
+import EditNote from '@mui/icons-material/EditNote'
 import { api, ApiError } from '../api/client'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
+
+// Lazy-loaded so Milkdown Crepe (and its CSS) stays out of the initial bundle.
+const AttributeEditorDialog = lazy(() => import('./AttributeEditorDialog'))
 
 interface DocumentAttributesProps {
   doc: DocumentDetail
@@ -46,6 +50,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [editingKey, setEditingKey] = useState<string | null>(null)
 
   function reveal(key: string) {
     setExpanded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
@@ -66,6 +71,19 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
     } finally {
       setSaving(false)
     }
+  }
+
+  // Persist a single attribute edited in the full-screen editor. Sending only
+  // the one key is safe: the backend merges attributes, so the others survive.
+  // We also sync local `values` so the field reflects the saved markdown at once.
+  async function handleEditorSave(markdown: string) {
+    const key = editingKey
+    if (key === null) return
+    const updated = await api.put<DocumentDetail>(`/api/documents/${doc.id}`, {
+      attributes: { [key]: markdown },
+    })
+    onChange(updated)
+    setValues((v) => ({ ...v, [key]: markdown }))
   }
 
   return (
@@ -162,19 +180,31 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
             return (
               <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
                 <Box sx={{ flex: 1 }}>{field}</Box>
-                <Tooltip title="View as markdown">
-                  <IconButton
-                    component="a"
-                    href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
-                    target="_blank"
-                    rel="noopener"
-                    aria-label={`View ${key} as markdown`}
-                    size="small"
-                    sx={{ mt: 1, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                  >
-                    <OpenInNew fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                <Stack spacing={0.25} sx={{ mt: 1 }}>
+                  <Tooltip title="View as markdown">
+                    <IconButton
+                      component="a"
+                      href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
+                      target="_blank"
+                      rel="noopener"
+                      aria-label={`View ${key} as markdown`}
+                      size="small"
+                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                    >
+                      <OpenInNew fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Edit rich text">
+                    <IconButton
+                      onClick={() => setEditingKey(key)}
+                      aria-label={`Edit ${key} in rich text editor`}
+                      size="small"
+                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                    >
+                      <EditNote fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
               </Stack>
             )
           })}
@@ -187,6 +217,18 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
           </Typography>
         )}
       </Box>
+
+      {editingKey !== null && (
+        <Suspense fallback={null}>
+          <AttributeEditorDialog
+            open
+            attributeKey={editingKey}
+            initialValue={values[editingKey] ?? ''}
+            onSave={handleEditorSave}
+            onClose={() => setEditingKey(null)}
+          />
+        </Suspense>
+      )}
     </Box>
   )
 }
