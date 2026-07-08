@@ -57,12 +57,21 @@ export default function AttributeEditorDialog({
         defaultValue: initialValueRef.current,
         features: {
           // TopBar is the persistent formatting toolbar (headings, bold,
-          // italic, lists, link, quote); Toolbar is the selection bubble.
+          // italic, lists, quote); Toolbar is the selection bubble.
           [Crepe.Feature.TopBar]: true,
           [Crepe.Feature.Toolbar]: true,
         },
         featureConfigs: {
           [Crepe.Feature.Placeholder]: { text: 'Start writing…', mode: 'block' },
+          [Crepe.Feature.TopBar]: {
+            // Trim the toolbar: drop the "insert" (link, image, table) and
+            // "block" (code block, math) groups. Features stay enabled so any
+            // existing content using those nodes still renders in the editor.
+            buildTopBar: (builder) => {
+              builder.getGroup('insert').clear()
+              builder.getGroup('block').clear()
+            },
+          },
         },
       })
       crepeRef.current = crepe
@@ -154,6 +163,9 @@ export default function AttributeEditorDialog({
               padding: 0,
             },
             '& .milkdown .ProseMirror': { padding: 0 },
+            // Collapse the stray dividers left by the emptied toolbar groups
+            // (the top bar renders a divider before every group, even empty).
+            '& .top-bar-divider + .top-bar-divider': { display: 'none' },
           }}
         >
           <div ref={editorRootRef} />
