@@ -138,10 +138,11 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         <Stack spacing={2}>
           {keys.map((key) => {
             const value = values[key] ?? ''
-            const collapsed = !expanded.has(key) && value.length > 80
+            const previewLength = 80
+            const collapsed = !expanded.has(key) && value.length > previewLength
             // Truncate in JS: iOS Safari won't apply -webkit-line-clamp to a
             // <textarea>, so a CSS-only ellipsis goes missing on iPhone.
-            const preview = value.length > 80 ? `${value.slice(0, 80)}…` : value
+            const preview = value.length > previewLength ? `${value.slice(0, previewLength)}…` : value
             const field = collapsed ? (
               <TextField
                 label={key}
@@ -201,7 +202,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                       <OpenInNew fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  {value.length > 120 && (
+                  {value.length > previewLength && (
                     <Tooltip title="Edit rich text">
                       <IconButton
                         onClick={() => setEditingKey(key)}
