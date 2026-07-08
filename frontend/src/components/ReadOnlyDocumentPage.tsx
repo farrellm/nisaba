@@ -1,20 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
+  Alert,
   Box,
+  CircularProgress,
   Container,
+  Fab,
   IconButton,
   InputAdornment,
   Link as MuiLink,
+  Snackbar,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
 import DataObjectIcon from '@mui/icons-material/DataObject'
+import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
-import { api } from '../api/client'
-import type { Block, DocumentDetail, Response } from '../api/types'
+import { api, ApiError } from '../api/client'
+import type { Block, Document, DocumentDetail, Response } from '../api/types'
 import Masthead from './Masthead'
 import Markdown from './Markdown'
 import { parseResponseSegments } from '../lib/responseSegments'
@@ -59,8 +64,11 @@ const leaderSx = {
 // fetches the document by id from.
 export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const [doc, setDoc] = useState<DocumentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
   usePageTitle(doc ? doc.title || 'Untitled' : null)
 
   useEffect(() => {
@@ -71,6 +79,18 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
       .then(setDoc)
       .catch((e: unknown) => setError(String(e)))
   }, [apiBase, id])
+
+  async function handleImport() {
+    setImporting(true)
+    setImportError(null)
+    try {
+      const imported = await api.post<Document>(`${apiBase}/${id}/import`)
+      navigate(`/documents/${imported.id}`)
+    } catch (e: unknown) {
+      setImportError(e instanceof ApiError ? e.message : 'Could not import document')
+      setImporting(false)
+    }
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -117,6 +137,37 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
           </>
         )}
       </Container>
+
+      {doc && (
+        <Tooltip title="Copy this document into your Nisaba documents" placement="left">
+          <Fab
+            variant="extended"
+            color="primary"
+            aria-label="Import into Nisaba"
+            disabled={importing}
+            onClick={handleImport}
+            sx={{ position: 'fixed', bottom: 32, right: 32 }}
+          >
+            {importing ? (
+              <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} />
+            ) : (
+              <SaveAltIcon sx={{ mr: 1 }} />
+            )}
+            Import into Nisaba
+          </Fab>
+        </Tooltip>
+      )}
+
+      <Snackbar
+        open={importError !== null}
+        autoHideDuration={8000}
+        onClose={() => setImportError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setImportError(null)} sx={{ maxWidth: 560 }}>
+          {importError}
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
