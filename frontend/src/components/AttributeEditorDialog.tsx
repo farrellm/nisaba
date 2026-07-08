@@ -65,11 +65,14 @@ export default function AttributeEditorDialog({
           [Crepe.Feature.Placeholder]: { text: 'Start writing…', mode: 'block' },
           [Crepe.Feature.TopBar]: {
             // Trim the toolbar: drop the "insert" (link, image, table) and
-            // "block" (code block, math) groups. Features stay enabled so any
-            // existing content using those nodes still renders in the editor.
+            // "block" (code block, math) groups, plus the checklist from the
+            // list group. Features stay enabled so any existing content using
+            // those nodes still renders in the editor.
             buildTopBar: (builder) => {
               builder.getGroup('insert').clear()
               builder.getGroup('block').clear()
+              const list = builder.getGroup('list')
+              list.group.items = list.group.items.filter((item) => item.key !== 'task-list')
             },
           },
         },
@@ -166,6 +169,16 @@ export default function AttributeEditorDialog({
             // Collapse the stray dividers left by the emptied toolbar groups
             // (the top bar renders a divider before every group, even empty).
             '& .top-bar-divider + .top-bar-divider': { display: 'none' },
+            // Keep the toolbar to a single row; overflow scrolls horizontally
+            // (drag on touch). Items must not shrink or they'd squish instead.
+            '& .milkdown-top-bar .top-bar-inner': {
+              flexWrap: 'nowrap',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            },
+            '& .top-bar-item, & .top-bar-heading-selector, & .top-bar-divider': {
+              flexShrink: 0,
+            },
           }}
         >
           <div ref={editorRootRef} />
