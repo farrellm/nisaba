@@ -78,10 +78,12 @@ func main() {
 		r.Route("/anansi/documents", func(r chi.Router) {
 			r.Get("/", handler.ListReflexDocuments(rs, sess))
 			r.Get("/{id}", handler.GetReflexDocument(rs, sess))
+			r.Post("/{id}/import", handler.ImportReflexDocument(rs, st, sess))
 		})
 		r.Route("/charlotte/documents", func(r chi.Router) {
 			r.Get("/", handler.ListCharlotteDocuments(cs, sess))
 			r.Get("/{id}", handler.GetCharlotteDocument(cs, sess))
+			r.Post("/{id}/import", handler.ImportCharlotteDocument(cs, st, sess))
 		})
 		r.Get("/public/documents/{id}/attributes/{key}", handler.PublicDocumentAttribute(st))
 		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
