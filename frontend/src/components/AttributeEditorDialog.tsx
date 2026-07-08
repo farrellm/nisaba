@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -34,35 +34,44 @@ export default function AttributeEditorDialog({
   onClose,
   onSave,
 }: AttributeEditorDialogProps) {
-  const rootRef = useRef<HTMLDivElement>(null)
   const crepeRef = useRef<Crepe | null>(null)
+  const readyRef = useRef<Promise<unknown> | null>(null)
+  // Seed once: the dialog is mounted fresh per edit, so initialValue is stable
+  // for its lifetime. Reading from a ref keeps the callback ref identity stable
+  // (empty deps) so it isn't torn down and recreated on unrelated re-renders.
+  const initialValueRef = useRef(initialValue)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Seed the editor once per open. Deliberately keyed on `open` only, not
-  // `initialValue`, so keystrokes never re-seed and blow away the user's edits.
-  // Destroy runs only after create() resolves so React 18 StrictMode's
-  // mount→unmount→remount can't race a destroy ahead of an in-flight create.
-  useEffect(() => {
-    if (!open) return
-    const root = rootRef.current
-    if (!root) return
-    const crepe = new Crepe({
-      root,
-      defaultValue: initialValue,
-      features: { [Crepe.Feature.Toolbar]: true },
-      featureConfigs: {
-        [Crepe.Feature.Placeholder]: { text: 'Start writing…', mode: 'block' },
-      },
-    })
-    crepeRef.current = crepe
-    const ready = crepe.create()
-    return () => {
+  // Create the editor via a callback ref rather than an effect: MUI's Dialog
+  // portals its content in *after* this component's mount effects run, so a
+  // rootRef would still be null when an effect fired (leaving a blank editor).
+  // A callback ref fires exactly when the node attaches (and again with null on
+  // detach), regardless of the portal/transition timing. Destroy runs only
+  // after create() resolves so a fast attach→detach can't race an in-flight
+  // create (e.g. React StrictMode's double-invoke in dev).
+  const editorRootRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      const crepe = new Crepe({
+        root: node,
+        defaultValue: initialValueRef.current,
+        features: { [Crepe.Feature.Toolbar]: true },
+        featureConfigs: {
+          [Crepe.Feature.Placeholder]: { text: 'Start writing…', mode: 'block' },
+        },
+      })
+      crepeRef.current = crepe
+      readyRef.current = crepe.create().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Could not open the editor.')
+      })
+    } else {
+      const crepe = crepeRef.current
+      const ready = readyRef.current
       crepeRef.current = null
-      ready.then(() => crepe.destroy()).catch(() => {})
+      readyRef.current = null
+      if (crepe) ready?.then(() => crepe.destroy()).catch(() => {})
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [])
 
   async function handleSave() {
     setError(null)
@@ -142,7 +151,7 @@ export default function AttributeEditorDialog({
             '& .milkdown .ProseMirror': { padding: 0 },
           }}
         >
-          <div ref={rootRef} />
+          <div ref={editorRootRef} />
         </Box>
       </DialogContent>
     </Dialog>
