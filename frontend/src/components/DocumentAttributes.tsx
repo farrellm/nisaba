@@ -138,11 +138,17 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         <Stack spacing={2}>
           {keys.map((key) => {
             const value = values[key] ?? ''
-            const collapsed = !expanded.has(key) && value.length > 80
+            const previewLength = 80
+            const collapsed = !expanded.has(key) && value.length > previewLength
+            // Truncate in JS: iOS Safari won't apply -webkit-line-clamp to a
+            // <textarea>, so a CSS-only ellipsis goes missing on iPhone.
+            const preview = value.length > previewLength ? `${value.slice(0, previewLength)}…` : value
             const field = collapsed ? (
               <TextField
                 label={key}
-                value={`${value.slice(0, 40)}…`}
+                value={preview}
+                multiline
+                maxRows={3}
                 onClick={() => reveal(key)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -160,6 +166,8 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                   ),
                   sx: {
                     cursor: 'pointer',
+                    // Clip overflow beyond maxRows instead of showing a scrollbar.
+                    '& textarea': { overflow: 'hidden !important' },
                     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
                     '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
                   },
@@ -194,16 +202,18 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                       <OpenInNew fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Edit rich text">
-                    <IconButton
-                      onClick={() => setEditingKey(key)}
-                      aria-label={`Edit ${key} in rich text editor`}
-                      size="small"
-                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                    >
-                      <EditNote fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {value.length > previewLength && (
+                    <Tooltip title="Edit rich text">
+                      <IconButton
+                        onClick={() => setEditingKey(key)}
+                        aria-label={`Edit ${key} in rich text editor`}
+                        size="small"
+                        sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                      >
+                        <EditNote fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Stack>
               </Stack>
             )
