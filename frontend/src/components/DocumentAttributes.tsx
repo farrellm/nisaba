@@ -139,10 +139,13 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
           {keys.map((key) => {
             const value = values[key] ?? ''
             const collapsed = !expanded.has(key) && value.length > 80
+            // Truncate in JS: iOS Safari won't apply -webkit-line-clamp to a
+            // <textarea>, so a CSS-only ellipsis goes missing on iPhone.
+            const preview = value.length > 80 ? `${value.slice(0, 80)}…` : value
             const field = collapsed ? (
               <TextField
                 label={key}
-                value={value}
+                value={preview}
                 multiline
                 maxRows={3}
                 onClick={() => reveal(key)}
@@ -162,14 +165,8 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                   ),
                   sx: {
                     cursor: 'pointer',
-                    // Clamp the preview to 3 lines with a CSS ellipsis on overflow
-                    // (never scrolls) rather than truncating the string ourselves.
-                    '& textarea': {
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden !important',
-                    },
+                    // Clip overflow beyond maxRows instead of showing a scrollbar.
+                    '& textarea': { overflow: 'hidden !important' },
                     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
                     '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
                   },
