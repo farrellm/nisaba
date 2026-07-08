@@ -55,7 +55,12 @@ export default function AttributeEditorDialog({
       const crepe = new Crepe({
         root: node,
         defaultValue: initialValueRef.current,
-        features: { [Crepe.Feature.Toolbar]: true },
+        features: {
+          // TopBar is the persistent formatting toolbar (headings, bold,
+          // italic, lists, link, quote); Toolbar is the selection bubble.
+          [Crepe.Feature.TopBar]: true,
+          [Crepe.Feature.Toolbar]: true,
+        },
         featureConfigs: {
           [Crepe.Feature.Placeholder]: { text: 'Start writing…', mode: 'block' },
         },
