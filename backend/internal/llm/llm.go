@@ -82,6 +82,7 @@ var models = []Model{
 	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
 	{ID: "z-ai/glm-5.2", Label: "GLM-5.2", Provider: "openrouter"},
+	{ID: "x-ai/grok-4.5", Label: "Grok 4.5", Provider: "openrouter"},
 	{ID: "deepseek-v4-pro", Label: "DeepSeek V4 Pro", Provider: "deepseek"},
 }
 
