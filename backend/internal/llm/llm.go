@@ -66,6 +66,9 @@ var (
 	anthropicCaching = map[string]any{
 		"cache_control": map[string]any{"type": "ephemeral"},
 	}
+	openaiReasoning = map[string]any{
+		"reasoning_summary": "auto",
+	}
 )
 
 // models is the fixed, cross-provider list. IDs are provider-native model names.
@@ -78,8 +81,10 @@ var models = []Model{
 		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
 	{ID: "claude-fable-5", Label: "Claude Fable 5", Provider: "anthropic",
 		ToolProviderOptions: anthropicCaching},
-	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Provider: "openai"},
-	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Provider: "openai"},
+	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Provider: "openai",
+		ProviderOptions: openaiReasoning},
+	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Provider: "openai",
+		ProviderOptions: openaiReasoning},
 	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
 	{ID: "z-ai/glm-5.2", Label: "GLM 5.2", Provider: "openrouter"},
