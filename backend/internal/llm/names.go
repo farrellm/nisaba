@@ -44,7 +44,7 @@ func generateNames(ctx context.Context, description string) ([]string, error) {
 	prompt := fmt.Sprintf("Generate a list of 20 names (first and last) for a "+
 		"character with the following description:\n%s", description)
 
-	res, err := goai.GenerateObject[namesResponse](ctx, openai.Chat("gpt-5.4"),
+	res, err := goai.GenerateObject[namesResponse](ctx, openai.Chat("gpt-5.6-terra"),
 		goai.WithPrompt(prompt),
 		goai.WithTemperature(1.0),
 	)
