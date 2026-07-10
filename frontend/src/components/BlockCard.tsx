@@ -9,6 +9,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DataObjectIcon from '@mui/icons-material/DataObject'
@@ -63,6 +64,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   const [editValue, setEditValue] = useState('')
   const [savingEditId, setSavingEditId] = useState<number | null>(null)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [copiedId, setCopiedId] = useState<number | null>(null)
   const [structured, setStructured] = useState<Set<number>>(() => {
     // The last block's newest response opens in the structured view by default.
     const responses = block.responses ?? []
@@ -513,6 +515,24 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                     </>
                   ) : (
                     <>
+                      <Tooltip title={copiedId === response.id ? 'Copied!' : 'Copy to clipboard'}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={busy}
+                            aria-label="Copy to clipboard"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              navigator.clipboard.writeText(response.value).catch(() => {})
+                              setCopiedId(response.id)
+                              setTimeout(() => setCopiedId(null), 2000)
+                            }}
+                            sx={{ color: copiedId === response.id ? 'success.main' : 'text.disabled', '&:hover': { color: copiedId === response.id ? 'success.main' : 'primary.main' } }}
+                          >
+                            {copiedId === response.id ? <CheckIcon fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
                       <Tooltip title={structured.has(response.id) ? 'Raw view' : 'Structured view'}>
                         <span>
                           <IconButton
