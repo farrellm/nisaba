@@ -1,19 +1,25 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/farrellm/nisaba/internal/auth"
-	"github.com/farrellm/nisaba/internal/store"
 )
+
+// AttributeStore is the consumer-side view of the data layer the attribute
+// handler uses.
+type AttributeStore interface {
+	ListAttributeValues(ctx context.Context, userID int64, key string) ([]string, error)
+}
 
 // ListAttributeValues returns the logged-in user's distinct past values for the
 // attribute key given in ?key=, alphabetically sorted. Used to populate
 // autocomplete suggestions (e.g. author names) when editing a block.
-func ListAttributeValues(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func ListAttributeValues(st AttributeStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := sess.UserID(r)
+		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -25,9 +31,9 @@ func ListAttributeValues(st *store.Store, sess *auth.Sessions) http.HandlerFunc 
 			return
 		}
 
-		values, err := st.AttributeValues(r.Context(), userID, key)
+		values, err := st.ListAttributeValues(r.Context(), userID, key)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load attribute values")
+			internalError(w, r, "Could not load attribute values", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, values)

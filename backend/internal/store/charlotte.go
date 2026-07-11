@@ -35,7 +35,7 @@ func NewCharlotteStore(exe string) *CharlotteStore {
 func (s *CharlotteStore) list(ctx context.Context) ([]string, error) {
 	out, err := exec.CommandContext(ctx, s.exe, "--list").Output()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("charlotte --list: %w", err)
 	}
 	names := []string{}
 	for _, line := range strings.Split(string(out), "\n") {
@@ -47,11 +47,11 @@ func (s *CharlotteStore) list(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-// ListCharlotteDocuments returns every Charlotte document as a summary (no blocks or
+// ListDocuments returns every Charlotte document as a summary (no blocks or
 // attributes). The name is used as the title and as the stable id (its 1-based index in
 // the sorted list); names under "archive/" are marked archived. Timestamps are left zero
 // — the frontend hides them for this source.
-func (s *CharlotteStore) ListCharlotteDocuments(ctx context.Context) ([]model.Document, error) {
+func (s *CharlotteStore) ListDocuments(ctx context.Context) ([]model.Document, error) {
 	names, err := s.list(ctx)
 	if err != nil {
 		return nil, err
@@ -75,11 +75,11 @@ func (s *CharlotteStore) ListCharlotteDocuments(ctx context.Context) ([]model.Do
 	return docs, nil
 }
 
-// GetCharlotteDocument resolves the id to a name via the sorted list, dumps that
+// GetDocument resolves the id to a name via the sorted list, dumps that
 // document with `--doc <name>`, and maps the JSON onto a model.Document. An out-of-range
 // id is ErrNotFound; a non-zero CLI exit (the doc fails to parse in the legacy tool)
 // surfaces as an error.
-func (s *CharlotteStore) GetCharlotteDocument(ctx context.Context, id int64) (model.Document, error) {
+func (s *CharlotteStore) GetDocument(ctx context.Context, id int64) (model.Document, error) {
 	names, err := s.list(ctx)
 	if err != nil {
 		return model.Document{}, err

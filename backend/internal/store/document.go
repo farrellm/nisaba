@@ -11,11 +11,12 @@ import (
 
 // CreateDocument inserts the document row (not its blocks, attributes, or
 // labels) and returns it with id and timestamps populated.
-func (s *Store) CreateDocument(ctx context.Context, doc model.Document) (model.Document, error) {
+func (s *Store) CreateDocument(ctx context.Context, doc model.Document) (_ model.Document, err error) {
+	defer wrap(&err, "create document")
 	if doc.Metadata == nil {
 		doc.Metadata = map[string]any{}
 	}
-	err := s.pool.QueryRow(ctx,
+	err = s.pool.QueryRow(ctx,
 		`INSERT INTO documents (user_id, title, selected_model, metadata, is_archived, url)
 		 VALUES ($1, $2, $3, $4, $5, $6)
 		 RETURNING id, created_at, updated_at`,
@@ -27,9 +28,10 @@ func (s *Store) CreateDocument(ctx context.Context, doc model.Document) (model.D
 // GetDocument returns a single document fully populated with its attributes,
 // label names, and blocks (each with their attributes and responses), or
 // ErrNotFound.
-func (s *Store) GetDocument(ctx context.Context, id int64) (model.Document, error) {
+func (s *Store) GetDocument(ctx context.Context, id int64) (_ model.Document, err error) {
+	defer wrap(&err, "get document")
 	var d model.Document
-	err := s.pool.QueryRow(ctx,
+	err = s.pool.QueryRow(ctx,
 		`SELECT id, user_id, created_at, updated_at, title, selected_model, metadata, is_archived, url
 		   FROM documents WHERE id = $1`, id,
 	).Scan(&d.ID, &d.UserID, &d.CreatedAt, &d.UpdatedAt,
@@ -59,7 +61,8 @@ func (s *Store) GetDocument(ctx context.Context, id int64) (model.Document, erro
 // ListDocuments returns a user's documents as summaries (without nested blocks,
 // attributes, or labels), most-recently-updated first. Archived documents are
 // included only when includeArchived is true.
-func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived bool) ([]model.Document, error) {
+func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived bool) (_ []model.Document, err error) {
+	defer wrap(&err, "list documents")
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, user_id, created_at, updated_at, title, selected_model, metadata, is_archived, url
 		   FROM documents
@@ -104,7 +107,8 @@ func (s *Store) ListDocuments(ctx context.Context, userID int64, includeArchived
 // SearchDocuments returns a user's documents whose `story` attribute matches the
 // full-text query, ranked by relevance then recency, as summaries (same shape as
 // ListDocuments). Archived documents are always included; the caller marks them.
-func (s *Store) SearchDocuments(ctx context.Context, userID int64, query string) ([]model.Document, error) {
+func (s *Store) SearchDocuments(ctx context.Context, userID int64, query string) (_ []model.Document, err error) {
+	defer wrap(&err, "search documents")
 	rows, err := s.pool.Query(ctx,
 		`SELECT d.id, d.user_id, d.created_at, d.updated_at, d.title,
 		        d.selected_model, d.metadata, d.is_archived, d.url
@@ -180,11 +184,12 @@ func (s *Store) labelsByDocument(ctx context.Context, userID int64) (map[int64][
 
 // UpdateDocument updates a document's mutable columns and bumps updated_at to
 // NOW(). It returns the refreshed row, or ErrNotFound.
-func (s *Store) UpdateDocument(ctx context.Context, doc model.Document) (model.Document, error) {
+func (s *Store) UpdateDocument(ctx context.Context, doc model.Document) (_ model.Document, err error) {
+	defer wrap(&err, "update document")
 	if doc.Metadata == nil {
 		doc.Metadata = map[string]any{}
 	}
-	err := s.pool.QueryRow(ctx,
+	err = s.pool.QueryRow(ctx,
 		`UPDATE documents
 		    SET title = $2, selected_model = $3, metadata = $4, is_archived = $5, url = $6, updated_at = NOW()
 		  WHERE id = $1
@@ -200,7 +205,8 @@ func (s *Store) UpdateDocument(ctx context.Context, doc model.Document) (model.D
 // DeleteDocument removes a document (cascading to its blocks, attributes, and
 // label taggings) and then deletes any of the owner's labels left attached to no
 // document. userID scopes that orphan cleanup.
-func (s *Store) DeleteDocument(ctx context.Context, userID, id int64) error {
+func (s *Store) DeleteDocument(ctx context.Context, userID, id int64) (err error) {
+	defer wrap(&err, "delete document")
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -224,8 +230,9 @@ func (s *Store) DeleteDocument(ctx context.Context, userID, id int64) error {
 }
 
 // SetDocumentAttribute inserts or updates a single key/value attribute.
-func (s *Store) SetDocumentAttribute(ctx context.Context, documentID int64, key, value string) error {
-	_, err := s.pool.Exec(ctx,
+func (s *Store) SetDocumentAttribute(ctx context.Context, documentID int64, key, value string) (err error) {
+	defer wrap(&err, "set document attribute")
+	_, err = s.pool.Exec(ctx,
 		`INSERT INTO document_attributes (document_id, key, value)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (document_id, key) DO UPDATE SET value = EXCLUDED.value`,
@@ -234,14 +241,16 @@ func (s *Store) SetDocumentAttribute(ctx context.Context, documentID int64, key,
 }
 
 // DeleteDocumentAttribute removes a single attribute key from a document.
-func (s *Store) DeleteDocumentAttribute(ctx context.Context, documentID int64, key string) error {
-	_, err := s.pool.Exec(ctx,
+func (s *Store) DeleteDocumentAttribute(ctx context.Context, documentID int64, key string) (err error) {
+	defer wrap(&err, "delete document attribute")
+	_, err = s.pool.Exec(ctx,
 		`DELETE FROM document_attributes WHERE document_id = $1 AND key = $2`, documentID, key)
 	return err
 }
 
 // ReplaceDocumentAttributes atomically replaces all of a document's attributes.
-func (s *Store) ReplaceDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error {
+func (s *Store) ReplaceDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) (err error) {
+	defer wrap(&err, "replace document attributes")
 	attrs = trimAttrs(attrs)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -267,7 +276,8 @@ func (s *Store) ReplaceDocumentAttributes(ctx context.Context, documentID int64,
 // attributes without touching keys not present in attrs. Unlike
 // ReplaceDocumentAttributes it does not wipe the shared namespace, so values set
 // by other modes survive.
-func (s *Store) MergeDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error {
+func (s *Store) MergeDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) (err error) {
+	defer wrap(&err, "merge document attributes")
 	attrs = trimAttrs(attrs)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -312,9 +322,10 @@ func (s *Store) documentAttributes(ctx context.Context, documentID int64) (map[s
 // (both return found=false) — callers needing existence checks must do them
 // separately.
 // GetDocumentTitle returns a document's title without loading the full aggregate.
-func (s *Store) GetDocumentTitle(ctx context.Context, documentID int64) (string, error) {
+func (s *Store) GetDocumentTitle(ctx context.Context, documentID int64) (_ string, err error) {
+	defer wrap(&err, "get document title")
 	var title string
-	err := s.pool.QueryRow(ctx,
+	err = s.pool.QueryRow(ctx,
 		`SELECT title FROM documents WHERE id = $1`, documentID).Scan(&title)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", ErrNotFound
@@ -325,9 +336,10 @@ func (s *Store) GetDocumentTitle(ctx context.Context, documentID int64) (string,
 	return title, nil
 }
 
-func (s *Store) GetDocumentAttribute(ctx context.Context, documentID int64, key string) (string, bool, error) {
+func (s *Store) GetDocumentAttribute(ctx context.Context, documentID int64, key string) (_ string, _ bool, err error) {
+	defer wrap(&err, "get document attribute")
 	var value string
-	err := s.pool.QueryRow(ctx,
+	err = s.pool.QueryRow(ctx,
 		`SELECT value FROM document_attributes WHERE document_id = $1 AND key = $2`,
 		documentID, key).Scan(&value)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -365,8 +377,9 @@ func (s *Store) documentLabelNames(ctx context.Context, documentID int64) ([]str
 
 // AddDocumentPost records a post URL published from a document. Re-adding an
 // existing URL is a no-op (ON CONFLICT DO NOTHING), so retries don't error.
-func (s *Store) AddDocumentPost(ctx context.Context, documentID int64, url string) error {
-	_, err := s.pool.Exec(ctx,
+func (s *Store) AddDocumentPost(ctx context.Context, documentID int64, url string) (err error) {
+	defer wrap(&err, "add document post")
+	_, err = s.pool.Exec(ctx,
 		`INSERT INTO document_posts (document_id, url) VALUES ($1, $2)
 		 ON CONFLICT (document_id, url) DO NOTHING`,
 		documentID, url)

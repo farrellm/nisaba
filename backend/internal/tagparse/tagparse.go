@@ -1,24 +1,27 @@
-package handler
+// Package tagparse extracts top-level XML-style tags from free-form LLM
+// output. encoding/xml is unsuitable here because model responses are not
+// well-formed XML, so the scanner reads bytes directly and degrades gracefully
+// on malformed input.
+//
+// The frontend mirrors this scan in frontend/src/lib/responseSegments.ts for
+// ordered rendering; keep the two in sync.
+package tagparse
 
 import "strings"
 
-// parseTopLevelTags scans s for top-level XML-style tags and returns a map of
-// tag name -> inner text. Only tags that are not nested inside another tag's
-// body are considered; nested tags are kept verbatim as part of the enclosing
-// tag's value (we never recurse). Opening-tag attributes are ignored for the
-// key. Self-closing tags and empty bodies yield an empty-string value. Text
-// outside any tag is ignored. When the same top-level name appears more than
-// once, the last occurrence wins. A repeated opening tag of the same name (e.g.
-// a model that writes <x> again where it meant </x>) implicitly closes the open
-// tag right before the second open, so each becomes its own top-level tag rather
+// Parse scans s for top-level XML-style tags and returns a map of tag name ->
+// inner text. Only tags that are not nested inside another tag's body are
+// considered; nested tags are kept verbatim as part of the enclosing tag's
+// value (we never recurse). Opening-tag attributes are ignored for the key.
+// Self-closing tags and empty bodies yield an empty-string value. Text outside
+// any tag is ignored. When the same top-level name appears more than once, the
+// last occurrence wins. A repeated opening tag of the same name (e.g. a model
+// that writes <x> again where it meant </x>) implicitly closes the open tag
+// right before the second open, so each becomes its own top-level tag rather
 // than one nesting the other. A top-level tag that is never closed (e.g. a
 // truncated response) is auto-closed at end of string, taking the rest of the
 // text as its value.
-//
-// encoding/xml is unsuitable here because model responses are free-form text,
-// not well-formed XML, so we scan bytes directly and degrade gracefully on
-// malformed input.
-func parseTopLevelTags(s string) map[string]string {
+func Parse(s string) map[string]string {
 	out := map[string]string{}
 	i := 0
 	for i < len(s) {
@@ -68,19 +71,6 @@ func parseTopLevelTags(s string) map[string]string {
 		i = afterClose
 	}
 	return out
-}
-
-// applyRenames rewrites keys in updates according to renames (from -> to), using
-// move semantics: when a "from" key is present its value is reassigned to "to"
-// (overwriting any existing "to") and the original "from" key is removed. Keys
-// not named in renames are untouched.
-func applyRenames(updates map[string]string, renames map[string]string) {
-	for from, to := range renames {
-		if v, ok := updates[from]; ok {
-			updates[to] = v
-			delete(updates, from)
-		}
-	}
 }
 
 // findMatchingClose returns the index where the closing tag for name ends and

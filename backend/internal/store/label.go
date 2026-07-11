@@ -18,9 +18,10 @@ const deleteOrphanLabelsSQL = `DELETE FROM labels l
 
 // CreateLabel inserts a label for a user. The (user_id, name) uniqueness
 // constraint surfaces as an error if the name already exists for that user.
-func (s *Store) CreateLabel(ctx context.Context, userID int64, name string) (model.Label, error) {
+func (s *Store) CreateLabel(ctx context.Context, userID int64, name string) (_ model.Label, err error) {
+	defer wrap(&err, "create label")
 	l := model.Label{UserID: userID, Name: name}
-	err := s.pool.QueryRow(ctx,
+	err = s.pool.QueryRow(ctx,
 		`INSERT INTO labels (user_id, name) VALUES ($1, $2) RETURNING id`,
 		userID, name,
 	).Scan(&l.ID)
@@ -28,7 +29,8 @@ func (s *Store) CreateLabel(ctx context.Context, userID int64, name string) (mod
 }
 
 // ListLabels returns a user's labels ordered by name.
-func (s *Store) ListLabels(ctx context.Context, userID int64) ([]model.Label, error) {
+func (s *Store) ListLabels(ctx context.Context, userID int64) (_ []model.Label, err error) {
+	defer wrap(&err, "list labels")
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, user_id, name FROM labels WHERE user_id = $1 ORDER BY name`, userID)
 	if err != nil {
@@ -49,7 +51,8 @@ func (s *Store) ListLabels(ctx context.Context, userID int64) ([]model.Label, er
 
 // DeleteLabel removes a label owned by the user (cascading to its document
 // taggings). Scoping by user_id prevents deleting another user's label.
-func (s *Store) DeleteLabel(ctx context.Context, userID, id int64) error {
+func (s *Store) DeleteLabel(ctx context.Context, userID, id int64) (err error) {
+	defer wrap(&err, "delete label")
 	ct, err := s.pool.Exec(ctx,
 		`DELETE FROM labels WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
@@ -64,7 +67,8 @@ func (s *Store) DeleteLabel(ctx context.Context, userID, id int64) error {
 // DeleteLabelByName removes a user's label by its name (cascading to its document
 // taggings), detaching it from every document at once. Scoping by user_id prevents
 // touching another user's label. Returns ErrNotFound if the name doesn't exist.
-func (s *Store) DeleteLabelByName(ctx context.Context, userID int64, name string) error {
+func (s *Store) DeleteLabelByName(ctx context.Context, userID int64, name string) (err error) {
+	defer wrap(&err, "delete label by name")
 	ct, err := s.pool.Exec(ctx,
 		`DELETE FROM labels WHERE user_id = $1 AND name = $2`, userID, name)
 	if err != nil {
@@ -83,6 +87,7 @@ func (s *Store) DeleteLabelByName(ctx context.Context, userID int64, name string
 // existing label and the old row is deleted — merged is true in that case. Returns
 // ErrNotFound if oldName doesn't exist. Renaming a label to its own name is a no-op.
 func (s *Store) RenameLabel(ctx context.Context, userID int64, oldName, newName string) (merged bool, err error) {
+	defer wrap(&err, "rename label")
 	newName = strings.TrimSpace(newName)
 	if newName == "" {
 		return false, ErrEmptyName
@@ -140,8 +145,9 @@ func (s *Store) RenameLabel(ctx context.Context, userID int64, oldName, newName 
 }
 
 // AddDocumentLabel tags a document with a label. It is idempotent.
-func (s *Store) AddDocumentLabel(ctx context.Context, documentID, labelID int64) error {
-	_, err := s.pool.Exec(ctx,
+func (s *Store) AddDocumentLabel(ctx context.Context, documentID, labelID int64) (err error) {
+	defer wrap(&err, "add document label")
+	_, err = s.pool.Exec(ctx,
 		`INSERT INTO document_labels (document_id, label_id) VALUES ($1, $2)
 		 ON CONFLICT DO NOTHING`,
 		documentID, labelID)
@@ -149,8 +155,9 @@ func (s *Store) AddDocumentLabel(ctx context.Context, documentID, labelID int64)
 }
 
 // RemoveDocumentLabel removes a label tag from a document.
-func (s *Store) RemoveDocumentLabel(ctx context.Context, documentID, labelID int64) error {
-	_, err := s.pool.Exec(ctx,
+func (s *Store) RemoveDocumentLabel(ctx context.Context, documentID, labelID int64) (err error) {
+	defer wrap(&err, "remove document label")
+	_, err = s.pool.Exec(ctx,
 		`DELETE FROM document_labels WHERE document_id = $1 AND label_id = $2`,
 		documentID, labelID)
 	return err
@@ -160,7 +167,8 @@ func (s *Store) RemoveDocumentLabel(ctx context.Context, documentID, labelID int
 // is get-or-created for the user (existing labels are reused, never duplicated,
 // via the (user_id, name) uniqueness constraint), then the document_labels join
 // is reconciled to that set. Names are trimmed; blanks and duplicates are dropped.
-func (s *Store) SetDocumentLabels(ctx context.Context, userID, documentID int64, names []string) error {
+func (s *Store) SetDocumentLabels(ctx context.Context, userID, documentID int64, names []string) (err error) {
+	defer wrap(&err, "set document labels")
 	// Dedupe trimmed, non-empty names preserving first-seen order.
 	seen := map[string]struct{}{}
 	var clean []string

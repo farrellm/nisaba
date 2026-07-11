@@ -21,10 +21,11 @@ func NewReflexStore(db *sql.DB) *ReflexStore {
 	return &ReflexStore{db: db}
 }
 
-// ListReflexDocuments returns every legacy document as a summary (no blocks or
+// ListDocuments returns every legacy document as a summary (no blocks or
 // attributes), most-recently-updated first, archived included. Slices are
 // defaulted to empty so the JSON is [] rather than null.
-func (s *ReflexStore) ListReflexDocuments(ctx context.Context) ([]model.Document, error) {
+func (s *ReflexStore) ListDocuments(ctx context.Context) (_ []model.Document, err error) {
+	defer wrap(&err, "reflex: list documents")
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, user_id, title, url, create_ts, update_ts, archived
 		   FROM doc ORDER BY update_ts DESC`)
@@ -58,10 +59,11 @@ func (s *ReflexStore) ListReflexDocuments(ctx context.Context) ([]model.Document
 	return docs, nil
 }
 
-// GetReflexDocument returns a single legacy document fully populated with its
+// GetDocument returns a single legacy document fully populated with its
 // attributes, label names, and blocks (each with attributes and responses), or
 // ErrNotFound.
-func (s *ReflexStore) GetReflexDocument(ctx context.Context, id int64) (model.Document, error) {
+func (s *ReflexStore) GetDocument(ctx context.Context, id int64) (_ model.Document, err error) {
+	defer wrap(&err, "reflex: get document")
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, user_id, title, url, create_ts, update_ts, archived
 		   FROM doc WHERE id = ?`, id)

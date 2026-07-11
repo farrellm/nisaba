@@ -2,138 +2,92 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rs/cors"
-
 	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/blockrun"
 	"github.com/farrellm/nisaba/internal/config"
 	"github.com/farrellm/nisaba/internal/db"
 	"github.com/farrellm/nisaba/internal/handler"
 	"github.com/farrellm/nisaba/internal/mode"
+	"github.com/farrellm/nisaba/internal/reddit"
 	"github.com/farrellm/nisaba/internal/store"
 )
 
 func main() {
-	cfg := config.Load()
-	mode.TemplatesBaseDir = cfg.ModeTemplatesDir
-
-	pool, err := db.Connect(context.Background(), cfg.DatabaseURL)
-	if err != nil {
-		slog.Error("database connect failed", "err", err)
+	if err := run(context.Background()); err != nil {
+		slog.Error("server error", "err", err)
 		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cfg := config.Load()
+
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return fmt.Errorf("database connect: %w", err)
 	}
 	defer pool.Close()
 
 	// Legacy reflex.db, browsed read-only by the "Anansi" pages.
 	reflexDB, err := db.OpenSQLite(cfg.ReflexDBPath)
 	if err != nil {
-		slog.Error("reflex sqlite open failed", "path", cfg.ReflexDBPath, "err", err)
-		os.Exit(1)
+		return fmt.Errorf("reflex sqlite open %q: %w", cfg.ReflexDBPath, err)
 	}
 	defer reflexDB.Close()
 
 	st := store.New(pool)
-	rs := store.NewReflexStore(reflexDB)
-	// Legacy file-based app, browsed read-only by the "Charlotte" pages via charlotte-cli.
-	cs := store.NewCharlotteStore(cfg.CharlotteCLI)
-	// Mark the cookie Secure in production (HTTPS); SESSION_SECURE=true enables it.
-	sess := auth.NewSessions(cfg.SessionSecret, os.Getenv("SESSION_SECURE") == "true")
-
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(cors.New(cors.Options{
-		AllowedOrigins:   cfg.CORSOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Content-Type"},
-		AllowCredentials: true,
-	}).Handler)
-
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/healthz", handler.Health(pool))
-
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", handler.Register(st, sess))
-			r.Post("/login", handler.Login(st, sess))
-			r.Post("/logout", handler.Logout(sess))
-			r.Get("/me", handler.Me(st, sess))
-			r.Put("/me", handler.UpdateMe(st, sess))
-		})
-
-		r.Get("/modes", handler.ListModes())
-		r.Get("/models", handler.ListModels())
-		r.Route("/labels", func(r chi.Router) {
-			r.Get("/", handler.ListLabels(st, sess))
-			r.Put("/", handler.RenameLabel(st, sess))
-			r.Delete("/", handler.DeleteLabel(st, sess))
-		})
-		r.Get("/attribute-values", handler.ListAttributeValues(st, sess))
-
-		r.Route("/anansi/documents", func(r chi.Router) {
-			r.Get("/", handler.ListReflexDocuments(rs, sess))
-			r.Get("/{id}", handler.GetReflexDocument(rs, sess))
-			r.Post("/{id}/import", handler.ImportReflexDocument(rs, st, sess))
-		})
-		r.Route("/charlotte/documents", func(r chi.Router) {
-			r.Get("/", handler.ListCharlotteDocuments(cs, sess))
-			r.Get("/{id}", handler.GetCharlotteDocument(cs, sess))
-			r.Post("/{id}/import", handler.ImportCharlotteDocument(cs, st, sess))
-		})
-		r.Get("/public/documents/{id}/attributes/{key}", handler.PublicDocumentAttribute(st))
-		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
-		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))
-		r.Get("/reddit/post", handler.GetRedditPost(sess, redditAuth))
-
-		r.Route("/documents", func(r chi.Router) {
-			r.Get("/", handler.ListDocuments(st, sess))
-			r.Post("/", handler.CreateDocument(st, sess))
-			r.Get("/search", handler.SearchDocuments(st, sess))
-
-			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", handler.GetDocument(st, sess))
-				r.Put("/", handler.UpdateDocument(st, sess))
-				r.Delete("/", handler.DeleteDocument(st, sess))
-				r.Post("/suggest-labels", handler.SuggestDocumentLabels(st, sess))
-				r.Post("/recommend-labels", handler.RecommendDocumentLabels(st, sess))
-				r.Post("/reddit-submit", handler.SubmitRedditPost(st, sess, redditAuth))
-
-				r.Route("/blocks", func(r chi.Router) {
-					r.Post("/", handler.CreateBlock(st, sess))
-					r.Put("/{blockId}", handler.UpdateBlock(st, sess))
-					r.Delete("/{blockId}", handler.DeleteBlock(st, sess))
-					r.Post("/{blockId}/copy", handler.CopyBlock(st, sess))
-					r.Post("/{blockId}/run", handler.RunBlock(st, sess))
-					r.Post("/{blockId}/run/stream", handler.RunBlockStream(st, sess))
-					r.Put("/{blockId}/responses/{responseId}", handler.UpdateResponse(st, sess))
-					r.Post("/{blockId}/responses/{responseId}/reparse", handler.ReparseResponse(st, sess))
-				})
-			})
-		})
-	})
-
-	slog.Info("server listening", "addr", cfg.Addr)
-
-	// ReadHeaderTimeout closes the Slowloris vector (slow header trickling)
-	// that gosec G114 flags; IdleTimeout reaps idle keep-alive connections.
-	// ReadTimeout/WriteTimeout are intentionally left unset: they are absolute
-	// deadlines on the whole request, and the block-run and NDJSON streaming
-	// endpoints call the LLM (up to maxToolIterations tool round-trips), which
-	// routinely runs far longer than any fixed cap.
+	templates := mode.NewTemplates(cfg.ModeTemplatesDir)
 	srv := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           r,
+		Addr: cfg.Addr,
+		Handler: handler.Routes(handler.Deps{
+			Store:    st,
+			Sessions: auth.NewSessions(cfg.SessionSecret, cfg.SessionSecure),
+			DB:       pool,
+			Reflex:   store.NewReflexStore(reflexDB),
+			// Legacy file-based app, browsed read-only by the "Charlotte" pages
+			// via charlotte-cli.
+			Charlotte: store.NewCharlotteStore(cfg.CharlotteCLI),
+			Reddit:    reddit.NewClient(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword),
+			Runner:    blockrun.New(st, blockrun.LLM{}, templates),
+			CORS:      cfg.CORSOrigins,
+		}),
+		// ReadHeaderTimeout closes the Slowloris vector (slow header trickling)
+		// that gosec G114 flags; IdleTimeout reaps idle keep-alive connections.
+		// ReadTimeout/WriteTimeout are intentionally left unset: they are absolute
+		// deadlines on the whole request, and the block-run and NDJSON streaming
+		// endpoints call the LLM (up to maxToolIterations tool round-trips), which
+		// routinely runs far longer than any fixed cap.
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
-	if err := srv.ListenAndServe(); err != nil {
-		slog.Error("server error", "err", err)
-		os.Exit(1)
+	errc := make(chan error, 1)
+	go func() { errc <- srv.ListenAndServe() }()
+	slog.Info("server listening", "addr", cfg.Addr)
+
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+		// Give in-flight requests a moment to drain; a second signal
+		// terminates the process the hard way.
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("shutdown: %w", err)
+		}
+		return nil
 	}
 }

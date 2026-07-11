@@ -11,8 +11,9 @@ import (
 
 // CreateBlock inserts a block row (not its attributes or responses) and returns
 // it with id populated.
-func (s *Store) CreateBlock(ctx context.Context, b model.Block) (model.Block, error) {
-	err := s.pool.QueryRow(ctx,
+func (s *Store) CreateBlock(ctx context.Context, b model.Block) (_ model.Block, err error) {
+	defer wrap(&err, "create block")
+	err = s.pool.QueryRow(ctx,
 		`INSERT INTO blocks (document_id, mode, position)
 		 VALUES ($1, $2, $3)
 		 RETURNING id`,
@@ -25,9 +26,10 @@ func (s *Store) CreateBlock(ctx context.Context, b model.Block) (model.Block, er
 }
 
 // GetBlock returns a single block with its attributes and responses populated.
-func (s *Store) GetBlock(ctx context.Context, id int64) (model.Block, error) {
+func (s *Store) GetBlock(ctx context.Context, id int64) (_ model.Block, err error) {
+	defer wrap(&err, "get block")
 	var b model.Block
-	err := s.pool.QueryRow(ctx,
+	err = s.pool.QueryRow(ctx,
 		`SELECT id, document_id, mode, position FROM blocks WHERE id = $1`, id,
 	).Scan(&b.ID, &b.DocumentID, &b.Mode, &b.Position)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -57,12 +59,14 @@ func (s *Store) GetBlock(ctx context.Context, id int64) (model.Block, error) {
 
 // ListBlocks returns a document's blocks (with attributes and responses) ordered
 // by position.
-func (s *Store) ListBlocks(ctx context.Context, documentID int64) ([]model.Block, error) {
+func (s *Store) ListBlocks(ctx context.Context, documentID int64) (_ []model.Block, err error) {
+	defer wrap(&err, "list blocks")
 	return s.documentBlocks(ctx, documentID)
 }
 
 // UpdateBlock updates a block's mode and position.
-func (s *Store) UpdateBlock(ctx context.Context, b model.Block) error {
+func (s *Store) UpdateBlock(ctx context.Context, b model.Block) (err error) {
+	defer wrap(&err, "update block")
 	ct, err := s.pool.Exec(ctx,
 		`UPDATE blocks SET mode = $2, position = $3 WHERE id = $1`,
 		b.ID, b.Mode, b.Position)
@@ -76,7 +80,8 @@ func (s *Store) UpdateBlock(ctx context.Context, b model.Block) error {
 }
 
 // DeleteBlock removes a block (cascading to its attributes and responses).
-func (s *Store) DeleteBlock(ctx context.Context, id int64) error {
+func (s *Store) DeleteBlock(ctx context.Context, id int64) (err error) {
+	defer wrap(&err, "delete block")
 	ct, err := s.pool.Exec(ctx, `DELETE FROM blocks WHERE id = $1`, id)
 	if err != nil {
 		return err
@@ -88,8 +93,9 @@ func (s *Store) DeleteBlock(ctx context.Context, id int64) error {
 }
 
 // SetBlockAttribute inserts or updates a single key/value attribute on a block.
-func (s *Store) SetBlockAttribute(ctx context.Context, blockID int64, key, value string) error {
-	_, err := s.pool.Exec(ctx,
+func (s *Store) SetBlockAttribute(ctx context.Context, blockID int64, key, value string) (err error) {
+	defer wrap(&err, "set block attribute")
+	_, err = s.pool.Exec(ctx,
 		`INSERT INTO block_attributes (block_id, key, value)
 		 VALUES ($1, $2, $3)
 		 ON CONFLICT (block_id, key) DO UPDATE SET value = EXCLUDED.value`,
@@ -98,14 +104,16 @@ func (s *Store) SetBlockAttribute(ctx context.Context, blockID int64, key, value
 }
 
 // DeleteBlockAttribute removes a single attribute key from a block.
-func (s *Store) DeleteBlockAttribute(ctx context.Context, blockID int64, key string) error {
-	_, err := s.pool.Exec(ctx,
+func (s *Store) DeleteBlockAttribute(ctx context.Context, blockID int64, key string) (err error) {
+	defer wrap(&err, "delete block attribute")
+	_, err = s.pool.Exec(ctx,
 		`DELETE FROM block_attributes WHERE block_id = $1 AND key = $2`, blockID, key)
 	return err
 }
 
 // ReplaceBlockAttributes atomically replaces all of a block's attributes.
-func (s *Store) ReplaceBlockAttributes(ctx context.Context, blockID int64, attrs map[string]string) error {
+func (s *Store) ReplaceBlockAttributes(ctx context.Context, blockID int64, attrs map[string]string) (err error) {
+	defer wrap(&err, "replace block attributes")
 	attrs = trimAttrs(attrs)
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

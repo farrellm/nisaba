@@ -2,11 +2,12 @@ package store
 
 import "context"
 
-// AttributeValues returns the distinct, non-empty values stored under the given
+// ListAttributeValues returns the distinct, non-empty values stored under the given
 // attribute key across all of the user's documents, drawn from both block- and
 // document-level attributes, sorted alphabetically. Used to suggest past values
 // (e.g. author names) when editing a block.
-func (s *Store) AttributeValues(ctx context.Context, userID int64, key string) ([]string, error) {
+func (s *Store) ListAttributeValues(ctx context.Context, userID int64, key string) (_ []string, err error) {
+	defer wrap(&err, "list attribute values")
 	rows, err := s.pool.Query(ctx,
 		`SELECT DISTINCT value FROM (
 		   SELECT ba.value

@@ -1,8 +1,8 @@
-package handler
+package reddit
 
 import "testing"
 
-func TestRedditPostPath(t *testing.T) {
+func TestPostPath(t *testing.T) {
 	tests := []struct {
 		name     string
 		in       string
@@ -82,7 +82,7 @@ func TestRedditPostPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPath, gotOK := redditPostPath(tt.in)
+			gotPath, gotOK := postPath(tt.in)
 			if gotOK != tt.wantOK {
 				t.Fatalf("ok = %v, want %v", gotOK, tt.wantOK)
 			}

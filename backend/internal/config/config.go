@@ -5,11 +5,14 @@ import (
 	"strings"
 )
 
+// Config holds every environment-derived setting, with local-dev defaults so
+// `make backend` runs with no environment at all.
 type Config struct {
 	Addr               string
 	DatabaseURL        string
 	CORSOrigins        []string
 	SessionSecret      string
+	SessionSecure      bool
 	ModeTemplatesDir   string
 	ReflexDBPath       string
 	CharlotteCLI       string
@@ -72,10 +75,12 @@ func Load() Config {
 	// the script-app account credentials used to submit posts (password grant);
 	// without them the submit endpoint reports it is not configured.
 	return Config{
-		Addr:               addr,
-		DatabaseURL:        dbURL,
-		CORSOrigins:        strings.Split(originsEnv, ","),
-		SessionSecret:      sessionSecret,
+		Addr:          addr,
+		DatabaseURL:   dbURL,
+		CORSOrigins:   strings.Split(originsEnv, ","),
+		SessionSecret: sessionSecret,
+		// Mark the cookie Secure in production (HTTPS); SESSION_SECURE=true enables it.
+		SessionSecure:      os.Getenv("SESSION_SECURE") == "true",
 		ModeTemplatesDir:   modeTemplatesDir,
 		ReflexDBPath:       reflexDBPath,
 		CharlotteCLI:       charlotteCLI,

@@ -1,10 +1,9 @@
 package handler
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -15,12 +14,27 @@ import (
 	"github.com/farrellm/nisaba/internal/store"
 )
 
+// DocumentStore is the consumer-side view of the data layer the document
+// handlers use.
+type DocumentStore interface {
+	documentGetter
+	ListDocuments(ctx context.Context, userID int64, includeArchived bool) ([]model.Document, error)
+	SearchDocuments(ctx context.Context, userID int64, query string) ([]model.Document, error)
+	CreateDocument(ctx context.Context, doc model.Document) (model.Document, error)
+	UpdateDocument(ctx context.Context, doc model.Document) (model.Document, error)
+	DeleteDocument(ctx context.Context, userID, id int64) error
+	MergeDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error
+	SetDocumentLabels(ctx context.Context, userID, documentID int64, names []string) error
+	GetDocumentAttribute(ctx context.Context, documentID int64, key string) (string, bool, error)
+	GetDocumentTitle(ctx context.Context, documentID int64) (string, error)
+}
+
 // ListDocuments returns the logged-in user's documents as summaries, most
 // recently updated first. Archived documents are included only when the
 // request carries ?archived=true.
-func ListDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func ListDocuments(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -28,7 +42,7 @@ func ListDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		includeArchived := r.URL.Query().Get("archived") == "true"
 		docs, err := st.ListDocuments(r.Context(), id, includeArchived)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load documents")
+			internalError(w, r, "Could not load documents", err)
 			return
 		}
 		if docs == nil {
@@ -41,9 +55,9 @@ func ListDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // SearchDocuments returns the logged-in user's documents whose `story` attribute
 // matches the ?q= full-text query, most-relevant first, as summaries. Archived
 // documents are included (the frontend marks them). An empty query returns [].
-func SearchDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func SearchDocuments(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -55,7 +69,7 @@ func SearchDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 		docs, err := st.SearchDocuments(r.Context(), id, q)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not search documents")
+			internalError(w, r, "Could not search documents", err)
 			return
 		}
 		if docs == nil {
@@ -71,16 +85,16 @@ type newDocument struct {
 }
 
 // CreateDocument creates a document owned by the logged-in user and returns it.
-func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func CreateDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
 
 		var body newDocument
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -107,7 +121,7 @@ func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			SelectedModel: "claude-sonnet-5",
 		})
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not create document")
+			internalError(w, r, "Could not create document", err)
 			return
 		}
 		writeJSON(w, http.StatusCreated, doc)
@@ -116,15 +130,15 @@ func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 // GetDocument returns a single fully-populated document owned by the logged-in
 // user, or 404 if it does not exist or belongs to someone else.
-func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func GetDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := sess.UserID(r)
+		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
 
-		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		id, err := pathID(r, "id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid document id")
 			return
@@ -132,11 +146,7 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 		doc, err := st.GetDocument(r.Context(), id)
 		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Document not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			notFoundOr500(w, r, err, "Document not found", "Could not load document")
 			return
 		}
 		if doc.UserID != userID {
@@ -152,9 +162,9 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // requiring authentication, for the chrome-free markdown view. Access is open by
 // document id (ids are sequential and guessable — by design). Returns an empty
 // value when the document or key does not exist, so it never leaks existence.
-func PublicDocumentAttribute(st *store.Store) http.HandlerFunc {
+func PublicDocumentAttribute(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		id, err := pathID(r, "id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid document id")
 			return
@@ -162,12 +172,12 @@ func PublicDocumentAttribute(st *store.Store) http.HandlerFunc {
 		key := chi.URLParam(r, "key")
 		value, _, err := st.GetDocumentAttribute(r.Context(), id, key)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load attribute")
+			internalError(w, r, "Could not load attribute", err)
 			return
 		}
 		title, err := st.GetDocumentTitle(r.Context(), id)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			writeError(w, http.StatusInternalServerError, "Could not load attribute")
+			internalError(w, r, "Could not load attribute", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"value": value, "title": title})
@@ -184,15 +194,15 @@ type updateDocument struct {
 // UpdateDocument changes a document's selected model, attribute values, archive
 // state, and/or labels, and returns the refreshed, fully-populated document. Each
 // field is optional; only the fields present in the request are applied.
-func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func UpdateDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
 
 		var body updateDocument
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -209,28 +219,28 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 				doc.IsArchived = *body.IsArchived
 			}
 			if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
+				internalError(w, r, "Could not update document", err)
 				return
 			}
 		}
 
 		if body.Attributes != nil {
 			if err := st.MergeDocumentAttributes(r.Context(), doc.ID, *body.Attributes); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
+				internalError(w, r, "Could not update document", err)
 				return
 			}
 		}
 
 		if body.Labels != nil {
 			if err := st.SetDocumentLabels(r.Context(), doc.UserID, doc.ID, *body.Labels); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
+				internalError(w, r, "Could not update document", err)
 				return
 			}
 		}
 
 		updated, err := st.GetDocument(r.Context(), doc.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			internalError(w, r, "Could not load document", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, updated)
@@ -240,18 +250,14 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // DeleteDocument removes a document the logged-in user owns, cascading to its
 // blocks, attributes, and label taggings. Returns 404 if it does not exist or
 // belongs to someone else.
-func DeleteDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func DeleteDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
 		if err := st.DeleteDocument(r.Context(), doc.UserID, doc.ID); err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Document not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not delete document")
+			notFoundOr500(w, r, err, "Document not found", "Could not delete document")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
