@@ -250,7 +250,8 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
   function toggleStructured(id: number) {
     setStructured((prev) => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
   }
