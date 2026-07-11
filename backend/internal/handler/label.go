@@ -1,19 +1,29 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/llm"
+	"github.com/farrellm/nisaba/internal/model"
 	"github.com/farrellm/nisaba/internal/store"
 )
+
+// LabelStore is the consumer-side view of the data layer the label handlers use.
+type LabelStore interface {
+	documentGetter
+	ListLabels(ctx context.Context, userID int64) ([]model.Label, error)
+	RenameLabel(ctx context.Context, userID int64, oldName, newName string) (bool, error)
+	DeleteLabelByName(ctx context.Context, userID int64, name string) error
+}
 
 // ListLabels returns the logged-in user's label names, ordered by name. Labels
 // are a user-global taxonomy; this feeds the edit-labels dialog's pool of
 // existing labels to apply to a document.
-func ListLabels(st *store.Store) http.HandlerFunc {
+func ListLabels(st LabelStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -39,7 +49,7 @@ func ListLabels(st *store.Store) http.HandlerFunc {
 // Body: {"name": <current>, "newName": <new>}. When a label already named newName
 // exists the two are merged (the response's "merged" flag is true); otherwise the
 // label is renamed in place. 400 on a blank newName, 404 when name doesn't exist.
-func RenameLabel(st *store.Store) http.HandlerFunc {
+func RenameLabel(st LabelStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -76,7 +86,7 @@ func RenameLabel(st *store.Store) http.HandlerFunc {
 // DeleteLabel removes one of the caller's labels, detaching it from every document
 // (the documents themselves are kept). The label is named via the ?name= query
 // param. 404 when the name doesn't exist.
-func DeleteLabel(st *store.Store) http.HandlerFunc {
+func DeleteLabel(st LabelStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -107,7 +117,7 @@ func DeleteLabel(st *store.Store) http.HandlerFunc {
 // its "story" attribute with a fixed model (llm.SuggestLabels). It is read-only:
 // it returns candidates for the caller to review and apply itself via
 // PUT /api/documents/{id} — it does not attach anything.
-func SuggestDocumentLabels(st *store.Store) http.HandlerFunc {
+func SuggestDocumentLabels(st LabelStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -134,7 +144,7 @@ func SuggestDocumentLabels(st *store.Store) http.HandlerFunc {
 // it is read-only and returns a subset for the caller to apply itself via PUT; the
 // difference is it chooses among labels the user already has rather than inventing
 // new ones.
-func RecommendDocumentLabels(st *store.Store) http.HandlerFunc {
+func RecommendDocumentLabels(st LabelStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {

@@ -1,18 +1,28 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/model"
 	"github.com/farrellm/nisaba/internal/store"
 )
+
+// UserStore is the consumer-side view of the data layer the auth handlers use.
+type UserStore interface {
+	CreateUser(ctx context.Context, username, passwordHash string) (model.User, error)
+	GetUser(ctx context.Context, id int64) (model.User, error)
+	GetCredentialsByUsername(ctx context.Context, username string) (int64, string, error)
+	UpdateUserSubreddit(ctx context.Context, id int64, subreddit string) (model.User, error)
+	UpdateUserStreamingEnabled(ctx context.Context, id int64, enabled bool) (model.User, error)
+}
 
 const minPasswordLen = 8
 
@@ -27,14 +37,8 @@ type credentials struct {
 	Password string `json:"password"`
 }
 
-// isUniqueViolation reports whether err is a Postgres unique-constraint error.
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
 // Register creates a new user, logs them in, and returns the user.
-func Register(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func Register(st UserStore, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var c credentials
 		if err := decodeJSON(r, &c); err != nil {
@@ -59,7 +63,7 @@ func Register(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 		user, err := st.CreateUser(r.Context(), c.Username, string(hash))
 		if err != nil {
-			if isUniqueViolation(err) {
+			if errors.Is(err, store.ErrDuplicate) {
 				writeError(w, http.StatusConflict, "That username is taken")
 				return
 			}
@@ -76,7 +80,7 @@ func Register(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 }
 
 // Login verifies credentials, starts a session, and returns the user.
-func Login(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func Login(st UserStore, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var c credentials
 		if err := decodeJSON(r, &c); err != nil {
@@ -121,7 +125,7 @@ func Logout(sess *auth.Sessions) http.HandlerFunc {
 // Body fields are optional pointers, each applied only when present, so a caller
 // can update one setting (e.g. the streaming toggle in the app menu) without
 // clobbering the others.
-func UpdateMe(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func UpdateMe(st UserStore, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := sess.UserID(r)
 		if !ok {
@@ -183,7 +187,7 @@ func UpdateMe(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 }
 
 // Me returns the currently logged-in user, or 401 if there is no valid session.
-func Me(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func Me(st UserStore, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := sess.UserID(r)
 		if !ok {

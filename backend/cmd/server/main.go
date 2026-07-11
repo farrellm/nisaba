@@ -85,14 +85,14 @@ func main() {
 			r.Get("/attribute-values", handler.ListAttributeValues(st))
 
 			r.Route("/anansi/documents", func(r chi.Router) {
-				r.Get("/", handler.ListReflexDocuments(rs))
-				r.Get("/{id}", handler.GetReflexDocument(rs))
-				r.Post("/{id}/import", handler.ImportReflexDocument(rs, st))
+				r.Get("/", handler.ListLegacyDocuments(rs))
+				r.Get("/{id}", handler.GetLegacyDocument(rs))
+				r.Post("/{id}/import", handler.ImportLegacyDocument(rs, st))
 			})
 			r.Route("/charlotte/documents", func(r chi.Router) {
-				r.Get("/", handler.ListCharlotteDocuments(cs))
-				r.Get("/{id}", handler.GetCharlotteDocument(cs))
-				r.Post("/{id}/import", handler.ImportCharlotteDocument(cs, st))
+				r.Get("/", handler.ListLegacyDocuments(cs))
+				r.Get("/{id}", handler.GetLegacyDocument(cs))
+				r.Post("/{id}/import", handler.ImportLegacyDocument(cs, st))
 			})
 			redditClient := reddit.NewClient(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
 			r.Get("/reddit/posts", handler.ListRedditPosts(st, redditClient))

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -13,14 +14,30 @@ import (
 	"github.com/farrellm/nisaba/internal/blockrun"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
-	"github.com/farrellm/nisaba/internal/store"
 )
+
+// documentGetter is the smallest store view the ownership check needs; the
+// per-file store interfaces embed it. *store.Store satisfies all of them.
+type documentGetter interface {
+	GetDocument(ctx context.Context, id int64) (model.Document, error)
+}
+
+// BlockStore is the consumer-side view of the data layer the block handlers use.
+type BlockStore interface {
+	documentGetter
+	CreateBlock(ctx context.Context, b model.Block) (model.Block, error)
+	GetBlock(ctx context.Context, id int64) (model.Block, error)
+	ReplaceBlockAttributes(ctx context.Context, blockID int64, attrs map[string]string) error
+	MergeDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error
+	DeleteBlock(ctx context.Context, id int64) error
+	UpdateResponse(ctx context.Context, r model.Response) error
+}
 
 // ownedDocument loads the document named by the {id} URL param and confirms the
 // logged-in user owns it. On any failure it writes the appropriate response and
 // returns ok=false; resources owned by another user surface as 404 so their
 // existence isn't leaked.
-func ownedDocument(w http.ResponseWriter, r *http.Request, st *store.Store) (model.Document, bool) {
+func ownedDocument(w http.ResponseWriter, r *http.Request, st documentGetter) (model.Document, bool) {
 	userID, ok := auth.UserIDFrom(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "Not logged in")
@@ -67,7 +84,7 @@ type newBlock struct {
 // CreateBlock appends a block to a document. The new block's attributes are
 // seeded from the document's attributes for the chosen mode's keys (empty
 // string where the document has no value).
-func CreateBlock(st *store.Store) http.HandlerFunc {
+func CreateBlock(st BlockStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -119,7 +136,7 @@ type updateBlock struct {
 
 // UpdateBlock replaces a block's key/values. Keys outside the mode's fixed key
 // set are ignored, so the stored attributes always match the mode.
-func UpdateBlock(st *store.Store) http.HandlerFunc {
+func UpdateBlock(st BlockStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -160,7 +177,7 @@ func UpdateBlock(st *store.Store) http.HandlerFunc {
 // shared attributes (merging, so values set by other blocks survive). It accepts
 // the same body shape as UpdateBlock so the caller's on-screen edits are saved
 // before they're copied up.
-func CopyBlock(st *store.Store) http.HandlerFunc {
+func CopyBlock(st BlockStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -249,7 +266,7 @@ func writeRunError(w http.ResponseWriter, err error) {
 // into the document's attributes under the mode's output key. It accepts the
 // same optional body as UpdateBlock so the caller's on-screen edits are saved
 // before the run.
-func RunBlock(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
+func RunBlock(st documentGetter, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -291,7 +308,7 @@ func RunBlock(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
 // Setup/validation failures before streaming begins still use the normal JSON
 // error path; once the 200 NDJSON stream has started, errors can only be
 // reported as an "error" event.
-func RunBlockStream(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
+func RunBlockStream(st documentGetter, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -380,7 +397,7 @@ func RunBlockStream(st *store.Store, runner *blockrun.Service) http.HandlerFunc 
 // response's stored text back into the document's shared attributes the same way
 // RunBlock does (top-level XML tags plus the mode's output key, merged), so a user
 // can re-derive attributes from any past response.
-func ReparseResponse(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
+func ReparseResponse(st BlockStore, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -435,7 +452,7 @@ func ReparseResponse(st *store.Store, runner *blockrun.Service) http.HandlerFunc
 // and re-derives the document's shared attributes from the new text (same merge
 // as RunBlock/ReparseResponse), so editing a response keeps the document
 // consistent without re-running the model.
-func UpdateResponse(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
+func UpdateResponse(st BlockStore, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -499,7 +516,7 @@ func UpdateResponse(st *store.Store, runner *blockrun.Service) http.HandlerFunc 
 
 // DeleteBlock removes a block from a document. Its attributes and responses are
 // removed by the database via ON DELETE CASCADE.
-func DeleteBlock(st *store.Store) http.HandlerFunc {
+func DeleteBlock(st BlockStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {

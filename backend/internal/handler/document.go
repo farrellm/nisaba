@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -13,10 +14,25 @@ import (
 	"github.com/farrellm/nisaba/internal/store"
 )
 
+// DocumentStore is the consumer-side view of the data layer the document
+// handlers use.
+type DocumentStore interface {
+	documentGetter
+	ListDocuments(ctx context.Context, userID int64, includeArchived bool) ([]model.Document, error)
+	SearchDocuments(ctx context.Context, userID int64, query string) ([]model.Document, error)
+	CreateDocument(ctx context.Context, doc model.Document) (model.Document, error)
+	UpdateDocument(ctx context.Context, doc model.Document) (model.Document, error)
+	DeleteDocument(ctx context.Context, userID, id int64) error
+	MergeDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error
+	SetDocumentLabels(ctx context.Context, userID, documentID int64, names []string) error
+	GetDocumentAttribute(ctx context.Context, documentID int64, key string) (string, bool, error)
+	GetDocumentTitle(ctx context.Context, documentID int64) (string, error)
+}
+
 // ListDocuments returns the logged-in user's documents as summaries, most
 // recently updated first. Archived documents are included only when the
 // request carries ?archived=true.
-func ListDocuments(st *store.Store) http.HandlerFunc {
+func ListDocuments(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -39,7 +55,7 @@ func ListDocuments(st *store.Store) http.HandlerFunc {
 // SearchDocuments returns the logged-in user's documents whose `story` attribute
 // matches the ?q= full-text query, most-relevant first, as summaries. Archived
 // documents are included (the frontend marks them). An empty query returns [].
-func SearchDocuments(st *store.Store) http.HandlerFunc {
+func SearchDocuments(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -69,7 +85,7 @@ type newDocument struct {
 }
 
 // CreateDocument creates a document owned by the logged-in user and returns it.
-func CreateDocument(st *store.Store) http.HandlerFunc {
+func CreateDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -114,7 +130,7 @@ func CreateDocument(st *store.Store) http.HandlerFunc {
 
 // GetDocument returns a single fully-populated document owned by the logged-in
 // user, or 404 if it does not exist or belongs to someone else.
-func GetDocument(st *store.Store) http.HandlerFunc {
+func GetDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -146,7 +162,7 @@ func GetDocument(st *store.Store) http.HandlerFunc {
 // requiring authentication, for the chrome-free markdown view. Access is open by
 // document id (ids are sequential and guessable — by design). Returns an empty
 // value when the document or key does not exist, so it never leaks existence.
-func PublicDocumentAttribute(st *store.Store) http.HandlerFunc {
+func PublicDocumentAttribute(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := pathID(r, "id")
 		if err != nil {
@@ -178,7 +194,7 @@ type updateDocument struct {
 // UpdateDocument changes a document's selected model, attribute values, archive
 // state, and/or labels, and returns the refreshed, fully-populated document. Each
 // field is optional; only the fields present in the request are applied.
-func UpdateDocument(st *store.Store) http.HandlerFunc {
+func UpdateDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -234,7 +250,7 @@ func UpdateDocument(st *store.Store) http.HandlerFunc {
 // DeleteDocument removes a document the logged-in user owns, cascading to its
 // blocks, attributes, and label taggings. Returns 404 if it does not exist or
 // belongs to someone else.
-func DeleteDocument(st *store.Store) http.HandlerFunc {
+func DeleteDocument(st DocumentStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {

@@ -7,8 +7,9 @@ import (
 )
 
 // CreateResponse appends a response to a block.
-func (s *Store) CreateResponse(ctx context.Context, r model.Response) (model.Response, error) {
-	err := s.pool.QueryRow(ctx,
+func (s *Store) CreateResponse(ctx context.Context, r model.Response) (_ model.Response, err error) {
+	defer wrap(&err, "create response")
+	err = s.pool.QueryRow(ctx,
 		`INSERT INTO responses (block_id, value, model, position)
 		 VALUES ($1, $2, $3, $4)
 		 RETURNING id`,
@@ -18,7 +19,8 @@ func (s *Store) CreateResponse(ctx context.Context, r model.Response) (model.Res
 }
 
 // ListResponses returns a block's responses ordered by position.
-func (s *Store) ListResponses(ctx context.Context, blockID int64) ([]model.Response, error) {
+func (s *Store) ListResponses(ctx context.Context, blockID int64) (_ []model.Response, err error) {
+	defer wrap(&err, "list responses")
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, block_id, value, model, position
 		   FROM responses WHERE block_id = $1 ORDER BY position, id`, blockID)
@@ -40,7 +42,8 @@ func (s *Store) ListResponses(ctx context.Context, blockID int64) ([]model.Respo
 
 // UpdateResponse replaces a response's text. The value is stored raw (no
 // trimming), matching CreateResponse.
-func (s *Store) UpdateResponse(ctx context.Context, r model.Response) error {
+func (s *Store) UpdateResponse(ctx context.Context, r model.Response) (err error) {
+	defer wrap(&err, "update response")
 	ct, err := s.pool.Exec(ctx,
 		`UPDATE responses SET value = $2 WHERE id = $1`, r.ID, r.Value)
 	if err != nil {
@@ -53,7 +56,8 @@ func (s *Store) UpdateResponse(ctx context.Context, r model.Response) error {
 }
 
 // DeleteResponse removes a response.
-func (s *Store) DeleteResponse(ctx context.Context, id int64) error {
+func (s *Store) DeleteResponse(ctx context.Context, id int64) (err error) {
+	defer wrap(&err, "delete response")
 	ct, err := s.pool.Exec(ctx, `DELETE FROM responses WHERE id = $1`, id)
 	if err != nil {
 		return err

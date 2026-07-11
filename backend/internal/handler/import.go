@@ -2,13 +2,22 @@ package handler
 
 import (
 	"context"
-	"net/http"
 
-	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
-	"github.com/farrellm/nisaba/internal/store"
 )
+
+// ImportStore is the consumer-side view of the data layer a legacy import
+// writes through.
+type ImportStore interface {
+	documentGetter
+	CreateDocument(ctx context.Context, doc model.Document) (model.Document, error)
+	ReplaceDocumentAttributes(ctx context.Context, documentID int64, attrs map[string]string) error
+	SetDocumentLabels(ctx context.Context, userID, documentID int64, names []string) error
+	CreateBlock(ctx context.Context, b model.Block) (model.Block, error)
+	ReplaceBlockAttributes(ctx context.Context, blockID int64, attrs map[string]string) error
+	CreateResponse(ctx context.Context, resp model.Response) (model.Response, error)
+}
 
 // fallbackMode is the registry mode assigned to a legacy block whose mode name is
 // neither in the current registry nor in legacyModeMap. It's a safe catch-all: the
@@ -67,7 +76,7 @@ func resolveLegacyMode(name string) string {
 // brand-new document owned by userID, and returns the fully-populated new document.
 // Each block's mode is resolved onto the current registry (with a `generic` fallback).
 // The write is not a single transaction (the store methods each own theirs).
-func importLegacyDocument(ctx context.Context, st *store.Store, userID int64, src model.Document) (model.Document, error) {
+func importLegacyDocument(ctx context.Context, st ImportStore, userID int64, src model.Document) (model.Document, error) {
 	doc, err := st.CreateDocument(ctx, model.Document{
 		UserID:        userID,
 		Title:         src.Title,
@@ -117,60 +126,4 @@ func importLegacyDocument(ctx context.Context, st *store.Store, userID int64, sr
 	}
 
 	return st.GetDocument(ctx, doc.ID)
-}
-
-// ImportReflexDocument copies a legacy Anansi (reflex.db) document into a new document
-// owned by the logged-in user and returns it (201). 404 if the source id is unknown.
-func ImportReflexDocument(rs *store.ReflexStore, st *store.Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := auth.UserIDFrom(r.Context())
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "Not logged in")
-			return
-		}
-		id, err := pathID(r, "id")
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "Invalid document id")
-			return
-		}
-		src, err := rs.GetReflexDocument(r.Context(), id)
-		if err != nil {
-			notFoundOr500(w, r, err, "Document not found", "Could not load document")
-			return
-		}
-		doc, err := importLegacyDocument(r.Context(), st, userID, src)
-		if err != nil {
-			internalError(w, r, "Could not import document", err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, doc)
-	}
-}
-
-// ImportCharlotteDocument copies a legacy Charlotte document into a new document owned
-// by the logged-in user and returns it (201). 404 if the source id is unknown.
-func ImportCharlotteDocument(cs *store.CharlotteStore, st *store.Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := auth.UserIDFrom(r.Context())
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "Not logged in")
-			return
-		}
-		id, err := pathID(r, "id")
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "Invalid document id")
-			return
-		}
-		src, err := cs.GetCharlotteDocument(r.Context(), id)
-		if err != nil {
-			notFoundOr500(w, r, err, "Document not found", "Could not load document")
-			return
-		}
-		doc, err := importLegacyDocument(r.Context(), st, userID, src)
-		if err != nil {
-			internalError(w, r, "Could not import document", err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, doc)
-	}
 }

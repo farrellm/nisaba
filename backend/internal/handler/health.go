@@ -5,16 +5,20 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// pinger is the health check's view of the database pool.
+type pinger interface {
+	Ping(ctx context.Context) error
+}
 
 type healthResponse struct {
 	Status string `json:"status"`
 	DB     string `json:"db"`
 }
 
-func Health(pool *pgxpool.Pool) http.HandlerFunc {
+// Health reports liveness plus whether the database answers a ping.
+func Health(pool pinger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		dbStatus := "ok"
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)

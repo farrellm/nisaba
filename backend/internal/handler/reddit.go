@@ -1,15 +1,23 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/model"
 	"github.com/farrellm/nisaba/internal/reddit"
-	"github.com/farrellm/nisaba/internal/store"
 )
+
+// RedditStore is the consumer-side view of the data layer the Reddit handlers use.
+type RedditStore interface {
+	documentGetter
+	GetUser(ctx context.Context, id int64) (model.User, error)
+	AddDocumentPost(ctx context.Context, documentID int64, url string) error
+}
 
 // writeRedditError maps a reddit.Client error onto the HTTP response.
 // notFoundMsg names the missing resource (subreddit vs post) for 404s.
@@ -47,7 +55,7 @@ func writeRedditError(w http.ResponseWriter, r *http.Request, err error, notFoun
 // subreddit via Reddit's application-only OAuth API and returns their titles and
 // permalink URLs. Anonymous access is blocked by Reddit, so clientID/secret from
 // a registered app are required.
-func ListRedditPosts(st *store.Store, rc *reddit.Client) http.HandlerFunc {
+func ListRedditPosts(st RedditStore, rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
@@ -110,7 +118,7 @@ func GetRedditPost(rc *reddit.Client) http.HandlerFunc {
 // this needs REDDIT_USERNAME/PASSWORD in addition to the app credentials and
 // reports 503 when they're absent. It is nested under /documents/{id} so the
 // returned post URL is saved against that document.
-func SubmitRedditPost(st *store.Store, rc *reddit.Client) http.HandlerFunc {
+func SubmitRedditPost(st RedditStore, rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
