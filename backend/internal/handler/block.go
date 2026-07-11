@@ -16,6 +16,7 @@ import (
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
 	"github.com/farrellm/nisaba/internal/store"
+	"github.com/farrellm/nisaba/internal/tagparse"
 )
 
 // ownedDocument loads the document named by the {id} URL param and confirms the
@@ -464,12 +465,25 @@ func finishRun(ctx context.Context, st *store.Store, doc model.Document, block m
 	return st.GetBlock(ctx, block.ID)
 }
 
+// applyRenames rewrites keys in updates according to renames (from -> to), using
+// move semantics: when a "from" key is present its value is reassigned to "to"
+// (overwriting any existing "to") and the original "from" key is removed. Keys
+// not named in renames are untouched.
+func applyRenames(updates map[string]string, renames map[string]string) {
+	for from, to := range renames {
+		if v, ok := updates[from]; ok {
+			updates[to] = v
+			delete(updates, from)
+		}
+	}
+}
+
 // reparseInto re-derives a document's shared attributes from a response's text:
 // top-level XML tags each populate an attribute (any tag name; nested tags stay
 // verbatim in the value), the mode's output key (when set) wins over a same-named
 // tag, and the merged result is written back to the document.
 func reparseInto(ctx context.Context, st *store.Store, doc model.Document, m mode.Mode, output string) error {
-	updates := parseTopLevelTags(output)
+	updates := tagparse.Parse(output)
 	applyRenames(updates, m.Renames)
 	if m.Output != "" {
 		updates[m.Output] = output

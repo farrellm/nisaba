@@ -1,4 +1,4 @@
-package handler
+package tagparse
 
 import (
 	"strings"
@@ -42,30 +42,8 @@ func BenchmarkParseTopLevelTags(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(c.input)))
 			for i := 0; i < b.N; i++ {
-				parseTopLevelTags(c.input)
+				Parse(c.input)
 			}
 		})
-	}
-}
-
-func BenchmarkApplyRenames(b *testing.B) {
-	renames := map[string]string{"revised_outline": "outline", "rewritten_story": "story"}
-	base := map[string]string{
-		"revised_outline": benchProse(2048),
-		"characters":      benchProse(1024),
-		"author":          "Ursula K. Le Guin",
-		"style_analysis":  benchProse(1024),
-		"prompt":          benchProse(512),
-		"edit":            benchProse(256),
-		"sequel_outline":  benchProse(1024),
-		"story":           benchProse(4096),
-	}
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		updates := make(map[string]string, len(base))
-		for k, v := range base {
-			updates[k] = v
-		}
-		applyRenames(updates, renames)
 	}
 }
