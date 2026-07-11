@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,6 +13,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { stripPromptTag } from '../lib/text'
 import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { Document, DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditPromptDialogProps {
@@ -97,16 +97,9 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
           <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
-            {submitting ? (
-              <>
-                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                Creating…
-              </>
-            ) : (
-              'Create'
-            )}
-          </Button>
+          <SubmitButton busy={submitting} busyLabel="Creating…" disabled={!title.trim()}>
+            Create
+          </SubmitButton>
         </DialogActions>
       </form>
     </Dialog>

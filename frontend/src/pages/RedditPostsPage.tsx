@@ -7,6 +7,8 @@ import type { RedditPost } from '../api/types'
 import Masthead from '../components/Masthead'
 import RedditPromptDialog from '../components/RedditPromptDialog'
 import RedditUrlDialog from '../components/RedditUrlDialog'
+import StatusLine from '../components/StatusLine'
+import { listStatusSx } from '../lib/styles'
 import { useFetch } from '../lib/useFetch'
 import { usePageTitle } from '../lib/usePageTitle'
 
@@ -40,17 +42,11 @@ export default function RedditPostsPage() {
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}
-          >
+          <StatusLine tone="error" sx={listStatusSx}>
             {error}
-          </Typography>
+          </StatusLine>
         ) : loading ? (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
-          >
-            Loading…
-          </Typography>
+          <StatusLine sx={listStatusSx}>Loading…</StatusLine>
         ) : posts && posts.length > 0 ? (
           posts.map((post, i) => (
             <Box
@@ -87,11 +83,7 @@ export default function RedditPostsPage() {
             </Box>
           ))
         ) : (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
-          >
-            Nothing here yet.
-          </Typography>
+          <StatusLine sx={listStatusSx}>Nothing here yet.</StatusLine>
         )}
       </Container>
 

@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,6 +13,8 @@ import {
   Typography,
 } from '@mui/material'
 import { api } from '../api/client'
+import StatusLine from './StatusLine'
+import SubmitButton from './SubmitButton'
 import { errorMessage } from '../lib/errors'
 import { collator, sameName } from '../lib/text'
 import type { DocumentDetail } from '../api/types'
@@ -199,11 +200,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                 ))}
               </Box>
             ) : (
-              <Typography
-                sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
-              >
-                No labels on this document yet.
-              </Typography>
+              <StatusLine sx={{ fontSize: '0.85rem' }}>No labels on this document yet.</StatusLine>
             )}
           </Box>
 
@@ -242,13 +239,11 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                 })}
               </Box>
             ) : (
-              <Typography
-                sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
-              >
+              <StatusLine sx={{ fontSize: '0.85rem' }}>
                 {suggesting
                   ? 'Analyzing the story…'
                   : 'Generate labels from this document’s story.'}
-              </Typography>
+              </StatusLine>
             )}
           </Box>
 
@@ -285,11 +280,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                 })}
               </Box>
             ) : (
-              <Typography
-                sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
-              >
-                No other labels. Add one above.
-              </Typography>
+              <StatusLine sx={{ fontSize: '0.85rem' }}>No other labels. Add one above.</StatusLine>
             )}
           </Box>
         </Stack>
@@ -298,16 +289,9 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
         <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
           Cancel
         </Button>
-        <Button onClick={handleSave} variant="contained" disabled={submitting}>
-          {submitting ? (
-            <>
-              <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-              Saving…
-            </>
-          ) : (
-            'Save'
-          )}
-        </Button>
+        <SubmitButton type="button" onClick={handleSave} busy={submitting} busyLabel="Saving…">
+          Save
+        </SubmitButton>
       </DialogActions>
     </Dialog>
   )

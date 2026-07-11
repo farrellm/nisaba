@@ -14,7 +14,9 @@ import {
 } from '@mui/material'
 import { fonts } from '../theme'
 import { collator, sameName } from '../lib/text'
+import { listStatusSx } from '../lib/styles'
 import DocumentRow from './DocumentRow'
+import StatusLine from './StatusLine'
 import Masthead from './Masthead'
 import type { Document } from '../api/types'
 
@@ -250,17 +252,11 @@ export default function DocumentList({
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}
-          >
+          <StatusLine tone="error" sx={listStatusSx}>
             {error}
-          </Typography>
+          </StatusLine>
         ) : loading ? (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
-          >
-            Loading…
-          </Typography>
+          <StatusLine sx={listStatusSx}>Loading…</StatusLine>
         ) : sorted && sorted.length > 0 ? (
           sorted.map((doc) => (
             <DocumentRow
@@ -272,11 +268,7 @@ export default function DocumentList({
             />
           ))
         ) : (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
-          >
-            Nothing here yet.
-          </Typography>
+          <StatusLine sx={listStatusSx}>Nothing here yet.</StatusLine>
         )}
       </Container>
 

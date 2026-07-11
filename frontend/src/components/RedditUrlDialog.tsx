@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -12,6 +11,7 @@ import {
 } from '@mui/material'
 import { api } from '../api/client'
 import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { RedditPost } from '../api/types'
 
 interface RedditUrlDialogProps {
@@ -70,16 +70,9 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
           <Button onClick={handleClose} disabled={loading} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={loading || !url.trim()}>
-            {loading ? (
-              <>
-                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                Loading…
-              </>
-            ) : (
-              'Continue'
-            )}
-          </Button>
+          <SubmitButton busy={loading} busyLabel="Loading…" disabled={!url.trim()}>
+            Continue
+          </SubmitButton>
         </DialogActions>
       </form>
     </Dialog>

@@ -24,9 +24,9 @@ import RedditSubmitDialog from '../components/RedditSubmitDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
+import StatusLine from '../components/StatusLine'
 import { useArmedAction } from '../lib/useArmedAction'
 import { usePageTitle } from '../lib/usePageTitle'
-import { fonts } from '../theme'
 import { postLinkSx } from '../lib/styles'
 
 // DocumentPage loads a document via GET /api/documents/:id and renders its
@@ -141,9 +141,9 @@ export default function DocumentPage() {
 
       <Container maxWidth="md" sx={{ pt: { xs: 7, md: 12 }, pb: 12 }}>
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, color: 'error.main' }}>{error}</Typography>
+          <StatusLine tone="error">{error}</StatusLine>
         ) : !doc ? (
-          <Typography sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}>Loading…</Typography>
+          <StatusLine>Loading…</StatusLine>
         ) : (
           <>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 4 }}>
@@ -223,9 +223,7 @@ export default function DocumentPage() {
             </Box>
 
             {(doc.blocks ?? []).length === 0 ? (
-              <Typography sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}>
-                No blocks yet. Add one to get started.
-              </Typography>
+              <StatusLine>No blocks yet. Add one to get started.</StatusLine>
             ) : (
               (doc.blocks ?? []).map((block, i, arr) => (
                 <BlockCard

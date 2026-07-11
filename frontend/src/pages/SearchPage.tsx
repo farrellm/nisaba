@@ -3,9 +3,11 @@ import { Box, Container, Divider, InputAdornment, TextField, Typography } from '
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
 import { api } from '../api/client'
 import { errorMessage } from '../lib/errors'
+import { listStatusSx } from '../lib/styles'
 import type { Document } from '../api/types'
 import DocumentRow from '../components/DocumentRow'
 import Masthead from '../components/Masthead'
+import StatusLine from '../components/StatusLine'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
@@ -81,32 +83,19 @@ export default function SearchPage() {
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Helper color="error.main">{error}</Helper>
+          <StatusLine tone="error" sx={listStatusSx}>
+            {error}
+          </StatusLine>
         ) : searching ? (
-          <Helper>Searching…</Helper>
+          <StatusLine sx={listStatusSx}>Searching…</StatusLine>
         ) : query === '' ? (
-          <Helper>Press space or enter to search your stories.</Helper>
+          <StatusLine sx={listStatusSx}>Press space or enter to search your stories.</StatusLine>
         ) : results.length > 0 ? (
           results.map((doc) => <DocumentRow key={doc.id} doc={doc} showArchived />)
         ) : (
-          <Helper>No stories match “{query}”.</Helper>
+          <StatusLine sx={listStatusSx}>No stories match “{query}”.</StatusLine>
         )}
       </Container>
     </Box>
-  )
-}
-
-// Helper is the small mono status line used for loading / empty / error states.
-function Helper({
-  children,
-  color = 'text.secondary',
-}: {
-  children: React.ReactNode
-  color?: string
-}) {
-  return (
-    <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color, py: 1.5 }}>
-      {children}
-    </Typography>
   )
 }

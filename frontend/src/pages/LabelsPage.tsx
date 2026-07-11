@@ -5,6 +5,8 @@ import DeleteLabelDialog from '../components/DeleteLabelDialog'
 import DocumentRow from '../components/DocumentRow'
 import Masthead from '../components/Masthead'
 import RenameLabelDialog from '../components/RenameLabelDialog'
+import StatusLine from '../components/StatusLine'
+import { listStatusSx } from '../lib/styles'
 import { collator } from '../lib/text'
 import { useFetch } from '../lib/useFetch'
 import { usePageTitle } from '../lib/usePageTitle'
@@ -58,17 +60,11 @@ export default function LabelsPage() {
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}
-          >
+          <StatusLine tone="error" sx={listStatusSx}>
             {error}
-          </Typography>
+          </StatusLine>
         ) : loading ? (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
-          >
-            Loading…
-          </Typography>
+          <StatusLine sx={listStatusSx}>Loading…</StatusLine>
         ) : sections && sections.length > 0 ? (
           sections.map((section) => (
             <Box
@@ -130,11 +126,9 @@ export default function LabelsPage() {
             </Box>
           ))
         ) : (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
-          >
+          <StatusLine sx={listStatusSx}>
             No labels yet. Add labels to a document to start your index.
-          </Typography>
+          </StatusLine>
         )}
       </Container>
 

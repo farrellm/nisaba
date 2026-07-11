@@ -3,9 +3,12 @@ import { Box, Divider, Typography } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { DocumentDetail } from '../api/types'
+import StatusLine from '../components/StatusLine'
 import { usePageTitle } from '../lib/usePageTitle'
 import { wordCount, wordDiff } from '../lib/wordDiff'
 import { fonts } from '../theme'
+
+const noticeSx = { fontSize: '0.85rem' } as const
 
 // A muted brick red for deletions — desaturated so it sits inside the warm
 // editorial palette rather than shouting like the MUI error color.
@@ -50,9 +53,9 @@ export default function BlockAttributeDiffPage() {
         sx={{ maxWidth: 760, mx: 'auto', px: { xs: 3, md: 4 }, py: { xs: 6, md: 10 } }}
       >
         {error ? (
-          <Notice>{error}</Notice>
+          <StatusLine sx={noticeSx}>{error}</StatusLine>
         ) : !doc ? null : !block ? (
-          <Notice>This block no longer exists.</Notice>
+          <StatusLine sx={noticeSx}>This block no longer exists.</StatusLine>
         ) : (
           <>
             {/* Collation header */}
@@ -84,13 +87,17 @@ export default function BlockAttributeDiffPage() {
 
             {/* Body */}
             {before === '' && after === '' ? (
-              <Notice>Nothing to compare — neither side has a value.</Notice>
+              <StatusLine sx={noticeSx}>Nothing to compare — neither side has a value.</StatusLine>
             ) : before === after ? (
-              <Notice>No differences — the document matches this block.</Notice>
+              <StatusLine sx={noticeSx}>
+                No differences — the document matches this block.
+              </StatusLine>
             ) : (
               <>
                 {after === '' && (
-                  <Notice sx={{ mb: 3 }}>No document value for this key yet.</Notice>
+                  <StatusLine sx={{ ...noticeSx, mb: 3 }}>
+                    No document value for this key yet.
+                  </StatusLine>
                 )}
                 <Box
                   sx={{
@@ -139,15 +146,5 @@ export default function BlockAttributeDiffPage() {
         )}
       </Box>
     </Box>
-  )
-}
-
-function Notice({ children, sx }: { children: React.ReactNode; sx?: object }) {
-  return (
-    <Typography
-      sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary', ...sx }}
-    >
-      {children}
-    </Typography>
   )
 }

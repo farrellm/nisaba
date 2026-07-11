@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { Document } from '../api/types'
 
 interface NewDocumentDialogProps {
@@ -77,16 +77,9 @@ export default function NewDocumentDialog({ open, onClose }: NewDocumentDialogPr
           <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
-            {submitting ? (
-              <>
-                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                Creating…
-              </>
-            ) : (
-              'Create'
-            )}
-          </Button>
+          <SubmitButton busy={submitting} busyLabel="Creating…" disabled={!title.trim()}>
+            Create
+          </SubmitButton>
         </DialogActions>
       </form>
     </Dialog>

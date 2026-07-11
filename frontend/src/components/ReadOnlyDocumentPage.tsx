@@ -7,17 +7,14 @@ import {
   Container,
   Fab,
   IconButton,
-  InputAdornment,
   Link as MuiLink,
   Snackbar,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
 import DataObjectIcon from '@mui/icons-material/DataObject'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
-import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api } from '../api/client'
 import { errorMessage } from '../lib/errors'
 import {
@@ -27,7 +24,9 @@ import {
   type DocumentDetail,
   type Response,
 } from '../api/types'
+import CollapsibleValueField from './CollapsibleValueField'
 import Masthead from './Masthead'
+import StatusLine from './StatusLine'
 import Markdown from './Markdown'
 import { parseResponseSegments } from '../lib/responseSegments'
 import { usePageTitle } from '../lib/usePageTitle'
@@ -79,9 +78,9 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
       <Masthead />
       <Container maxWidth="md" sx={{ pt: { xs: 7, md: 12 }, pb: 12 }}>
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, color: 'error.main' }}>{error}</Typography>
+          <StatusLine tone="error">{error}</StatusLine>
         ) : !doc ? (
-          <Typography sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}>Loading…</Typography>
+          <StatusLine>Loading…</StatusLine>
         ) : (
           <>
             <Box sx={{ mb: 4 }}>
@@ -156,64 +155,6 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
   )
 }
 
-// ReadOnlyField renders a key/value as a read-only TextField, collapsing long
-// values to a truncated preview that expands on click (mirroring BlockCard /
-// DocumentAttributes).
-function ReadOnlyField({
-  fieldKey,
-  value,
-  expanded,
-  onReveal,
-}: {
-  fieldKey: string
-  value: string
-  expanded: boolean
-  onReveal: () => void
-}) {
-  const collapsed = !expanded && value.length > 80
-  if (collapsed) {
-    return (
-      <TextField
-        label={fieldKey}
-        value={`${value.slice(0, 40)}…`}
-        onClick={onReveal}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            onReveal()
-          }
-        }}
-        inputProps={{ tabIndex: 0, 'aria-label': `Expand ${fieldKey}` }}
-        InputProps={{
-          readOnly: true,
-          endAdornment: (
-            <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-              <UnfoldMore fontSize="small" />
-            </InputAdornment>
-          ),
-          sx: {
-            cursor: 'pointer',
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-            '&:focus-within .MuiOutlinedInput-notchedOutline': {
-              borderColor: 'primary.main',
-              borderWidth: 2,
-            },
-          },
-        }}
-      />
-    )
-  }
-  return (
-    <TextField
-      label={fieldKey}
-      value={value}
-      InputProps={{ readOnly: true }}
-      multiline
-      minRows={1}
-    />
-  )
-}
-
 // BlockSection is a read-only port of BlockCard: a collapsible card with the
 // mode header, the block's input key/values, and its responses.
 function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boolean }) {
@@ -248,12 +189,12 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
         {keys.length > 0 && (
           <Stack spacing={2}>
             {keys.map((key) => (
-              <ReadOnlyField
+              <CollapsibleValueField
                 key={key}
-                fieldKey={key}
+                label={key}
                 value={block.attributes[key] ?? ''}
                 expanded={expanded.has(key)}
-                onReveal={() => reveal(key)}
+                onExpand={() => reveal(key)}
               />
             ))}
           </Stack>
@@ -415,12 +356,12 @@ function Attributes({ attributes }: { attributes: Record<string, string> }) {
 
         <Stack spacing={2}>
           {keys.map((key) => (
-            <ReadOnlyField
+            <CollapsibleValueField
               key={key}
-              fieldKey={key}
+              label={key}
               value={attributes[key] ?? ''}
               expanded={expanded.has(key)}
-              onReveal={() => setExpanded((prev) => addToSet(prev, key))}
+              onExpand={() => setExpanded((prev) => addToSet(prev, key))}
             />
           ))}
         </Stack>

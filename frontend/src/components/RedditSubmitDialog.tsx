@@ -15,6 +15,7 @@ import {
 import { api } from '../api/client'
 import { stripPromptTag } from '../lib/text'
 import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditSubmitDialogProps {
@@ -158,16 +159,9 @@ export default function RedditSubmitDialog({
             {posted ? 'Done' : 'Cancel'}
           </Button>
           {!posted && (
-            <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
-              {submitting ? (
-                <>
-                  <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                  Posting…
-                </>
-              ) : (
-                'Post'
-              )}
-            </Button>
+            <SubmitButton busy={submitting} busyLabel="Posting…" disabled={!title.trim()}>
+              Post
+            </SubmitButton>
           )}
         </DialogActions>
       </form>

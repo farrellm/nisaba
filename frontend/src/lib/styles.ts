@@ -32,6 +32,9 @@ export const summarySx = {
   '&::-webkit-details-marker': { display: 'none' },
 } as const
 
+// Sizing for a StatusLine sitting in a ledger-style list (under the Divider).
+export const listStatusSx = { fontSize: '0.9rem', py: 1.5 } as const
+
 // The dotted leader that fills the space between a header and its trailing
 // controls, nudged down to sit on the text baseline.
 export const leaderSx = {

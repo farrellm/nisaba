@@ -3,7 +3,6 @@ import {
   Box,
   CircularProgress,
   IconButton,
-  InputAdornment,
   Stack,
   TextField,
   Tooltip,
@@ -19,12 +18,13 @@ import Difference from '@mui/icons-material/Difference'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
-import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import { api } from '../api/client'
 import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
 import AuthorField from './AuthorField'
+import CollapsibleValueField from './CollapsibleValueField'
 import Markdown from './Markdown'
+import StatusLine from './StatusLine'
 import type { Block, Mode } from '../api/types'
 import { parseResponseSegments } from '../lib/responseSegments'
 import { fonts } from '../theme'
@@ -272,60 +272,21 @@ const BlockCard = memo(function BlockCard({
         <Stack spacing={2}>
           {keys.map((key) => {
             const value = values[key] ?? ''
-            const collapsed = key !== 'author' && !expanded.has(key) && value.length > 80
-            let field
-            if (key === 'author') {
-              field = (
+            const field =
+              key === 'author' ? (
                 <AuthorField
                   value={value}
                   onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
                 />
-              )
-            } else if (collapsed) {
-              field = (
-                <TextField
-                  label={key}
-                  value={`${value.slice(0, 40)}…`}
-                  onClick={() => reveal(key)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      reveal(key)
-                    }
-                  }}
-                  inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
-                  InputProps={{
-                    readOnly: true,
-                    endAdornment: (
-                      <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-                        <UnfoldMore fontSize="small" />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      cursor: 'pointer',
-                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                      '&:focus-within .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'primary.main',
-                        borderWidth: 2,
-                      },
-                    },
-                  }}
-                />
-              )
-            } else {
-              field = (
-                <TextField
+              ) : (
+                <CollapsibleValueField
                   label={key}
                   value={value}
-                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                  // Once focused, the field counts as expanded so typing past the
-                  // collapse threshold can't swap the editor out mid-keystroke.
-                  onFocus={() => reveal(key)}
-                  multiline
-                  minRows={1}
+                  expanded={expanded.has(key)}
+                  onExpand={() => reveal(key)}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
                 />
               )
-            }
 
             // Diff link mirrors the Save/Copy buttons (editActionSx): ringed in
             // accent when the saved block value diverges from the document
@@ -357,11 +318,9 @@ const BlockCard = memo(function BlockCard({
         </Stack>
 
         {error && (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}
-          >
+          <StatusLine tone="error" sx={{ fontSize: '0.8rem', mt: 1.5 }}>
             {error}
-          </Typography>
+          </StatusLine>
         )}
 
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>

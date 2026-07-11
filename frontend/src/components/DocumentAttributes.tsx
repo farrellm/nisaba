@@ -1,17 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Box,
-  Button,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material'
-import UnfoldMore from '@mui/icons-material/UnfoldMore'
+import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material'
 import OpenInNew from '@mui/icons-material/OpenInNew'
+import CollapsibleValueField from './CollapsibleValueField'
+import StatusLine from './StatusLine'
+import SubmitButton from './SubmitButton'
 import EditNote from '@mui/icons-material/EditNote'
 import { api } from '../api/client'
 import { errorMessage } from '../lib/errors'
@@ -115,82 +107,36 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         <Stack direction="row" spacing={1.5} sx={{ mb: 3 }}>
           <Tooltip title={!dirty && !saving ? 'No unsaved changes' : ''}>
             <span>
-              <Button
+              <SubmitButton
+                type="button"
                 variant="outlined"
                 size="small"
                 onClick={handleSave}
-                disabled={!dirty || saving}
+                busy={saving}
+                busyLabel="Saving…"
+                disabled={!dirty}
               >
-                {saving ? (
-                  <>
-                    <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                    Saving…
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
+                Save
+              </SubmitButton>
             </span>
           </Tooltip>
         </Stack>
 
         {keys.length === 0 ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
-            No attributes yet.
-          </Typography>
+          <StatusLine sx={{ fontSize: '0.85rem' }}>No attributes yet.</StatusLine>
         ) : (
           <Stack spacing={2}>
             {keys.map((key) => {
               const value = values[key] ?? ''
-              const previewLength = 80
-              const collapsed = !expanded.has(key) && value.length > previewLength
-              // Truncate in JS: iOS Safari won't apply -webkit-line-clamp to a
-              // <textarea>, so a CSS-only ellipsis goes missing on iPhone.
-              const preview =
-                value.length > previewLength ? `${value.slice(0, previewLength)}…` : value
-              const field = collapsed ? (
-                <TextField
-                  label={key}
-                  value={preview}
-                  multiline
-                  maxRows={3}
-                  onClick={() => reveal(key)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      reveal(key)
-                    }
-                  }}
-                  inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
-                  InputProps={{
-                    readOnly: true,
-                    endAdornment: (
-                      <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-                        <UnfoldMore fontSize="small" />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      cursor: 'pointer',
-                      // Clip overflow beyond maxRows instead of showing a scrollbar.
-                      '& textarea': { overflow: 'hidden !important' },
-                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                      '&:focus-within .MuiOutlinedInput-notchedOutline': {
-                        borderColor: 'primary.main',
-                        borderWidth: 2,
-                      },
-                    },
-                  }}
-                />
-              ) : (
-                <TextField
+              const field = (
+                <CollapsibleValueField
                   label={key}
                   value={value}
-                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                  // Once focused, the field counts as expanded so typing past the
-                  // collapse threshold can't swap the editor out mid-keystroke.
-                  onFocus={() => reveal(key)}
-                  multiline
-                  minRows={1}
+                  expanded={expanded.has(key)}
+                  onExpand={() => reveal(key)}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
+                  previewLength={80}
+                  previewRows={3}
                 />
               )
               return (
@@ -210,7 +156,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                         <OpenInNew fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    {value.length > previewLength && (
+                    {value.length > 80 && (
                       <Tooltip title="Edit rich text">
                         <IconButton
                           onClick={() => setEditingKey(key)}
@@ -230,11 +176,9 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         )}
 
         {error && (
-          <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}
-          >
+          <StatusLine tone="error" sx={{ fontSize: '0.8rem', mt: 1.5 }}>
             {error}
-          </Typography>
+          </StatusLine>
         )}
       </Box>
 

@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,6 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
 
@@ -96,16 +96,9 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
         <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
           Cancel
         </Button>
-        <Button type="submit" variant="contained" disabled={submitting || !selected}>
-          {submitting ? (
-            <>
-              <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-              Adding…
-            </>
-          ) : (
-            'Add block'
-          )}
-        </Button>
+        <SubmitButton busy={submitting} busyLabel="Adding…" disabled={!selected}>
+          Add block
+        </SubmitButton>
       </DialogActions>
     </Dialog>
   )
