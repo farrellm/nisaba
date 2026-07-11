@@ -1,31 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Fab, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
-import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
 import type { Document } from '../api/types'
 import DocumentList from '../components/DocumentList'
 import NewDocumentDialog from '../components/NewDocumentDialog'
+import { useFetch } from '../lib/useFetch'
 import { usePageTitle } from '../lib/usePageTitle'
 
 export default function DocumentsPage() {
   usePageTitle('Documents')
-  const [documents, setDocuments] = useState<Document[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: documents, error, loading } = useFetch<Document[]>('/api/documents')
   const [dialogOpen, setDialogOpen] = useState(false)
-
-  useEffect(() => {
-    api
-      .get<Document[]>('/api/documents')
-      .then(setDocuments)
-      .catch((e: unknown) => setError(errorMessage(e)))
-  }, [])
 
   return (
     <DocumentList
       heading="Documents"
       documents={documents}
-      loading={documents === null && error === null}
+      loading={loading}
       error={error}
       active="documents"
       defaultSort="newest"

@@ -11,7 +11,7 @@ import {
   TextField,
 } from '@mui/material'
 import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import type { RedditPost } from '../api/types'
 
 interface RedditUrlDialogProps {
@@ -25,8 +25,7 @@ interface RedditUrlDialogProps {
 // create-document dialog).
 export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrlDialogProps) {
   const [url, setUrl] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const { busy: loading, error, setError, run } = useAsyncAction()
 
   function handleClose() {
     if (loading) return
@@ -35,21 +34,15 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
+    run(async () => {
       const post = await api.get<RedditPost>(
         `/api/reddit/post?url=${encodeURIComponent(url.trim())}`,
       )
       setUrl('')
       onResolved(post)
-    } catch (err) {
-      setError(errorMessage(err, 'Something went wrong. Try again.'))
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   return (

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useState } from 'react'
 import {
   Box,
   CircularProgress,
@@ -30,6 +30,7 @@ import { parseResponseSegments } from '../lib/responseSegments'
 import { fonts } from '../theme'
 import { leaderSx, summarySx } from '../lib/styles'
 import { addToSet, toggleSet } from '../lib/sets'
+import { useArmedAction } from '../lib/useArmedAction'
 
 interface BlockCardProps {
   block: Block
@@ -67,7 +68,6 @@ const BlockCard = memo(function BlockCard({
   // Transient text accumulated while a streamed run is in flight; null when not
   // streaming. Rendered as a live preview until the final block replaces it.
   const [streamingText, setStreamingText] = useState<string | null>(null)
-  const [armed, setArmed] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -81,7 +81,6 @@ const BlockCard = memo(function BlockCard({
       ? new Set([responses[responses.length - 1].id])
       : new Set()
   })
-  const armedTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
   const toggleStructured = (id: number) => setStructured((prev) => toggleSet(prev, id))
@@ -99,9 +98,6 @@ const BlockCard = memo(function BlockCard({
     color: active ? 'primary.main' : 'text.disabled',
     '&:hover': { color: 'primary.main', bgcolor: active ? 'action.hover' : 'transparent' },
   })
-
-  // Clear the pending revert timer if the card unmounts.
-  useEffect(() => () => clearTimeout(armedTimer.current), [])
 
   async function handleSave() {
     setError(null)
@@ -136,18 +132,9 @@ const BlockCard = memo(function BlockCard({
     }
   }
 
-  // Deleting is a two-step action: the first click arms the control (and starts
-  // a timer to disarm it), the second confirms. Both clicks must not toggle the
-  // surrounding <details>, so the caller stops propagation.
-  function handleDeleteClick() {
-    if (!armed) {
-      setArmed(true)
-      armedTimer.current = setTimeout(() => setArmed(false), 4000)
-      return
-    }
-    clearTimeout(armedTimer.current)
-    handleDelete()
-  }
+  // Deleting is a two-step action (see useArmedAction). Both clicks must not
+  // toggle the surrounding <details>, so the caller stops propagation.
+  const { armed, fire: fireDelete, disarm: disarmDelete } = useArmedAction(handleDelete)
 
   async function handleDelete() {
     setError(null)
@@ -157,7 +144,7 @@ const BlockCard = memo(function BlockCard({
       onBlockDeleted(block.id)
     } catch (err) {
       setError(errorMessage(err, 'Could not delete. Try again.'))
-      setArmed(false)
+      disarmDelete()
       setDeleting(false)
     }
   }
@@ -263,7 +250,7 @@ const BlockCard = memo(function BlockCard({
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  handleDeleteClick()
+                  fireDelete()
                 }}
                 sx={{
                   transform: 'translateY(-2px)',

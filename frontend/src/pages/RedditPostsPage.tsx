@@ -1,14 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Box, Container, Divider, Fab, Tooltip, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useAuth } from '../auth/AuthContext'
-import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
 import { fonts } from '../theme'
 import type { RedditPost } from '../api/types'
 import Masthead from '../components/Masthead'
 import RedditPromptDialog from '../components/RedditPromptDialog'
 import RedditUrlDialog from '../components/RedditUrlDialog'
+import { useFetch } from '../lib/useFetch'
 import { usePageTitle } from '../lib/usePageTitle'
 
 // RedditPostsPage lists the newest posts from the user's configured subreddit.
@@ -16,25 +15,15 @@ import { usePageTitle } from '../lib/usePageTitle'
 export default function RedditPostsPage() {
   usePageTitle('Writing Prompts')
   const { user } = useAuth()
-  const [posts, setPosts] = useState<RedditPost[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: posts, error, loading } = useFetch<RedditPost[]>('/api/reddit/posts')
   const [selected, setSelected] = useState<RedditPost | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [urlDialogOpen, setUrlDialogOpen] = useState(false)
-
-  useEffect(() => {
-    api
-      .get<RedditPost[]>('/api/reddit/posts')
-      .then(setPosts)
-      .catch((e: unknown) => setError(errorMessage(e)))
-  }, [])
 
   function openPost(post: RedditPost) {
     setSelected(post)
     setDialogOpen(true)
   }
-
-  const loading = posts === null && error === null
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>

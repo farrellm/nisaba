@@ -12,7 +12,7 @@ import {
   RadioGroup,
   Typography,
 } from '@mui/material'
-import { errorMessage } from '../lib/errors'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
 
@@ -27,8 +27,7 @@ interface AddBlockDialogProps {
 // fields are seeded server-side from the document's attributes.
 export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBlockDialogProps) {
   const [selected, setSelected] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { busy: submitting, error, setError, run } = useAsyncAction()
 
   useEffect(() => {
     if (open && !selected && modes.length > 0) setSelected(modes[0].name)
@@ -40,18 +39,12 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
+    run(async () => {
       await onCreate(selected)
       onClose()
-    } catch (err) {
-      setError(errorMessage(err, 'Something went wrong. Try again.'))
-    } finally {
-      setSubmitting(false)
-    }
+    })
   }
 
   return (

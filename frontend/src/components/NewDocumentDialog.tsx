@@ -12,7 +12,7 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import type { Document } from '../api/types'
 
 interface NewDocumentDialogProps {
@@ -26,8 +26,7 @@ export default function NewDocumentDialog({ open, onClose }: NewDocumentDialogPr
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { busy: submitting, error, setError, run } = useAsyncAction()
 
   function handleClose() {
     if (submitting) return
@@ -37,21 +36,15 @@ export default function NewDocumentDialog({ open, onClose }: NewDocumentDialogPr
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
+    run(async () => {
       const doc = await api.post<Document>('/api/documents', {
         title,
         url: url.trim() || null,
       })
       navigate(`/documents/${doc.id}`)
-    } catch (err) {
-      setError(errorMessage(err, 'Something went wrong. Try again.'))
-    } finally {
-      setSubmitting(false)
-    }
+    })
   }
 
   return (

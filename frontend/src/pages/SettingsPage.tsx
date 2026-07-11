@@ -13,7 +13,7 @@ import {
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { fonts } from '../theme'
 import { navLinkSx } from '../lib/styles'
 import AccountMenu from '../components/AccountMenu'
@@ -26,9 +26,8 @@ export default function SettingsPage() {
   usePageTitle('Settings')
   const { user, refresh } = useAuth()
   const [subreddit, setSubreddit] = useState(user?.subreddit ?? '')
-  const [error, setError] = useState<string | null>(null)
+  const { busy: saving, error, run } = useAsyncAction()
   const [saved, setSaved] = useState(false)
-  const [saving, setSaving] = useState(false)
 
   // Sync the field once the user loads (RequireAuth guarantees user before render,
   // but it may briefly be null while refreshing).
@@ -36,20 +35,14 @@ export default function SettingsPage() {
     if (user) setSubreddit(user.subreddit)
   }, [user])
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
     setSaved(false)
-    setSaving(true)
-    try {
+    run(async () => {
       await api.put('/api/auth/me', { subreddit })
       await refresh()
       setSaved(true)
-    } catch (err) {
-      setError(errorMessage(err, 'Something went wrong. Try again.'))
-    } finally {
-      setSaving(false)
-    }
+    })
   }
 
   return (

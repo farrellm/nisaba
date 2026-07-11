@@ -13,8 +13,8 @@ import {
   CircularProgress,
 } from '@mui/material'
 import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
 import { stripPromptTag } from '../lib/text'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import type { DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditSubmitDialogProps {
@@ -43,8 +43,7 @@ export default function RedditSubmitDialog({
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [titleLoading, setTitleLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { busy: submitting, error, setError, run } = useAsyncAction()
   const [posted, setPosted] = useState(false)
   const [postedUrl, setPostedUrl] = useState('')
 
@@ -81,18 +80,17 @@ export default function RedditSubmitDialog({
     return () => {
       cancelled = true
     }
-  }, [open, doc])
+    // setError is a stable useState setter (via useAsyncAction).
+  }, [open, doc, setError])
 
   function handleClose() {
     if (submitting) return
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
+    run(async () => {
       const updated = await api.post<DocumentDetail>(`/api/documents/${doc.id}/reddit-submit`, {
         title,
         body,
@@ -101,11 +99,7 @@ export default function RedditSubmitDialog({
       setPostedUrl(urls[urls.length - 1] ?? '')
       setPosted(true)
       onPosted(updated)
-    } catch (err) {
-      setError(errorMessage(err, 'Something went wrong. Try again.'))
-    } finally {
-      setSubmitting(false)
-    }
+    })
   }
 
   return (

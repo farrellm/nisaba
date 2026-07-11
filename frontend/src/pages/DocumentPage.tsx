@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Container,
@@ -24,6 +24,7 @@ import RedditSubmitDialog from '../components/RedditSubmitDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
+import { useArmedAction } from '../lib/useArmedAction'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 import { postLinkSx } from '../lib/styles'
@@ -47,15 +48,13 @@ export default function DocumentPage() {
   // matching BlockCard: the first click arms (and starts a disarm timer), the
   // second confirms.
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
-  const [armed, setArmed] = useState(false)
   const [busy, setBusy] = useState(false)
-  const armedTimer = useRef<ReturnType<typeof setTimeout>>()
+  const { armed, fire: fireDelete, disarm } = useArmedAction(handleDelete)
   const menuOpen = Boolean(anchorEl)
 
   function closeMenu() {
     setAnchorEl(null)
-    setArmed(false)
-    clearTimeout(armedTimer.current)
+    disarm()
   }
 
   async function handleToggleArchive() {
@@ -81,16 +80,6 @@ export default function DocumentPage() {
       setBusy(false)
       closeMenu()
     }
-  }
-
-  function handleDeleteClick() {
-    if (!armed) {
-      setArmed(true)
-      armedTimer.current = setTimeout(() => setArmed(false), 4000)
-      return
-    }
-    clearTimeout(armedTimer.current)
-    handleDelete()
   }
 
   async function handleDelete() {
@@ -225,7 +214,7 @@ export default function DocumentPage() {
                 <MenuItem onClick={handleToggleArchive} disabled={busy}>
                   <ListItemText>{doc.isArchived ? 'Unarchive' : 'Archive'}</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={handleDeleteClick} disabled={busy}>
+                <MenuItem onClick={fireDelete} disabled={busy}>
                   <ListItemText sx={armed ? { color: 'error.main' } : undefined}>
                     {armed ? 'Confirm delete' : 'Delete document'}
                   </ListItemText>

@@ -12,8 +12,8 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
 import { stripPromptTag } from '../lib/text'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import type { Document, DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditPromptDialogProps {
@@ -31,8 +31,7 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [prompt, setPrompt] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { busy: submitting, error, setError, run } = useAsyncAction()
 
   // Seed the prompt from the post title (and clear the title) whenever the
   // dialog opens for a different post. Strip any "[WP]" tag (case-insensitive)
@@ -41,31 +40,30 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
     setTitle('')
     setPrompt(stripPromptTag(post?.title ?? ''))
     setError(null)
-  }, [post])
+    // setError is a stable useState setter (via useAsyncAction).
+  }, [post, setError])
 
   function handleClose() {
     if (submitting) return
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!post) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      const doc = await api.post<Document>('/api/documents', {
-        title,
-        url: post.url,
-      })
-      await api.put<DocumentDetail>(`/api/documents/${doc.id}`, {
-        attributes: { prompt },
-      })
-      navigate(`/documents/${doc.id}`)
-    } catch (err) {
-      setError(errorMessage(err, 'Something went wrong. Try again.'))
-      setSubmitting(false)
-    }
+    run(
+      async () => {
+        const doc = await api.post<Document>('/api/documents', {
+          title,
+          url: post.url,
+        })
+        await api.put<DocumentDetail>(`/api/documents/${doc.id}`, {
+          attributes: { prompt },
+        })
+        navigate(`/documents/${doc.id}`)
+      },
+      { keepBusyOnSuccess: true },
+    )
   }
 
   return (

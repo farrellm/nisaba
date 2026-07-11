@@ -1,25 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  Alert,
-  Box,
-  Button,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Divider,
-  Link as MuiLink,
-  TextField,
-  Typography,
-} from '@mui/material'
-import { api } from '../api/client'
-import { errorMessage } from '../lib/errors'
-import { collator, sameName } from '../lib/text'
-import type { Document, LabelRenameResult } from '../api/types'
+import { useMemo, useState } from 'react'
+import { Box, Container, Divider, Link as MuiLink, Typography } from '@mui/material'
+import type { Document } from '../api/types'
+import DeleteLabelDialog from '../components/DeleteLabelDialog'
 import DocumentRow from '../components/DocumentRow'
 import Masthead from '../components/Masthead'
+import RenameLabelDialog from '../components/RenameLabelDialog'
+import { collator } from '../lib/text'
+import { useFetch } from '../lib/useFetch'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
@@ -31,21 +18,16 @@ const newestFirst = (a: Document, b: Document) =>
 // auto-vanish once they're on no document, so every section here has at least one doc.
 export default function LabelsPage() {
   usePageTitle('Labels')
-  const [docs, setDocs] = useState<Document[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [renaming, setRenaming] = useState<string | null>(null)
-  const [deleting, setDeleting] = useState<string | null>(null)
-
   // ?archived=true returns every document (active and archived), which is exactly
   // the set the index needs — archived ones are marked per-row via doc.isArchived.
-  function load() {
-    api
-      .get<Document[]>('/api/documents?archived=true')
-      .then((all) => setDocs(all ?? []))
-      .catch((e: unknown) => setError(errorMessage(e)))
-  }
-
-  useEffect(load, [])
+  const {
+    data: docs,
+    error,
+    loading,
+    reload,
+  } = useFetch<Document[]>('/api/documents?archived=true')
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   // Group documents under each label name, alphabetical by label, newest-first within.
   const sections = useMemo(() => {
@@ -64,7 +46,6 @@ export default function LabelsPage() {
   }, [docs])
 
   const labelNames = useMemo(() => sections?.map((s) => s.name) ?? [], [sections])
-  const loading = docs === null && error === null
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -165,7 +146,7 @@ export default function LabelsPage() {
           onClose={() => setRenaming(null)}
           onDone={() => {
             setRenaming(null)
-            load()
+            reload()
           }}
         />
       )}
@@ -177,7 +158,7 @@ export default function LabelsPage() {
           onClose={() => setDeleting(null)}
           onDone={() => {
             setDeleting(null)
-            load()
+            reload()
           }}
         />
       )}
@@ -204,136 +185,5 @@ function ControlLink({ onClick, children }: { onClick: () => void; children: str
     >
       {children}
     </MuiLink>
-  )
-}
-
-// RenameLabelDialog renames a label everywhere. Typing the name of another existing
-// label warns that the two will be merged, and the confirm button becomes "Merge".
-function RenameLabelDialog({
-  name,
-  docCount,
-  otherNames,
-  onClose,
-  onDone,
-}: {
-  name: string
-  docCount: number
-  otherNames: string[]
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [draft, setDraft] = useState(name)
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  const trimmed = draft.trim()
-  const willMerge = trimmed !== '' && otherNames.some((n) => sameName(n, trimmed))
-  // Exact (case-sensitive) compare so a case-only rename (noir → Noir) is allowed.
-  const unchanged = trimmed === '' || trimmed === name
-
-  async function handleSave() {
-    setError(null)
-    setSubmitting(true)
-    try {
-      await api.put<LabelRenameResult>('/api/labels', { name, newName: trimmed })
-      onDone()
-    } catch (err) {
-      setError(errorMessage(err, 'Could not rename the label. Try again.'))
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open onClose={submitting ? undefined : onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Rename label</DialogTitle>
-      <DialogContent>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {willMerge && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            A label named “{trimmed}” already exists. Renaming merges this label’s{' '}
-            {docCount === 1 ? '1 document' : `${docCount} documents`} into it. This can’t be undone.
-          </Alert>
-        )}
-        <TextField
-          label="Label name"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !unchanged && !submitting) {
-              e.preventDefault()
-              handleSave()
-            }
-          }}
-          autoFocus
-          sx={{ mt: 1, '& input': { fontFamily: fonts.mono } }}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} variant="contained" disabled={unchanged || submitting}>
-          {willMerge ? 'Merge' : 'Rename'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
-}
-
-// DeleteLabelDialog confirms removing a label from every document it tags. The
-// documents themselves are kept.
-function DeleteLabelDialog({
-  name,
-  docCount,
-  onClose,
-  onDone,
-}: {
-  name: string
-  docCount: number
-  onClose: () => void
-  onDone: () => void
-}) {
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  async function handleDelete() {
-    setError(null)
-    setSubmitting(true)
-    try {
-      await api.del<void>(`/api/labels?name=${encodeURIComponent(name)}`)
-      onDone()
-    } catch (err) {
-      setError(errorMessage(err, 'Could not delete the label. Try again.'))
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open onClose={submitting ? undefined : onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Delete label</DialogTitle>
-      <DialogContent>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        <DialogContentText>
-          Delete “{name}”? It will be removed from{' '}
-          {docCount === 1 ? '1 document' : `${docCount} documents`}. The documents are not deleted.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          Cancel
-        </Button>
-        <Button onClick={handleDelete} color="error" variant="contained" disabled={submitting}>
-          Delete
-        </Button>
-      </DialogActions>
-    </Dialog>
   )
 }

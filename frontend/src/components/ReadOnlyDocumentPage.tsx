@@ -34,6 +34,7 @@ import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 import { leaderSx, postLinkSx, summarySx } from '../lib/styles'
 import { addToSet, toggleSet } from '../lib/sets'
+import { useAsyncAction } from '../lib/useAsyncAction'
 
 // ReadOnlyDocumentPage renders a single document read-only, mirroring the live
 // document page's structure (collapsible block cards with mode headers,
@@ -46,8 +47,12 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
   const navigate = useNavigate()
   const [doc, setDoc] = useState<DocumentDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [importing, setImporting] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
+  const {
+    busy: importing,
+    error: importError,
+    setError: setImportError,
+    run: runImport,
+  } = useAsyncAction()
   usePageTitle(doc ? doc.title || 'Untitled' : null)
 
   useEffect(() => {
@@ -59,16 +64,14 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
       .catch((e: unknown) => setError(errorMessage(e)))
   }, [apiBase, id])
 
-  async function handleImport() {
-    setImporting(true)
-    setImportError(null)
-    try {
-      const imported = await api.post<Document>(`${apiBase}/${id}/import`)
-      navigate(`/documents/${imported.id}`)
-    } catch (e: unknown) {
-      setImportError(errorMessage(e, 'Could not import document'))
-      setImporting(false)
-    }
+  function handleImport() {
+    runImport(
+      async () => {
+        const imported = await api.post<Document>(`${apiBase}/${id}/import`)
+        navigate(`/documents/${imported.id}`)
+      },
+      { fallback: 'Could not import document', keepBusyOnSuccess: true },
+    )
   }
 
   return (
