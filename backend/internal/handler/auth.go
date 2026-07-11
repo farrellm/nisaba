@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -27,19 +27,6 @@ type credentials struct {
 	Password string `json:"password"`
 }
 
-// writeError sends a JSON error body with the given status code.
-func writeError(w http.ResponseWriter, status int, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg}) //nolint:errcheck
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v) //nolint:errcheck
-}
-
 // isUniqueViolation reports whether err is a Postgres unique-constraint error.
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
@@ -50,7 +37,7 @@ func isUniqueViolation(err error) bool {
 func Register(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var c credentials
-		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+		if err := decodeJSON(r, &c); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -60,13 +47,13 @@ func Register(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 		if len(c.Password) < minPasswordLen {
-			writeError(w, http.StatusBadRequest, "Password must be at least 8 characters")
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("Password must be at least %d characters", minPasswordLen))
 			return
 		}
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not create account")
+			internalError(w, r, "Could not create account", err)
 			return
 		}
 
@@ -76,12 +63,12 @@ func Register(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "That username is taken")
 				return
 			}
-			writeError(w, http.StatusInternalServerError, "Could not create account")
+			internalError(w, r, "Could not create account", err)
 			return
 		}
 
 		if err := sess.Save(w, r, user.ID); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not start session")
+			internalError(w, r, "Could not start session", err)
 			return
 		}
 		writeJSON(w, http.StatusCreated, user)
@@ -92,7 +79,7 @@ func Register(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 func Login(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var c credentials
-		if err := json.NewDecoder(r.Body).Decode(&c); err != nil {
+		if err := decodeJSON(r, &c); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -106,13 +93,13 @@ func Login(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		if err := sess.Save(w, r, id); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not start session")
+			internalError(w, r, "Could not start session", err)
 			return
 		}
 
 		user, err := st.GetUser(r.Context(), id)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load account")
+			internalError(w, r, "Could not load account", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, user)
@@ -123,7 +110,7 @@ func Login(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 func Logout(sess *auth.Sessions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := sess.Clear(w, r); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not log out")
+			internalError(w, r, "Could not log out", err)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -146,7 +133,7 @@ func UpdateMe(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			Subreddit        *string `json:"subreddit"`
 			StreamingEnabled *bool   `json:"streamingEnabled"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -170,7 +157,7 @@ func UpdateMe(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 				return true
 			}
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update settings")
+				internalError(w, r, "Could not update settings", err)
 				return true
 			}
 			return false

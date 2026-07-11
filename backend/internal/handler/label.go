@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -24,7 +23,7 @@ func ListLabels(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 		labels, err := st.ListLabels(r.Context(), userID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load labels")
+			internalError(w, r, "Could not load labels", err)
 			return
 		}
 
@@ -52,7 +51,7 @@ func RenameLabel(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			Name    string `json:"name"`
 			NewName string `json:"newName"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -66,7 +65,7 @@ func RenameLabel(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "Label not found")
 			return
 		case err != nil:
-			writeError(w, http.StatusInternalServerError, "Could not rename label")
+			internalError(w, r, "Could not rename label", err)
 			return
 		}
 
@@ -96,7 +95,7 @@ func DeleteLabel(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "Label not found")
 			return
 		case err != nil:
-			writeError(w, http.StatusInternalServerError, "Could not delete label")
+			internalError(w, r, "Could not delete label", err)
 			return
 		}
 
@@ -150,7 +149,7 @@ func RecommendDocumentLabels(st *store.Store, sess *auth.Sessions) http.HandlerF
 
 		labels, err := st.ListLabels(r.Context(), doc.UserID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load labels")
+			internalError(w, r, "Could not load labels", err)
 			return
 		}
 		names := make([]string, 0, len(labels))

@@ -27,7 +27,7 @@ func ListAttributeValues(st *store.Store, sess *auth.Sessions) http.HandlerFunc 
 
 		values, err := st.AttributeValues(r.Context(), userID, key)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load attribute values")
+			internalError(w, r, "Could not load attribute values", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, values)

@@ -1,11 +1,7 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
-
-	"github.com/go-chi/chi/v5"
 
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/store"
@@ -23,7 +19,7 @@ func ListReflexDocuments(rs *store.ReflexStore, sess *auth.Sessions) http.Handle
 		}
 		docs, err := rs.ListReflexDocuments(r.Context())
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load documents")
+			internalError(w, r, "Could not load documents", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, docs)
@@ -38,18 +34,14 @@ func GetReflexDocument(rs *store.ReflexStore, sess *auth.Sessions) http.HandlerF
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		id, err := pathID(r, "id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid document id")
 			return
 		}
 		doc, err := rs.GetReflexDocument(r.Context(), id)
 		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Document not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			notFoundOr500(w, r, err, "Document not found", "Could not load document")
 			return
 		}
 		writeJSON(w, http.StatusOK, doc)

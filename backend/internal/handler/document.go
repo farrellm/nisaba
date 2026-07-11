@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -28,7 +26,7 @@ func ListDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		includeArchived := r.URL.Query().Get("archived") == "true"
 		docs, err := st.ListDocuments(r.Context(), id, includeArchived)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load documents")
+			internalError(w, r, "Could not load documents", err)
 			return
 		}
 		if docs == nil {
@@ -55,7 +53,7 @@ func SearchDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 		docs, err := st.SearchDocuments(r.Context(), id, q)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not search documents")
+			internalError(w, r, "Could not search documents", err)
 			return
 		}
 		if docs == nil {
@@ -80,7 +78,7 @@ func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		var body newDocument
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -107,7 +105,7 @@ func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			SelectedModel: "claude-sonnet-5",
 		})
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not create document")
+			internalError(w, r, "Could not create document", err)
 			return
 		}
 		writeJSON(w, http.StatusCreated, doc)
@@ -124,7 +122,7 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		id, err := pathID(r, "id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid document id")
 			return
@@ -132,11 +130,7 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 		doc, err := st.GetDocument(r.Context(), id)
 		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Document not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			notFoundOr500(w, r, err, "Document not found", "Could not load document")
 			return
 		}
 		if doc.UserID != userID {
@@ -154,7 +148,7 @@ func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // value when the document or key does not exist, so it never leaks existence.
 func PublicDocumentAttribute(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		id, err := pathID(r, "id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid document id")
 			return
@@ -162,12 +156,12 @@ func PublicDocumentAttribute(st *store.Store) http.HandlerFunc {
 		key := chi.URLParam(r, "key")
 		value, _, err := st.GetDocumentAttribute(r.Context(), id, key)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load attribute")
+			internalError(w, r, "Could not load attribute", err)
 			return
 		}
 		title, err := st.GetDocumentTitle(r.Context(), id)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			writeError(w, http.StatusInternalServerError, "Could not load attribute")
+			internalError(w, r, "Could not load attribute", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"value": value, "title": title})
@@ -192,7 +186,7 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		var body updateDocument
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -209,28 +203,28 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 				doc.IsArchived = *body.IsArchived
 			}
 			if _, err := st.UpdateDocument(r.Context(), doc); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
+				internalError(w, r, "Could not update document", err)
 				return
 			}
 		}
 
 		if body.Attributes != nil {
 			if err := st.MergeDocumentAttributes(r.Context(), doc.ID, *body.Attributes); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
+				internalError(w, r, "Could not update document", err)
 				return
 			}
 		}
 
 		if body.Labels != nil {
 			if err := st.SetDocumentLabels(r.Context(), doc.UserID, doc.ID, *body.Labels); err != nil {
-				writeError(w, http.StatusInternalServerError, "Could not update document")
+				internalError(w, r, "Could not update document", err)
 				return
 			}
 		}
 
 		updated, err := st.GetDocument(r.Context(), doc.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			internalError(w, r, "Could not load document", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, updated)
@@ -247,11 +241,7 @@ func DeleteDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 		if err := st.DeleteDocument(r.Context(), doc.UserID, doc.ID); err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Document not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not delete document")
+			notFoundOr500(w, r, err, "Document not found", "Could not delete document")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

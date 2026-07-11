@@ -3,16 +3,13 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/cbroglie/mustache"
-	"github.com/go-chi/chi/v5"
 
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/llm"
@@ -31,18 +28,14 @@ func ownedDocument(w http.ResponseWriter, r *http.Request, st *store.Store, sess
 		writeError(w, http.StatusUnauthorized, "Not logged in")
 		return model.Document{}, false
 	}
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	id, err := pathID(r, "id")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid document id")
 		return model.Document{}, false
 	}
 	doc, err := st.GetDocument(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "Document not found")
-			return model.Document{}, false
-		}
-		writeError(w, http.StatusInternalServerError, "Could not load document")
+		notFoundOr500(w, r, err, "Document not found", "Could not load document")
 		return model.Document{}, false
 	}
 	if doc.UserID != userID {
@@ -55,7 +48,7 @@ func ownedDocument(w http.ResponseWriter, r *http.Request, st *store.Store, sess
 // findBlock returns the block with the {blockId} URL param from an already-owned
 // document. Missing or non-matching ids yield 404.
 func findBlock(w http.ResponseWriter, r *http.Request, doc model.Document) (model.Block, bool) {
-	blockID, err := strconv.ParseInt(chi.URLParam(r, "blockId"), 10, 64)
+	blockID, err := pathID(r, "blockId")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid block id")
 		return model.Block{}, false
@@ -84,7 +77,7 @@ func CreateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		var body newBlock
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -100,7 +93,7 @@ func CreateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			Position:   len(doc.Blocks),
 		})
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not create block")
+			internalError(w, r, "Could not create block", err)
 			return
 		}
 
@@ -109,13 +102,13 @@ func CreateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			attrs[key] = doc.Attributes[key] // "" when absent
 		}
 		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not create block")
+			internalError(w, r, "Could not create block", err)
 			return
 		}
 
 		hydrated, err := st.GetBlock(r.Context(), block.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load block")
+			internalError(w, r, "Could not load block", err)
 			return
 		}
 		writeJSON(w, http.StatusCreated, hydrated)
@@ -156,7 +149,7 @@ func UpdateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		var body updateBlock
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -168,13 +161,13 @@ func UpdateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 		attrs := mergedBlockAttrs(block, m, body.Attributes)
 		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update block")
+			internalError(w, r, "Could not update block", err)
 			return
 		}
 
 		hydrated, err := st.GetBlock(r.Context(), block.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load block")
+			internalError(w, r, "Could not load block", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, hydrated)
@@ -197,7 +190,7 @@ func CopyBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 
 		var body updateBlock
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -209,17 +202,17 @@ func CopyBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		}
 		attrs := mergedBlockAttrs(block, m, body.Attributes)
 		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update block")
+			internalError(w, r, "Could not update block", err)
 			return
 		}
 		if err := st.MergeDocumentAttributes(r.Context(), doc.ID, attrs); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update document")
+			internalError(w, r, "Could not update document", err)
 			return
 		}
 
 		hydrated, err := st.GetBlock(r.Context(), block.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load block")
+			internalError(w, r, "Could not load block", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, hydrated)
@@ -397,7 +390,7 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *a
 	// Save the caller's edits (empty body falls back to existing values) and
 	// promote them into the document's shared attributes before running.
 	var body updateBlock
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+	if err := decodeJSON(r, &body); err != nil && err != io.EOF {
 		slog.Error("run failed: decode request body",
 			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -514,7 +507,7 @@ func ReparseResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		responseID, err := strconv.ParseInt(chi.URLParam(r, "responseId"), 10, 64)
+		responseID, err := pathID(r, "responseId")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid response id")
 			return
@@ -535,13 +528,13 @@ func ReparseResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 		// Re-derive the document's shared key/values from this response.
 		if err := reparseInto(r.Context(), st, doc, m, output); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update document")
+			internalError(w, r, "Could not update document", err)
 			return
 		}
 
 		hydrated, err := st.GetBlock(r.Context(), block.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load block")
+			internalError(w, r, "Could not load block", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, hydrated)
@@ -569,7 +562,7 @@ func UpdateResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 
-		responseID, err := strconv.ParseInt(chi.URLParam(r, "responseId"), 10, 64)
+		responseID, err := pathID(r, "responseId")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid response id")
 			return
@@ -589,25 +582,25 @@ func UpdateResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 		var body struct {
 			Value string `json:"value"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
 
 		if err := st.UpdateResponse(r.Context(), model.Response{ID: responseID, Value: body.Value}); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update response")
+			internalError(w, r, "Could not update response", err)
 			return
 		}
 
 		// Re-derive the document's shared key/values from the edited text.
 		if err := reparseInto(r.Context(), st, doc, m, body.Value); err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not update document")
+			internalError(w, r, "Could not update document", err)
 			return
 		}
 
 		hydrated, err := st.GetBlock(r.Context(), block.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load block")
+			internalError(w, r, "Could not load block", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, hydrated)
@@ -627,11 +620,7 @@ func DeleteBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 			return
 		}
 		if err := st.DeleteBlock(r.Context(), block.ID); err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Block not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not delete block")
+			notFoundOr500(w, r, err, "Block not found", "Could not delete block")
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)

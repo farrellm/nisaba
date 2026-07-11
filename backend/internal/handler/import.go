@@ -2,11 +2,7 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"strconv"
-
-	"github.com/go-chi/chi/v5"
 
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/mode"
@@ -132,23 +128,19 @@ func ImportReflexDocument(rs *store.ReflexStore, st *store.Store, sess *auth.Ses
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		id, err := pathID(r, "id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid document id")
 			return
 		}
 		src, err := rs.GetReflexDocument(r.Context(), id)
 		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Document not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			notFoundOr500(w, r, err, "Document not found", "Could not load document")
 			return
 		}
 		doc, err := importLegacyDocument(r.Context(), st, userID, src)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not import document")
+			internalError(w, r, "Could not import document", err)
 			return
 		}
 		writeJSON(w, http.StatusCreated, doc)
@@ -164,23 +156,19 @@ func ImportCharlotteDocument(cs *store.CharlotteStore, st *store.Store, sess *au
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+		id, err := pathID(r, "id")
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid document id")
 			return
 		}
 		src, err := cs.GetCharlotteDocument(r.Context(), id)
 		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				writeError(w, http.StatusNotFound, "Document not found")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			notFoundOr500(w, r, err, "Document not found", "Could not load document")
 			return
 		}
 		doc, err := importLegacyDocument(r.Context(), st, userID, src)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not import document")
+			internalError(w, r, "Could not import document", err)
 			return
 		}
 		writeJSON(w, http.StatusCreated, doc)

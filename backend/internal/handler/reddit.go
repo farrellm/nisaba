@@ -220,7 +220,7 @@ func ListRedditPosts(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.
 		endpoint := "https://oauth.reddit.com/r/" + url.PathEscape(user.Subreddit) + "/new?limit=25"
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not build request")
+			internalError(w, r, "Could not build request", err)
 			return
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -401,7 +401,7 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 		endpoint := "https://oauth.reddit.com" + path + "?raw_json=1&limit=1"
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not build request")
+			internalError(w, r, "Could not build request", err)
 			return
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -474,7 +474,7 @@ func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http
 			Title string `json:"title"`
 			Body  string `json:"body"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := decodeJSON(r, &body); err != nil {
 			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
@@ -486,7 +486,7 @@ func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http
 
 		user, err := st.GetUser(r.Context(), doc.UserID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load user")
+			internalError(w, r, "Could not load user", err)
 			return
 		}
 
@@ -506,7 +506,7 @@ func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http
 		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
 			"https://oauth.reddit.com/api/submit", strings.NewReader(form.Encode()))
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not build request")
+			internalError(w, r, "Could not build request", err)
 			return
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -556,14 +556,14 @@ func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http
 
 		if url := submitResp.JSON.Data.URL; url != "" {
 			if err := st.AddDocumentPost(r.Context(), doc.ID, url); err != nil {
-				writeError(w, http.StatusInternalServerError, "Posted, but could not save the post URL")
+				internalError(w, r, "Posted, but could not save the post URL", err)
 				return
 			}
 		}
 
 		updated, err := st.GetDocument(r.Context(), doc.ID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "Could not load document")
+			internalError(w, r, "Could not load document", err)
 			return
 		}
 		writeJSON(w, http.StatusOK, updated)
