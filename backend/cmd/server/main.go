@@ -12,6 +12,7 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/blockrun"
 	"github.com/farrellm/nisaba/internal/config"
 	"github.com/farrellm/nisaba/internal/db"
 	"github.com/farrellm/nisaba/internal/handler"
@@ -44,6 +45,7 @@ func main() {
 	// Legacy file-based app, browsed read-only by the "Charlotte" pages via charlotte-cli.
 	cs := store.NewCharlotteStore(cfg.CharlotteCLI)
 	sess := auth.NewSessions(cfg.SessionSecret, cfg.SessionSecure)
+	runner := blockrun.New(st, blockrun.LLM{}, templates)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -114,10 +116,10 @@ func main() {
 						r.Put("/{blockId}", handler.UpdateBlock(st))
 						r.Delete("/{blockId}", handler.DeleteBlock(st))
 						r.Post("/{blockId}/copy", handler.CopyBlock(st))
-						r.Post("/{blockId}/run", handler.RunBlock(st, templates))
-						r.Post("/{blockId}/run/stream", handler.RunBlockStream(st, templates))
-						r.Put("/{blockId}/responses/{responseId}", handler.UpdateResponse(st))
-						r.Post("/{blockId}/responses/{responseId}/reparse", handler.ReparseResponse(st))
+						r.Post("/{blockId}/run", handler.RunBlock(st, runner))
+						r.Post("/{blockId}/run/stream", handler.RunBlockStream(st, runner))
+						r.Put("/{blockId}/responses/{responseId}", handler.UpdateResponse(st, runner))
+						r.Post("/{blockId}/responses/{responseId}/reparse", handler.ReparseResponse(st, runner))
 					})
 				})
 			})

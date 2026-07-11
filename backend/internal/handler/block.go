@@ -1,22 +1,19 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"sync"
 	"time"
 
-	"github.com/cbroglie/mustache"
-
 	"github.com/farrellm/nisaba/internal/auth"
-	"github.com/farrellm/nisaba/internal/llm"
+	"github.com/farrellm/nisaba/internal/blockrun"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
 	"github.com/farrellm/nisaba/internal/store"
-	"github.com/farrellm/nisaba/internal/tagparse"
 )
 
 // ownedDocument loads the document named by the {id} URL param and confirms the
@@ -120,22 +117,6 @@ type updateBlock struct {
 	Attributes map[string]string `json:"attributes"`
 }
 
-// mergedBlockAttrs builds the block's attribute map for the mode's fixed key
-// set, taking each key from body when present and otherwise from the block's
-// existing value. Keys outside the mode's key set are dropped, so the result
-// always matches the mode.
-func mergedBlockAttrs(block model.Block, m mode.Mode, body map[string]string) map[string]string {
-	attrs := make(map[string]string, len(m.Keys))
-	for _, key := range m.Keys {
-		if v, present := body[key]; present {
-			attrs[key] = v
-		} else {
-			attrs[key] = block.Attributes[key]
-		}
-	}
-	return attrs
-}
-
 // UpdateBlock replaces a block's key/values. Keys outside the mode's fixed key
 // set are ignored, so the stored attributes always match the mode.
 func UpdateBlock(st *store.Store) http.HandlerFunc {
@@ -160,7 +141,7 @@ func UpdateBlock(st *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
 			return
 		}
-		attrs := mergedBlockAttrs(block, m, body.Attributes)
+		attrs := blockrun.MergedAttrs(block, m, body.Attributes)
 		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
 			internalError(w, r, "Could not update block", err)
 			return
@@ -201,7 +182,7 @@ func CopyBlock(st *store.Store) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
 			return
 		}
-		attrs := mergedBlockAttrs(block, m, body.Attributes)
+		attrs := blockrun.MergedAttrs(block, m, body.Attributes)
 		if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
 			internalError(w, r, "Could not update block", err)
 			return
@@ -220,41 +201,78 @@ func CopyBlock(st *store.Store) http.HandlerFunc {
 	}
 }
 
+// runBody decodes the optional attribute edits of a run request. An empty body
+// is fine (the block's saved values are used); a malformed one is a 400.
+func runBody(w http.ResponseWriter, r *http.Request, doc model.Document, block model.Block) (map[string]string, bool) {
+	var body updateBlock
+	if err := decodeJSON(r, &body); err != nil && err != io.EOF {
+		slog.Error("run failed: decode request body",
+			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return nil, false
+	}
+	return body.Attributes, true
+}
+
+// writeRunError maps a blockrun error onto the JSON error response, preserving
+// the per-step statuses and messages.
+func writeRunError(w http.ResponseWriter, err error) {
+	var runErr *blockrun.Error
+	switch {
+	case errors.Is(err, blockrun.ErrUnknownMode):
+		writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
+	case errors.Is(err, blockrun.ErrNoModel):
+		writeError(w, http.StatusBadRequest, "No model selected")
+	case errors.As(err, &runErr):
+		switch runErr.Step {
+		case blockrun.StepUpdateBlock:
+			writeError(w, http.StatusInternalServerError, "Could not update block")
+		case blockrun.StepMergeDocument:
+			writeError(w, http.StatusInternalServerError, "Could not update document")
+		case blockrun.StepRenderPrompt:
+			writeError(w, http.StatusInternalServerError, "Could not render prompt")
+		case blockrun.StepRenderSystem:
+			writeError(w, http.StatusInternalServerError, "Could not render system prompt")
+		case blockrun.StepGenerate:
+			writeError(w, http.StatusBadGateway, "Model request failed: "+runErr.Err.Error())
+		default: // StepSave
+			writeError(w, http.StatusInternalServerError, "Could not save response")
+		}
+	default:
+		writeError(w, http.StatusInternalServerError, "Could not run block")
+	}
+}
+
 // RunBlock saves the block's key/values, promotes them into the document's
 // shared attributes, renders the mode's mustache template against them to build
 // a prompt, runs it, saves the result as a response, and writes the result back
 // into the document's attributes under the mode's output key. It accepts the
 // same optional body as UpdateBlock so the caller's on-screen edits are saved
 // before the run.
-func RunBlock(st *store.Store, templates *mode.Templates) http.HandlerFunc {
+func RunBlock(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, block, m, prompt, system, ok := prepareRun(w, r, st, templates)
+		doc, ok := ownedDocument(w, r, st)
+		if !ok {
+			return
+		}
+		block, ok := findBlock(w, r, doc)
+		if !ok {
+			return
+		}
+		edits, ok := runBody(w, r, doc, block)
 		if !ok {
 			return
 		}
 
-		// Detach the model call + save from the client connection so a mid-run
-		// disconnect (e.g. an nginx proxy_read_timeout) can't discard finished
-		// work: the run completes and the response is saved even if the browser
-		// is gone. Bounded so a hung provider call can't leak this goroutine.
-		genCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 15*time.Minute)
-		defer cancel()
-
-		output, err := llm.Generate(genCtx, doc.SelectedModel, system, prompt, m.Tools)
+		run, err := runner.Prepare(r.Context(), doc, block, edits)
 		if err != nil {
-			slog.Error("run failed: model request",
-				"err", err, "user", doc.UserID, "doc", doc.ID,
-				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
-			writeError(w, http.StatusBadGateway, "Model request failed: "+err.Error())
+			writeRunError(w, err)
 			return
 		}
 
-		hydrated, err := finishRun(genCtx, st, doc, block, m, output)
+		hydrated, err := runner.Execute(r.Context(), run)
 		if err != nil {
-			slog.Error("run failed: save response",
-				"err", err, "user", doc.UserID, "doc", doc.ID,
-				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
-			writeError(w, http.StatusInternalServerError, "Could not save response")
+			writeRunError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, hydrated)
@@ -262,8 +280,8 @@ func RunBlock(st *store.Store, templates *mode.Templates) http.HandlerFunc {
 }
 
 // RunBlockStream is the streaming variant of RunBlock: it runs the model with
-// llm.GenerateStream and pushes the reply to the client as it arrives, framed as
-// newline-delimited JSON (NDJSON). Each line is one event:
+// the streaming generator and pushes the reply to the client as it arrives,
+// framed as newline-delimited JSON (NDJSON). Each line is one event:
 //
 //	{"type":"delta","text":"..."}   incremental text
 //	{"type":"ping"}                  keepalive while the model runs (client ignores)
@@ -271,12 +289,26 @@ func RunBlock(st *store.Store, templates *mode.Templates) http.HandlerFunc {
 //	{"type":"done","block":{...}}    the fully hydrated block, like RunBlock's body
 //
 // Setup/validation failures before streaming begins still use the normal JSON
-// error path (prepareRun); once the 200 NDJSON stream has started, errors can
-// only be reported as an "error" event.
-func RunBlockStream(st *store.Store, templates *mode.Templates) http.HandlerFunc {
+// error path; once the 200 NDJSON stream has started, errors can only be
+// reported as an "error" event.
+func RunBlockStream(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, block, m, prompt, system, ok := prepareRun(w, r, st, templates)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
+			return
+		}
+		block, ok := findBlock(w, r, doc)
+		if !ok {
+			return
+		}
+		edits, ok := runBody(w, r, doc, block)
+		if !ok {
+			return
+		}
+
+		run, err := runner.Prepare(r.Context(), doc, block, edits)
+		if err != nil {
+			writeRunError(w, err)
 			return
 		}
 
@@ -290,13 +322,6 @@ func RunBlockStream(st *store.Store, templates *mode.Templates) http.HandlerFunc
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
-
-		// Detach the model call + save from the client connection so a mid-run
-		// disconnect (e.g. an nginx proxy_read_timeout) can't discard finished
-		// work: the run completes and the response is saved even if the browser
-		// is gone. Bounded so a hung provider call can't leak this goroutine.
-		genCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 15*time.Minute)
-		defer cancel()
 
 		enc := json.NewEncoder(w)
 		// writeEvent is called from both the generation goroutine (via the delta
@@ -330,173 +355,24 @@ func RunBlockStream(st *store.Store, templates *mode.Templates) http.HandlerFunc
 			}
 		}()
 
-		output, err := llm.GenerateStream(genCtx, doc.SelectedModel, system, prompt, m.Tools,
-			func(delta string) {
-				writeEvent(map[string]string{"type": "delta", "text": delta})
-			})
+		hydrated, err := runner.ExecuteStream(r.Context(), run, func(delta string) {
+			writeEvent(map[string]string{"type": "delta", "text": delta})
+		})
 		// Stop the keepalive and wait for its goroutine to exit before writing the
 		// terminal event, so no stray ping can land after done/error.
 		close(stop)
 		<-finished
 		if err != nil {
-			slog.Error("run failed: model request (stream)",
-				"err", err, "user", doc.UserID, "doc", doc.ID,
-				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
-			writeEvent(map[string]string{"type": "error", "message": "Model request failed: " + err.Error()})
-			return
-		}
-
-		hydrated, err := finishRun(genCtx, st, doc, block, m, output)
-		if err != nil {
-			slog.Error("run failed: save response (stream)",
-				"err", err, "user", doc.UserID, "doc", doc.ID,
-				"block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
-			writeEvent(map[string]string{"type": "error", "message": "Could not save response"})
+			var runErr *blockrun.Error
+			msg := "Could not save response"
+			if errors.As(err, &runErr) && runErr.Step == blockrun.StepGenerate {
+				msg = "Model request failed: " + runErr.Err.Error()
+			}
+			writeEvent(map[string]string{"type": "error", "message": msg})
 			return
 		}
 		writeEvent(map[string]any{"type": "done", "block": hydrated})
 	}
-}
-
-// prepareRun performs the shared setup for a block run: it confirms ownership,
-// resolves the mode and selected model, persists the caller's attribute edits
-// into both the block and the document, and renders the prompt + system prompt
-// (honoring per-user template overrides). On any failure it writes the
-// appropriate JSON error and returns ok=false.
-func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, templates *mode.Templates) (doc model.Document, block model.Block, m mode.Mode, prompt, system string, ok bool) {
-	doc, ok = ownedDocument(w, r, st)
-	if !ok {
-		return
-	}
-	block, ok = findBlock(w, r, doc)
-	if !ok {
-		return
-	}
-
-	m, ok = mode.Get(block.Mode)
-	if !ok {
-		slog.Warn("run failed: unknown mode",
-			"user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
-		writeError(w, http.StatusInternalServerError, "Block has an unknown mode")
-		return doc, block, m, "", "", false
-	}
-
-	if doc.SelectedModel == "" {
-		slog.Warn("run failed: no model selected",
-			"user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
-		writeError(w, http.StatusBadRequest, "No model selected")
-		return doc, block, m, "", "", false
-	}
-
-	// Save the caller's edits (empty body falls back to existing values) and
-	// promote them into the document's shared attributes before running.
-	var body updateBlock
-	if err := decodeJSON(r, &body); err != nil && err != io.EOF {
-		slog.Error("run failed: decode request body",
-			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
-		writeError(w, http.StatusBadRequest, "Invalid request body")
-		return doc, block, m, "", "", false
-	}
-	attrs := mergedBlockAttrs(block, m, body.Attributes)
-	if err := st.ReplaceBlockAttributes(r.Context(), block.ID, attrs); err != nil {
-		slog.Error("run failed: update block attributes",
-			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
-		writeError(w, http.StatusInternalServerError, "Could not update block")
-		return doc, block, m, "", "", false
-	}
-	if err := st.MergeDocumentAttributes(r.Context(), doc.ID, attrs); err != nil {
-		slog.Error("run failed: merge document attributes",
-			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
-		writeError(w, http.StatusInternalServerError, "Could not update document")
-		return doc, block, m, "", "", false
-	}
-
-	// Resolve a per-user template override (falls back to the embedded
-	// default when the user has none); a lookup failure degrades gracefully.
-	username := ""
-	if u, err := st.GetUser(r.Context(), doc.UserID); err == nil {
-		username = u.Username
-	}
-
-	prompt, err := mustache.Render(templates.ModeTemplate(username, m), attrs)
-	if err != nil {
-		slog.Error("run failed: render prompt",
-			"err", err, "user", username, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
-		writeError(w, http.StatusInternalServerError, "Could not render prompt")
-		return doc, block, m, "", "", false
-	}
-
-	provider := llm.ProviderFor(doc.SelectedModel)
-	systemTmpl, systemSource := templates.SystemPrompt(username, provider)
-	slog.Info("system prompt",
-		"user", username, "provider", provider,
-		"model", doc.SelectedModel, "source", systemSource)
-	system, err = mustache.Render(systemTmpl, attrs)
-	if err != nil {
-		slog.Error("run failed: render system prompt",
-			"err", err, "user", username, "provider", provider,
-			"doc", doc.ID, "block", block.ID, "mode", block.Mode, "model", doc.SelectedModel)
-		writeError(w, http.StatusInternalServerError, "Could not render system prompt")
-		return doc, block, m, "", "", false
-	}
-
-	return doc, block, m, prompt, system, true
-}
-
-// finishRun persists a completed model reply and feeds it back into the
-// document: it stores the response, reparses it into the document's shared
-// attributes, and returns the freshly hydrated block. Shared by RunBlock and
-// RunBlockStream.
-func finishRun(ctx context.Context, st *store.Store, doc model.Document, block model.Block, m mode.Mode, output string) (model.Block, error) {
-	if _, err := st.CreateResponse(ctx, model.Response{
-		BlockID:  block.ID,
-		Value:    output,
-		Model:    doc.SelectedModel,
-		Position: len(block.Responses),
-	}); err != nil {
-		return model.Block{}, err
-	}
-
-	// Feed the result back into the document's shared key/values.
-	if err := reparseInto(ctx, st, doc, m, output); err != nil {
-		return model.Block{}, err
-	}
-
-	return st.GetBlock(ctx, block.ID)
-}
-
-// applyRenames rewrites keys in updates according to renames (from -> to), using
-// move semantics: when a "from" key is present its value is reassigned to "to"
-// (overwriting any existing "to") and the original "from" key is removed. Keys
-// not named in renames are untouched.
-func applyRenames(updates map[string]string, renames map[string]string) {
-	for from, to := range renames {
-		if v, ok := updates[from]; ok {
-			updates[to] = v
-			delete(updates, from)
-		}
-	}
-}
-
-// reparseInto re-derives a document's shared attributes from a response's text:
-// top-level XML tags each populate an attribute (any tag name; nested tags stay
-// verbatim in the value), the mode's output key (when set) wins over a same-named
-// tag, and the merged result is written back to the document.
-func reparseInto(ctx context.Context, st *store.Store, doc model.Document, m mode.Mode, output string) error {
-	updates := tagparse.Parse(output)
-	applyRenames(updates, m.Renames)
-	if m.Output != "" {
-		updates[m.Output] = output
-	}
-	if len(updates) > 0 {
-		if err := st.MergeDocumentAttributes(ctx, doc.ID, updates); err != nil {
-			return err
-		}
-		if _, err := st.UpdateDocument(ctx, doc); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // ReparseResponse re-runs only the parse + merge step against an existing
@@ -504,7 +380,7 @@ func reparseInto(ctx context.Context, st *store.Store, doc model.Document, m mod
 // response's stored text back into the document's shared attributes the same way
 // RunBlock does (top-level XML tags plus the mode's output key, merged), so a user
 // can re-derive attributes from any past response.
-func ReparseResponse(st *store.Store) http.HandlerFunc {
+func ReparseResponse(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -541,7 +417,7 @@ func ReparseResponse(st *store.Store) http.HandlerFunc {
 		}
 
 		// Re-derive the document's shared key/values from this response.
-		if err := reparseInto(r.Context(), st, doc, m, output); err != nil {
+		if err := runner.Reparse(r.Context(), doc, m, output); err != nil {
 			internalError(w, r, "Could not update document", err)
 			return
 		}
@@ -559,7 +435,7 @@ func ReparseResponse(st *store.Store) http.HandlerFunc {
 // and re-derives the document's shared attributes from the new text (same merge
 // as RunBlock/ReparseResponse), so editing a response keeps the document
 // consistent without re-running the model.
-func UpdateResponse(st *store.Store) http.HandlerFunc {
+func UpdateResponse(st *store.Store, runner *blockrun.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
@@ -607,7 +483,7 @@ func UpdateResponse(st *store.Store) http.HandlerFunc {
 		}
 
 		// Re-derive the document's shared key/values from the edited text.
-		if err := reparseInto(r.Context(), st, doc, m, body.Value); err != nil {
+		if err := runner.Reparse(r.Context(), doc, m, body.Value); err != nil {
 			internalError(w, r, "Could not update document", err)
 			return
 		}
