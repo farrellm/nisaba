@@ -225,9 +225,9 @@ func CopyBlock(st *store.Store) http.HandlerFunc {
 // into the document's attributes under the mode's output key. It accepts the
 // same optional body as UpdateBlock so the caller's on-screen edits are saved
 // before the run.
-func RunBlock(st *store.Store) http.HandlerFunc {
+func RunBlock(st *store.Store, templates *mode.Templates) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, block, m, prompt, system, ok := prepareRun(w, r, st)
+		doc, block, m, prompt, system, ok := prepareRun(w, r, st, templates)
 		if !ok {
 			return
 		}
@@ -272,9 +272,9 @@ func RunBlock(st *store.Store) http.HandlerFunc {
 // Setup/validation failures before streaming begins still use the normal JSON
 // error path (prepareRun); once the 200 NDJSON stream has started, errors can
 // only be reported as an "error" event.
-func RunBlockStream(st *store.Store) http.HandlerFunc {
+func RunBlockStream(st *store.Store, templates *mode.Templates) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, block, m, prompt, system, ok := prepareRun(w, r, st)
+		doc, block, m, prompt, system, ok := prepareRun(w, r, st, templates)
 		if !ok {
 			return
 		}
@@ -362,7 +362,7 @@ func RunBlockStream(st *store.Store) http.HandlerFunc {
 // into both the block and the document, and renders the prompt + system prompt
 // (honoring per-user template overrides). On any failure it writes the
 // appropriate JSON error and returns ok=false.
-func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store) (doc model.Document, block model.Block, m mode.Mode, prompt, system string, ok bool) {
+func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, templates *mode.Templates) (doc model.Document, block model.Block, m mode.Mode, prompt, system string, ok bool) {
 	doc, ok = ownedDocument(w, r, st)
 	if !ok {
 		return
@@ -417,7 +417,7 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store) (doc mo
 		username = u.Username
 	}
 
-	prompt, err := mustache.Render(mode.TemplateFor(username, m), attrs)
+	prompt, err := mustache.Render(templates.ModeTemplate(username, m), attrs)
 	if err != nil {
 		slog.Error("run failed: render prompt",
 			"err", err, "user", username, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
@@ -426,7 +426,7 @@ func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store) (doc mo
 	}
 
 	provider := llm.ProviderFor(doc.SelectedModel)
-	systemTmpl, systemSource := mode.SystemPrompt(username, provider)
+	systemTmpl, systemSource := templates.SystemPrompt(username, provider)
 	slog.Info("system prompt",
 		"user", username, "provider", provider,
 		"model", doc.SelectedModel, "source", systemSource)

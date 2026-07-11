@@ -24,19 +24,21 @@ func BenchmarkTemplateFor(b *testing.B) {
 	if !ok {
 		b.Fatal("story mode missing")
 	}
+	templates := NewTemplates("internal/mode/templates")
 	// A safe username with no override dir: measures the os.ReadFile miss that
 	// every un-overridden run pays.
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		TemplateFor("bench-no-such-user", m)
+		templates.ModeTemplate("bench-no-such-user", m)
 	}
 }
 
 func BenchmarkSystemPrompt(b *testing.B) {
+	templates := NewTemplates("internal/mode/templates")
 	// Provider-miss → user-miss → embedded fallback chain (two ReadFile misses).
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		SystemPrompt("bench-no-such-user", "anthropic")
+		templates.SystemPrompt("bench-no-such-user", "anthropic")
 	}
 }
 

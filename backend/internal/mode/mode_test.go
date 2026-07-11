@@ -17,9 +17,7 @@ func TestSystemPromptResolution(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	orig := TemplatesBaseDir
-	TemplatesBaseDir = base
-	t.Cleanup(func() { TemplatesBaseDir = orig })
+	templates := NewTemplates(base)
 
 	write := func(name, body string) {
 		if err := os.WriteFile(filepath.Join(userDir, name+".mustache"), []byte(body), 0o644); err != nil {
@@ -38,26 +36,26 @@ func TestSystemPromptResolution(t *testing.T) {
 	}
 
 	// No overrides yet: embedded default regardless of provider.
-	tmpl, source := SystemPrompt(user, "anthropic")
+	tmpl, source := templates.SystemPrompt(user, "anthropic")
 	check("no override", tmpl, source, systemTmpl, "default")
 
 	// Plain per-user override wins over the embedded default.
 	write("system", "plain override")
-	tmpl, source = SystemPrompt(user, "anthropic")
+	tmpl, source = templates.SystemPrompt(user, "anthropic")
 	check("plain override", tmpl, source, "plain override", "system.mustache")
 	// Empty provider still resolves to the plain override.
-	tmpl, source = SystemPrompt(user, "")
+	tmpl, source = templates.SystemPrompt(user, "")
 	check("empty provider", tmpl, source, "plain override", "system.mustache")
 
 	// Per-provider override wins over the plain per-user override.
 	write("system-anthropic", "anthropic override")
-	tmpl, source = SystemPrompt(user, "anthropic")
+	tmpl, source = templates.SystemPrompt(user, "anthropic")
 	check("provider override", tmpl, source, "anthropic override", "system-anthropic.mustache")
 	// A different provider falls back to the plain override.
-	tmpl, source = SystemPrompt(user, "openai")
+	tmpl, source = templates.SystemPrompt(user, "openai")
 	check("other provider fallback", tmpl, source, "plain override", "system.mustache")
 
 	// A non-safe username never resolves an override.
-	tmpl, source = SystemPrompt("../evil", "anthropic")
+	tmpl, source = templates.SystemPrompt("../evil", "anthropic")
 	check("unsafe username", tmpl, source, systemTmpl, "default")
 }

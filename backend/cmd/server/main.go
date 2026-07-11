@@ -21,7 +21,7 @@ import (
 
 func main() {
 	cfg := config.Load()
-	mode.TemplatesBaseDir = cfg.ModeTemplatesDir
+	templates := mode.NewTemplates(cfg.ModeTemplatesDir)
 
 	pool, err := db.Connect(context.Background(), cfg.DatabaseURL)
 	if err != nil {
@@ -42,8 +42,7 @@ func main() {
 	rs := store.NewReflexStore(reflexDB)
 	// Legacy file-based app, browsed read-only by the "Charlotte" pages via charlotte-cli.
 	cs := store.NewCharlotteStore(cfg.CharlotteCLI)
-	// Mark the cookie Secure in production (HTTPS); SESSION_SECURE=true enables it.
-	sess := auth.NewSessions(cfg.SessionSecret, os.Getenv("SESSION_SECURE") == "true")
+	sess := auth.NewSessions(cfg.SessionSecret, cfg.SessionSecure)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -114,8 +113,8 @@ func main() {
 						r.Put("/{blockId}", handler.UpdateBlock(st))
 						r.Delete("/{blockId}", handler.DeleteBlock(st))
 						r.Post("/{blockId}/copy", handler.CopyBlock(st))
-						r.Post("/{blockId}/run", handler.RunBlock(st))
-						r.Post("/{blockId}/run/stream", handler.RunBlockStream(st))
+						r.Post("/{blockId}/run", handler.RunBlock(st, templates))
+						r.Post("/{blockId}/run/stream", handler.RunBlockStream(st, templates))
 						r.Put("/{blockId}/responses/{responseId}", handler.UpdateResponse(st))
 						r.Post("/{blockId}/responses/{responseId}/reparse", handler.ReparseResponse(st))
 					})
