@@ -191,9 +191,9 @@ func (a *redditAuth) userAccessToken(ctx context.Context) (string, error) {
 // subreddit via Reddit's application-only OAuth API and returns their titles and
 // permalink URLs. Anonymous access is blocked by Reddit, so clientID/secret from
 // a registered app are required.
-func ListRedditPosts(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
+func ListRedditPosts(st *store.Store, ra *redditAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -365,9 +365,9 @@ func resolveRedditSharePath(ctx context.Context, path string) (string, bool) {
 // GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
 // OAuth API and returns its title and normalized permalink URL. It lets users
 // import a specific post that isn't in the subreddit's newest listing.
-func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
+func GetRedditPost(ra *redditAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := sess.UserID(r); !ok {
+		if _, ok := auth.UserIDFrom(r.Context()); !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
@@ -459,9 +459,9 @@ func GetRedditPost(sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
 // this needs REDDIT_USERNAME/PASSWORD in addition to the app credentials and
 // reports 503 when they're absent. It is nested under /documents/{id} so the
 // returned post URL is saved against that document.
-func SubmitRedditPost(st *store.Store, sess *auth.Sessions, ra *redditAuth) http.HandlerFunc {
+func SubmitRedditPost(st *store.Store, ra *redditAuth) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}

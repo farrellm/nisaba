@@ -22,8 +22,8 @@ import (
 // logged-in user owns it. On any failure it writes the appropriate response and
 // returns ok=false; resources owned by another user surface as 404 so their
 // existence isn't leaked.
-func ownedDocument(w http.ResponseWriter, r *http.Request, st *store.Store, sess *auth.Sessions) (model.Document, bool) {
-	userID, ok := sess.UserID(r)
+func ownedDocument(w http.ResponseWriter, r *http.Request, st *store.Store) (model.Document, bool) {
+	userID, ok := auth.UserIDFrom(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "Not logged in")
 		return model.Document{}, false
@@ -69,9 +69,9 @@ type newBlock struct {
 // CreateBlock appends a block to a document. The new block's attributes are
 // seeded from the document's attributes for the chosen mode's keys (empty
 // string where the document has no value).
-func CreateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func CreateBlock(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
@@ -137,9 +137,9 @@ func mergedBlockAttrs(block model.Block, m mode.Mode, body map[string]string) ma
 
 // UpdateBlock replaces a block's key/values. Keys outside the mode's fixed key
 // set are ignored, so the stored attributes always match the mode.
-func UpdateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func UpdateBlock(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
@@ -178,9 +178,9 @@ func UpdateBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // shared attributes (merging, so values set by other blocks survive). It accepts
 // the same body shape as UpdateBlock so the caller's on-screen edits are saved
 // before they're copied up.
-func CopyBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func CopyBlock(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
@@ -225,9 +225,9 @@ func CopyBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // into the document's attributes under the mode's output key. It accepts the
 // same optional body as UpdateBlock so the caller's on-screen edits are saved
 // before the run.
-func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func RunBlock(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, block, m, prompt, system, ok := prepareRun(w, r, st, sess)
+		doc, block, m, prompt, system, ok := prepareRun(w, r, st)
 		if !ok {
 			return
 		}
@@ -272,9 +272,9 @@ func RunBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // Setup/validation failures before streaming begins still use the normal JSON
 // error path (prepareRun); once the 200 NDJSON stream has started, errors can
 // only be reported as an "error" event.
-func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func RunBlockStream(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, block, m, prompt, system, ok := prepareRun(w, r, st, sess)
+		doc, block, m, prompt, system, ok := prepareRun(w, r, st)
 		if !ok {
 			return
 		}
@@ -362,8 +362,8 @@ func RunBlockStream(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // into both the block and the document, and renders the prompt + system prompt
 // (honoring per-user template overrides). On any failure it writes the
 // appropriate JSON error and returns ok=false.
-func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store, sess *auth.Sessions) (doc model.Document, block model.Block, m mode.Mode, prompt, system string, ok bool) {
-	doc, ok = ownedDocument(w, r, st, sess)
+func prepareRun(w http.ResponseWriter, r *http.Request, st *store.Store) (doc model.Document, block model.Block, m mode.Mode, prompt, system string, ok bool) {
+	doc, ok = ownedDocument(w, r, st)
 	if !ok {
 		return
 	}
@@ -490,9 +490,9 @@ func reparseInto(ctx context.Context, st *store.Store, doc model.Document, m mod
 // response's stored text back into the document's shared attributes the same way
 // RunBlock does (top-level XML tags plus the mode's output key, merged), so a user
 // can re-derive attributes from any past response.
-func ReparseResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func ReparseResponse(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
@@ -545,9 +545,9 @@ func ReparseResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // and re-derives the document's shared attributes from the new text (same merge
 // as RunBlock/ReparseResponse), so editing a response keeps the document
 // consistent without re-running the model.
-func UpdateResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func UpdateResponse(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
@@ -609,9 +609,9 @@ func UpdateResponse(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 // DeleteBlock removes a block from a document. Its attributes and responses are
 // removed by the database via ON DELETE CASCADE.
-func DeleteBlock(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func DeleteBlock(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}

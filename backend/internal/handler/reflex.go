@@ -11,9 +11,9 @@ import (
 // newest first, for the read-only "Anansi" browser. It requires a logged-in
 // session but is not scoped to the caller — the legacy users are unrelated to
 // current accounts and the data is shared and read-only.
-func ListReflexDocuments(rs *store.ReflexStore, sess *auth.Sessions) http.HandlerFunc {
+func ListReflexDocuments(rs *store.ReflexStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := sess.UserID(r); !ok {
+		if _, ok := auth.UserIDFrom(r.Context()); !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
@@ -28,9 +28,9 @@ func ListReflexDocuments(rs *store.ReflexStore, sess *auth.Sessions) http.Handle
 
 // GetReflexDocument returns a single fully-populated legacy document read-only,
 // or 404 if it does not exist. Requires a logged-in session.
-func GetReflexDocument(rs *store.ReflexStore, sess *auth.Sessions) http.HandlerFunc {
+func GetReflexDocument(rs *store.ReflexStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := sess.UserID(r); !ok {
+		if _, ok := auth.UserIDFrom(r.Context()); !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}

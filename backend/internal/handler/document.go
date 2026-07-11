@@ -16,9 +16,9 @@ import (
 // ListDocuments returns the logged-in user's documents as summaries, most
 // recently updated first. Archived documents are included only when the
 // request carries ?archived=true.
-func ListDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func ListDocuments(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -39,9 +39,9 @@ func ListDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // SearchDocuments returns the logged-in user's documents whose `story` attribute
 // matches the ?q= full-text query, most-relevant first, as summaries. Archived
 // documents are included (the frontend marks them). An empty query returns [].
-func SearchDocuments(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func SearchDocuments(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -69,9 +69,9 @@ type newDocument struct {
 }
 
 // CreateDocument creates a document owned by the logged-in user and returns it.
-func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func CreateDocument(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id, ok := sess.UserID(r)
+		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -114,9 +114,9 @@ func CreateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 
 // GetDocument returns a single fully-populated document owned by the logged-in
 // user, or 404 if it does not exist or belongs to someone else.
-func GetDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func GetDocument(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := sess.UserID(r)
+		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -178,9 +178,9 @@ type updateDocument struct {
 // UpdateDocument changes a document's selected model, attribute values, archive
 // state, and/or labels, and returns the refreshed, fully-populated document. Each
 // field is optional; only the fields present in the request are applied.
-func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func UpdateDocument(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
@@ -234,9 +234,9 @@ func UpdateDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
 // DeleteDocument removes a document the logged-in user owns, cascading to its
 // blocks, attributes, and label taggings. Returns 404 if it does not exist or
 // belongs to someone else.
-func DeleteDocument(st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func DeleteDocument(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		doc, ok := ownedDocument(w, r, st, sess)
+		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}

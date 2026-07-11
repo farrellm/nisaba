@@ -10,9 +10,9 @@ import (
 // ListCharlotteDocuments returns every document from the legacy file-based app as a
 // summary for the read-only "Charlotte" browser. Like Anansi it requires a logged-in
 // session but is not scoped to the caller — the legacy data is shared and read-only.
-func ListCharlotteDocuments(cs *store.CharlotteStore, sess *auth.Sessions) http.HandlerFunc {
+func ListCharlotteDocuments(cs *store.CharlotteStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := sess.UserID(r); !ok {
+		if _, ok := auth.UserIDFrom(r.Context()); !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
@@ -28,9 +28,9 @@ func ListCharlotteDocuments(cs *store.CharlotteStore, sess *auth.Sessions) http.
 // GetCharlotteDocument returns a single legacy document fully populated read-only, 404
 // if the id is out of range, or 500 if the legacy tool cannot parse it. Requires a
 // logged-in session.
-func GetCharlotteDocument(cs *store.CharlotteStore, sess *auth.Sessions) http.HandlerFunc {
+func GetCharlotteDocument(cs *store.CharlotteStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := sess.UserID(r); !ok {
+		if _, ok := auth.UserIDFrom(r.Context()); !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}

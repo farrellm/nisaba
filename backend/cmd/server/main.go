@@ -68,50 +68,57 @@ func main() {
 
 		r.Get("/modes", handler.ListModes())
 		r.Get("/models", handler.ListModels())
-		r.Route("/labels", func(r chi.Router) {
-			r.Get("/", handler.ListLabels(st, sess))
-			r.Put("/", handler.RenameLabel(st, sess))
-			r.Delete("/", handler.DeleteLabel(st, sess))
-		})
-		r.Get("/attribute-values", handler.ListAttributeValues(st, sess))
-
-		r.Route("/anansi/documents", func(r chi.Router) {
-			r.Get("/", handler.ListReflexDocuments(rs, sess))
-			r.Get("/{id}", handler.GetReflexDocument(rs, sess))
-			r.Post("/{id}/import", handler.ImportReflexDocument(rs, st, sess))
-		})
-		r.Route("/charlotte/documents", func(r chi.Router) {
-			r.Get("/", handler.ListCharlotteDocuments(cs, sess))
-			r.Get("/{id}", handler.GetCharlotteDocument(cs, sess))
-			r.Post("/{id}/import", handler.ImportCharlotteDocument(cs, st, sess))
-		})
 		r.Get("/public/documents/{id}/attributes/{key}", handler.PublicDocumentAttribute(st))
-		redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
-		r.Get("/reddit/posts", handler.ListRedditPosts(st, sess, redditAuth))
-		r.Get("/reddit/post", handler.GetRedditPost(sess, redditAuth))
 
-		r.Route("/documents", func(r chi.Router) {
-			r.Get("/", handler.ListDocuments(st, sess))
-			r.Post("/", handler.CreateDocument(st, sess))
-			r.Get("/search", handler.SearchDocuments(st, sess))
+		// Everything below requires a logged-in session; the middleware rejects
+		// anonymous requests and puts the caller's user id in the context.
+		r.Group(func(r chi.Router) {
+			r.Use(handler.RequireUser(sess))
 
-			r.Route("/{id}", func(r chi.Router) {
-				r.Get("/", handler.GetDocument(st, sess))
-				r.Put("/", handler.UpdateDocument(st, sess))
-				r.Delete("/", handler.DeleteDocument(st, sess))
-				r.Post("/suggest-labels", handler.SuggestDocumentLabels(st, sess))
-				r.Post("/recommend-labels", handler.RecommendDocumentLabels(st, sess))
-				r.Post("/reddit-submit", handler.SubmitRedditPost(st, sess, redditAuth))
+			r.Route("/labels", func(r chi.Router) {
+				r.Get("/", handler.ListLabels(st))
+				r.Put("/", handler.RenameLabel(st))
+				r.Delete("/", handler.DeleteLabel(st))
+			})
+			r.Get("/attribute-values", handler.ListAttributeValues(st))
 
-				r.Route("/blocks", func(r chi.Router) {
-					r.Post("/", handler.CreateBlock(st, sess))
-					r.Put("/{blockId}", handler.UpdateBlock(st, sess))
-					r.Delete("/{blockId}", handler.DeleteBlock(st, sess))
-					r.Post("/{blockId}/copy", handler.CopyBlock(st, sess))
-					r.Post("/{blockId}/run", handler.RunBlock(st, sess))
-					r.Post("/{blockId}/run/stream", handler.RunBlockStream(st, sess))
-					r.Put("/{blockId}/responses/{responseId}", handler.UpdateResponse(st, sess))
-					r.Post("/{blockId}/responses/{responseId}/reparse", handler.ReparseResponse(st, sess))
+			r.Route("/anansi/documents", func(r chi.Router) {
+				r.Get("/", handler.ListReflexDocuments(rs))
+				r.Get("/{id}", handler.GetReflexDocument(rs))
+				r.Post("/{id}/import", handler.ImportReflexDocument(rs, st))
+			})
+			r.Route("/charlotte/documents", func(r chi.Router) {
+				r.Get("/", handler.ListCharlotteDocuments(cs))
+				r.Get("/{id}", handler.GetCharlotteDocument(cs))
+				r.Post("/{id}/import", handler.ImportCharlotteDocument(cs, st))
+			})
+			redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
+			r.Get("/reddit/posts", handler.ListRedditPosts(st, redditAuth))
+			r.Get("/reddit/post", handler.GetRedditPost(redditAuth))
+
+			r.Route("/documents", func(r chi.Router) {
+				r.Get("/", handler.ListDocuments(st))
+				r.Post("/", handler.CreateDocument(st))
+				r.Get("/search", handler.SearchDocuments(st))
+
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", handler.GetDocument(st))
+					r.Put("/", handler.UpdateDocument(st))
+					r.Delete("/", handler.DeleteDocument(st))
+					r.Post("/suggest-labels", handler.SuggestDocumentLabels(st))
+					r.Post("/recommend-labels", handler.RecommendDocumentLabels(st))
+					r.Post("/reddit-submit", handler.SubmitRedditPost(st, redditAuth))
+
+					r.Route("/blocks", func(r chi.Router) {
+						r.Post("/", handler.CreateBlock(st))
+						r.Put("/{blockId}", handler.UpdateBlock(st))
+						r.Delete("/{blockId}", handler.DeleteBlock(st))
+						r.Post("/{blockId}/copy", handler.CopyBlock(st))
+						r.Post("/{blockId}/run", handler.RunBlock(st))
+						r.Post("/{blockId}/run/stream", handler.RunBlockStream(st))
+						r.Put("/{blockId}/responses/{responseId}", handler.UpdateResponse(st))
+						r.Post("/{blockId}/responses/{responseId}/reparse", handler.ReparseResponse(st))
+					})
 				})
 			})
 		})

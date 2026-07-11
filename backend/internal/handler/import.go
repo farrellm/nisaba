@@ -121,9 +121,9 @@ func importLegacyDocument(ctx context.Context, st *store.Store, userID int64, sr
 
 // ImportReflexDocument copies a legacy Anansi (reflex.db) document into a new document
 // owned by the logged-in user and returns it (201). 404 if the source id is unknown.
-func ImportReflexDocument(rs *store.ReflexStore, st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func ImportReflexDocument(rs *store.ReflexStore, st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := sess.UserID(r)
+		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
@@ -149,9 +149,9 @@ func ImportReflexDocument(rs *store.ReflexStore, st *store.Store, sess *auth.Ses
 
 // ImportCharlotteDocument copies a legacy Charlotte document into a new document owned
 // by the logged-in user and returns it (201). 404 if the source id is unknown.
-func ImportCharlotteDocument(cs *store.CharlotteStore, st *store.Store, sess *auth.Sessions) http.HandlerFunc {
+func ImportCharlotteDocument(cs *store.CharlotteStore, st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, ok := sess.UserID(r)
+		userID, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
