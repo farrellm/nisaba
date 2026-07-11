@@ -12,7 +12,9 @@ import {
   TextField,
   CircularProgress,
 } from '@mui/material'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
+import { stripPromptTag } from '../lib/text'
 import type { DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditSubmitDialogProps {
@@ -64,7 +66,7 @@ export default function RedditSubmitDialog({
       .get<RedditPost>(`/api/reddit/post?url=${encodeURIComponent(url)}`)
       .then((post) => {
         if (cancelled) return
-        const stripped = post.title.replace(/\[wp\]/gi, '').trim()
+        const stripped = stripPromptTag(post.title)
         setTitle(`[PI] ${stripped}`)
         // Credit the original prompt above the story.
         const credit = `[Original post](${url}) by u/${post.author}.\n\n---\n\n`
@@ -100,7 +102,7 @@ export default function RedditSubmitDialog({
       setPosted(true)
       onPosted(updated)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setSubmitting(false)
     }

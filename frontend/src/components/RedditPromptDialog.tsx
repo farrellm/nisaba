@@ -11,7 +11,9 @@ import {
   TextField,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
+import { stripPromptTag } from '../lib/text'
 import type { Document, DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditPromptDialogProps {
@@ -37,7 +39,7 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
   // and trim surrounding whitespace.
   useEffect(() => {
     setTitle('')
-    setPrompt((post?.title ?? '').replace(/\[wp\]/gi, '').trim())
+    setPrompt(stripPromptTag(post?.title ?? ''))
     setError(null)
   }, [post])
 
@@ -61,7 +63,7 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
       })
       navigate(`/documents/${doc.id}`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
       setSubmitting(false)
     }
   }

@@ -12,7 +12,7 @@ import {
 import { Crepe } from '@milkdown/crepe'
 import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/frame.css'
-import { ApiError } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import { fonts } from '../theme'
 
 interface AttributeEditorDialogProps {
@@ -97,7 +97,7 @@ export default function AttributeEditorDialog({
       await onSave(crepeRef.current?.getMarkdown() ?? '')
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSaving(false)
     }

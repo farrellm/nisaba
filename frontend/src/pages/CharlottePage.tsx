@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { Document } from '../api/types'
 import DocumentList from '../components/DocumentList'
 import { usePageTitle } from '../lib/usePageTitle'
@@ -16,7 +17,7 @@ export default function CharlottePage() {
     api
       .get<Document[]>('/api/charlotte/documents')
       .then(setDocuments)
-      .catch((e: unknown) => setError(String(e)))
+      .catch((e: unknown) => setError(errorMessage(e)))
   }, [])
 
   return (

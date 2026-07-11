@@ -14,18 +14,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { api, ApiError } from '../api/client'
-import type { Document } from '../api/types'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
+import { collator, sameName } from '../lib/text'
+import type { Document, LabelRenameResult } from '../api/types'
 import DocumentRow from '../components/DocumentRow'
 import Masthead from '../components/Masthead'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 
-// ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
-// Improves alpha sort performance by ~100x for large label lists.
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
-const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 const newestFirst = (a: Document, b: Document) =>
   b.updatedAt < a.updatedAt ? -1 : b.updatedAt > a.updatedAt ? 1 : 0
 
@@ -45,7 +42,7 @@ export default function LabelsPage() {
     api
       .get<Document[]>('/api/documents?archived=true')
       .then((all) => setDocs(all ?? []))
-      .catch((e: unknown) => setError(e instanceof ApiError ? e.message : String(e)))
+      .catch((e: unknown) => setError(errorMessage(e)))
   }
 
   useEffect(load, [])
@@ -238,10 +235,10 @@ function RenameLabelDialog({
     setError(null)
     setSubmitting(true)
     try {
-      await api.put<{ merged: boolean }>('/api/labels', { name, newName: trimmed })
+      await api.put<LabelRenameResult>('/api/labels', { name, newName: trimmed })
       onDone()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not rename the label. Try again.')
+      setError(errorMessage(err, 'Could not rename the label. Try again.'))
       setSubmitting(false)
     }
   }
@@ -310,7 +307,7 @@ function DeleteLabelDialog({
       await api.del<void>(`/api/labels?name=${encodeURIComponent(name)}`)
       onDone()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete the label. Try again.')
+      setError(errorMessage(err, 'Could not delete the label. Try again.'))
       setSubmitting(false)
     }
   }

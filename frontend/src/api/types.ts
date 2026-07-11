@@ -1,3 +1,13 @@
+// User mirrors the backend's authenticated-user shape returned by
+// /api/auth/{me,login,register}.
+export interface User {
+  id: number
+  username: string
+  createdAt: string
+  subreddit: string
+  streamingEnabled: boolean
+}
+
 // Document mirrors the backend model.Document summary shape returned by
 // /api/documents. Only the fields the UI currently uses are declared.
 export interface Document {
@@ -64,3 +74,20 @@ export interface DocumentDetail extends Document {
   attributes: Record<string, string>
   blocks: Block[]
 }
+
+// AttributeValue is one attribute rendered standalone, as returned by
+// GET /api/public/documents/:id/attributes/:key.
+export interface AttributeValue {
+  value: string
+  title: string
+}
+
+// LabelRenameResult is returned by PUT /api/labels: merged reports whether the
+// rename collapsed into an existing label.
+export interface LabelRenameResult {
+  merged: boolean
+}
+
+// A stable empty attribute map, so components can default `doc.attributes ?? EMPTY_ATTRIBUTES`
+// without minting a fresh object (and re-render) each time.
+export const EMPTY_ATTRIBUTES: Record<string, string> = {}

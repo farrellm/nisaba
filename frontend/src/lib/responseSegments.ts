@@ -2,8 +2,8 @@
 // list of segments: the text outside any top-level XML-style tag, and each
 // top-level tag with its verbatim inner body.
 //
-// This mirrors the backend's parseTopLevelTags (backend/internal/handler/
-// response.go) byte-scan, with two differences: it preserves order and keeps
+// This mirrors the backend's tagparse.Parse (backend/internal/tagparse)
+// byte-scan, with two differences: it preserves order and keeps
 // the text between/around tags (the backend builds an attribute map and drops
 // non-tag text), and it keeps duplicate tag names (the backend's "last wins"
 // only matters for attributes). Like the backend, it degrades gracefully on

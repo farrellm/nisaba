@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Fab, Tooltip } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { Document } from '../api/types'
 import DocumentList from '../components/DocumentList'
 import NewDocumentDialog from '../components/NewDocumentDialog'
@@ -17,7 +18,7 @@ export default function DocumentsPage() {
     api
       .get<Document[]>('/api/documents')
       .then(setDocuments)
-      .catch((e: unknown) => setError(String(e)))
+      .catch((e: unknown) => setError(errorMessage(e)))
   }, [])
 
   return (

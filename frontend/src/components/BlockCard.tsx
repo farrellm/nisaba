@@ -20,13 +20,16 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
 import AuthorField from './AuthorField'
 import Markdown from './Markdown'
 import type { Block, Mode } from '../api/types'
 import { parseResponseSegments } from '../lib/responseSegments'
 import { fonts } from '../theme'
+import { leaderSx, summarySx } from '../lib/styles'
+import { addToSet, toggleSet } from '../lib/sets'
 
 interface BlockCardProps {
   block: Block
@@ -80,18 +83,8 @@ const BlockCard = memo(function BlockCard({
   })
   const armedTimer = useRef<ReturnType<typeof setTimeout>>()
 
-  function reveal(key: string) {
-    setExpanded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
-  }
-
-  function toggleStructured(id: number) {
-    setStructured((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+  const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
+  const toggleStructured = (id: number) => setStructured((prev) => toggleSet(prev, id))
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
   const busy =
@@ -120,7 +113,7 @@ const BlockCard = memo(function BlockCard({
       )
       onBlockUpdated(updated)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSaving(false)
     }
@@ -137,7 +130,7 @@ const BlockCard = memo(function BlockCard({
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not copy. Try again.')
+      setError(errorMessage(err, 'Could not copy. Try again.'))
     } finally {
       setCopying(false)
     }
@@ -163,7 +156,7 @@ const BlockCard = memo(function BlockCard({
       await api.del(`/api/documents/${block.documentId}/blocks/${block.id}`)
       onBlockDeleted(block.id)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete. Try again.')
+      setError(errorMessage(err, 'Could not delete. Try again.'))
       setArmed(false)
       setDeleting(false)
     }
@@ -191,7 +184,7 @@ const BlockCard = memo(function BlockCard({
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not run. Try again.')
+      setError(errorMessage(err, 'Could not run. Try again.'))
     } finally {
       setStreamingText(null)
       setRunning(false)
@@ -210,7 +203,7 @@ const BlockCard = memo(function BlockCard({
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not re-parse. Try again.')
+      setError(errorMessage(err, 'Could not re-parse. Try again.'))
     } finally {
       setReparsingId(null)
     }
@@ -238,7 +231,7 @@ const BlockCard = memo(function BlockCard({
       onAfterRun() // editing auto-reparses into the document's shared attributes
       setEditingId(null)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSavingEditId(null)
     }
@@ -251,32 +244,14 @@ const BlockCard = memo(function BlockCard({
         {...(defaultOpen ? { open: true } : {})}
         sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
       >
-        <Box
-          component="summary"
-          sx={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 2,
-            mb: 2,
-            cursor: 'pointer',
-            listStyle: 'none',
-            '&::-webkit-details-marker': { display: 'none' },
-          }}
-        >
+        <Box component="summary" sx={summarySx}>
           <Typography
             variant="overline"
             sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
           >
             {mode?.label ?? block.mode}
           </Typography>
-          <Box
-            sx={{
-              flex: 1,
-              borderBottom: '1px dotted',
-              borderColor: 'divider',
-              transform: 'translateY(-3px)',
-            }}
-          />
+          <Box sx={leaderSx} />
           <Tooltip title={deleting ? '' : armed ? 'Click again to confirm' : 'Delete block'}>
             <span>
               <IconButton

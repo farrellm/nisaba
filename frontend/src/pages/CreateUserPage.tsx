@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Alert, Box, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material'
 import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import AuthLayout from '../components/AuthLayout'
 import { usePageTitle } from '../lib/usePageTitle'
 
@@ -36,7 +36,7 @@ export default function CreateUserPage() {
       await register(username, password)
       navigate('/', { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setSubmitting(false)
     }

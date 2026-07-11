@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Box, Container, Divider, InputAdornment, TextField, Typography } from '@mui/material'
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { Document } from '../api/types'
 import DocumentRow from '../components/DocumentRow'
 import Masthead from '../components/Masthead'
@@ -38,7 +39,7 @@ export default function SearchPage() {
       })
       .catch((e: unknown) => {
         if (stale) return
-        setError(e instanceof ApiError ? e.message : String(e))
+        setError(errorMessage(e))
         setSearching(false)
       })
     return () => {

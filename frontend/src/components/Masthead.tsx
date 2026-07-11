@@ -1,14 +1,8 @@
 import { Box, Link as MuiLink, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { fonts } from '../theme'
+import { navLinkSx } from '../lib/styles'
 import AccountMenu from './AccountMenu'
-
-const navLinkSx = {
-  fontFamily: fonts.mono,
-  fontSize: '0.75rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-} as const
 
 type Section = 'documents' | 'archive' | 'prompts'
 

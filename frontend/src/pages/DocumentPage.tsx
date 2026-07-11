@@ -14,8 +14,9 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, ApiError } from '../api/client'
-import type { Block, DocumentDetail, Mode } from '../api/types'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
+import { EMPTY_ATTRIBUTES, type Block, type DocumentDetail, type Mode } from '../api/types'
 import Masthead from '../components/Masthead'
 import AddBlockDialog from '../components/AddBlockDialog'
 import EditLabelsDialog from '../components/EditLabelsDialog'
@@ -25,18 +26,7 @@ import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
-
-const EMPTY_ATTRIBUTES: Record<string, string> = {}
-
-// Shared style for the "Original post" / "Posted" permalink chips under the title.
-const postLinkSx = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 0.5,
-  color: 'primary.main',
-  textDecoration: 'none',
-  '&:hover': { textDecoration: 'underline' },
-} as const
+import { postLinkSx } from '../lib/styles'
 
 // DocumentPage loads a document via GET /api/documents/:id and renders its
 // blocks. Users add blocks (choosing a mode), edit each block's key/values, and
@@ -87,11 +77,7 @@ export default function DocumentPage() {
         closeMenu()
       }
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : `Could not ${archive ? 'archive' : 'unarchive'}. Try again.`,
-      )
+      setError(errorMessage(err, `Could not ${archive ? 'archive' : 'unarchive'}. Try again.`))
       setBusy(false)
       closeMenu()
     }
@@ -114,7 +100,7 @@ export default function DocumentPage() {
       await api.del(`/api/documents/${id}`)
       navigate('/documents', { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete. Try again.')
+      setError(errorMessage(err, 'Could not delete. Try again.'))
       setBusy(false)
       closeMenu()
     }
@@ -124,7 +110,7 @@ export default function DocumentPage() {
     api
       .get<DocumentDetail>(`/api/documents/${id}`)
       .then(setDoc)
-      .catch((e: unknown) => setError(String(e)))
+      .catch((e: unknown) => setError(errorMessage(e)))
     api
       .get<Mode[]>('/api/modes')
       .then(setModes)

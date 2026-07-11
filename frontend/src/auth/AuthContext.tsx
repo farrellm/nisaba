@@ -1,13 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../api/client'
-
-export interface User {
-  id: number
-  username: string
-  createdAt: string
-  subreddit: string
-  streamingEnabled: boolean
-}
+import type { User } from '../api/types'
 
 interface AuthContextValue {
   user: User | null

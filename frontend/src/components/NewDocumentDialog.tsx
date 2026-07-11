@@ -11,7 +11,8 @@ import {
   TextField,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { Document } from '../api/types'
 
 interface NewDocumentDialogProps {
@@ -47,7 +48,7 @@ export default function NewDocumentDialog({ open, onClose }: NewDocumentDialogPr
       })
       navigate(`/documents/${doc.id}`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setSubmitting(false)
     }

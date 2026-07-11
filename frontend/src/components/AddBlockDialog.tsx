@@ -12,7 +12,7 @@ import {
   RadioGroup,
   Typography,
 } from '@mui/material'
-import { ApiError } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
 
@@ -48,7 +48,7 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
       await onCreate(selected)
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setSubmitting(false)
     }

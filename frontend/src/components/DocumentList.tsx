@@ -13,6 +13,7 @@ import {
   type SelectChangeEvent,
 } from '@mui/material'
 import { fonts } from '../theme'
+import { collator, sameName } from '../lib/text'
 import DocumentRow from './DocumentRow'
 import Masthead from './Masthead'
 import type { Document } from '../api/types'
@@ -24,14 +25,6 @@ const sortOptions: { value: SortOrder; label: string }[] = [
   { value: 'oldest', label: 'Oldest first' },
   { value: 'alpha', label: 'Alphabetical' },
 ]
-
-// ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
-// Improves alpha sort performance by ~100x for large document lists.
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
-// Labels are user-global and lowercase-unique, but match case-insensitively to
-// mirror EditLabelsDialog's convention and stay robust to legacy data.
-const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 interface DocumentListProps {
   heading: string
@@ -93,9 +86,7 @@ export default function DocumentList({
   const sorted = useMemo(() => {
     if (!base) return base
     // visible: base narrowed to docs carrying *all* selected labels (AND).
-    // ⚡ Bolt: Pre-computing lowercase labels avoids O(N*M) repeated string allocations in the loop.
     const selectedLower = selected.map((s) => s.toLowerCase())
-    // ⚡ Bolt: Bypass filter if no labels selected, and use .some() instead of allocating a new mapped array per doc
     const visible =
       selectedLower.length === 0
         ? base
@@ -125,8 +116,6 @@ export default function DocumentList({
   const candidatePills = useMemo(() => {
     if (!sorted) return []
     const seen = new Map<string, string>()
-    // ⚡ Bolt: Using a pre-computed Set of lowercased selected labels prevents
-    // repetitive .toLowerCase() allocation and allows O(1) existence checks.
     const selectedLowerSet = new Set(selected.map((s) => s.toLowerCase()))
 
     for (const doc of sorted) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import type { AttributeValue } from '../api/types'
 import Markdown from '../components/Markdown'
 import { fonts } from '../theme'
 
@@ -24,9 +25,7 @@ export default function AttributePage() {
 
   useEffect(() => {
     api
-      .get<{ value: string; title: string }>(
-        `/api/public/documents/${id}/attributes/${encodeURIComponent(key)}`,
-      )
+      .get<AttributeValue>(`/api/public/documents/${id}/attributes/${encodeURIComponent(key)}`)
       .then((r) => {
         setValue(r.value)
         setTitle(r.title)

@@ -12,17 +12,12 @@ import {
 } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import { fonts } from '../theme'
+import { navLinkSx } from '../lib/styles'
 import AccountMenu from '../components/AccountMenu'
 import { usePageTitle } from '../lib/usePageTitle'
-
-const navLinkSx = {
-  fontFamily: fonts.mono,
-  fontSize: '0.75rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-} as const
 
 // SettingsPage lets the user edit their configured subreddit. On save it PUTs to
 // /api/auth/me and refreshes the auth context so the canonical value (which the
@@ -51,7 +46,7 @@ export default function SettingsPage() {
       await refresh()
       setSaved(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setSaving(false)
     }

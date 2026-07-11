@@ -13,9 +13,12 @@ import {
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import OpenInNew from '@mui/icons-material/OpenInNew'
 import EditNote from '@mui/icons-material/EditNote'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
+import { leaderSx, summarySx } from '../lib/styles'
+import { addToSet } from '../lib/sets'
 
 // Lazy-loaded so Milkdown Crepe (and its CSS) stays out of the initial bundle.
 const AttributeEditorDialog = lazy(() => import('./AttributeEditorDialog'))
@@ -29,9 +32,8 @@ interface DocumentAttributesProps {
 // editable value field per key (keys are created by running blocks, so they are
 // fixed here), with a Save button at the top of the section.
 export default function DocumentAttributes({ doc, onChange }: DocumentAttributesProps) {
-  // ⚡ Bolt: Memoize sorted keys to prevent allocating and sorting an array on every re-render.
-  // Use doc.attributes as the dependency directly to avoid creating a new {} reference on every render
-  // when doc.attributes is null/undefined.
+  // Key by doc.attributes directly so a null/undefined map does not mint a new
+  // {} dependency (and re-sort) every render.
   const keys = useMemo(() => Object.keys(doc.attributes ?? {}).sort(), [doc.attributes])
   const attributes = doc.attributes ?? {}
   const [values, setValues] = useState<Record<string, string>>(() => {
@@ -62,9 +64,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [editingKey, setEditingKey] = useState<string | null>(null)
 
-  function reveal(key: string) {
-    setExpanded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
-  }
+  const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (attributes[key] ?? ''))
 
@@ -77,7 +77,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
       })
       onChange(updated)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSaving(false)
     }
@@ -102,32 +102,14 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         component="details"
         sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
       >
-        <Box
-          component="summary"
-          sx={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 2,
-            mb: 3,
-            cursor: 'pointer',
-            listStyle: 'none',
-            '&::-webkit-details-marker': { display: 'none' },
-          }}
-        >
+        <Box component="summary" sx={{ ...summarySx, mb: 3 }}>
           <Typography
             variant="overline"
             sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
           >
             Attributes
           </Typography>
-          <Box
-            sx={{
-              flex: 1,
-              borderBottom: '1px dotted',
-              borderColor: 'divider',
-              transform: 'translateY(-3px)',
-            }}
-          />
+          <Box sx={leaderSx} />
         </Box>
 
         <Stack direction="row" spacing={1.5} sx={{ mb: 3 }}>

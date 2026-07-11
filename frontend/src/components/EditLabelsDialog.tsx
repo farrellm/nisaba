@@ -13,13 +13,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
+import { collator, sameName } from '../lib/text'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
-
-// ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
-// Improves alpha sort performance by ~100x for large label lists.
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
 interface EditLabelsDialogProps {
   open: boolean
@@ -27,8 +25,6 @@ interface EditLabelsDialogProps {
   onClose: () => void
   onChange: (doc: DocumentDetail) => void
 }
-
-const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 // EditLabelsDialog edits which of the user's labels apply to a document. Edits are
 // local (filed/shelved pills) until Save commits them with a single PUT. Typing a
@@ -95,7 +91,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
       const names = await api.post<string[]>(`/api/documents/${doc.id}/suggest-labels`)
       setSuggested(names ?? [])
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not suggest labels. Try again.')
+      setError(errorMessage(err, 'Could not suggest labels. Try again.'))
     } finally {
       setSuggesting(false)
     }
@@ -110,7 +106,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
       const names = await api.post<string[]>(`/api/documents/${doc.id}/recommend-labels`)
       setRecommended(names ?? [])
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not recommend labels. Try again.')
+      setError(errorMessage(err, 'Could not recommend labels. Try again.'))
     } finally {
       setRecommending(false)
     }
@@ -144,7 +140,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
       onChange(updated)
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setSubmitting(false)
     }

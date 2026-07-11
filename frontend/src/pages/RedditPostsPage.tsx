@@ -3,6 +3,7 @@ import { Box, Container, Divider, Fab, Tooltip, Typography } from '@mui/material
 import AddIcon from '@mui/icons-material/Add'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import { fonts } from '../theme'
 import type { RedditPost } from '../api/types'
 import Masthead from '../components/Masthead'
@@ -25,7 +26,7 @@ export default function RedditPostsPage() {
     api
       .get<RedditPost[]>('/api/reddit/posts')
       .then(setPosts)
-      .catch((e: unknown) => setError(String(e)))
+      .catch((e: unknown) => setError(errorMessage(e)))
   }, [])
 
   function openPost(post: RedditPost) {

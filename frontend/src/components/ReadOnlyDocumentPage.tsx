@@ -18,43 +18,22 @@ import {
 import DataObjectIcon from '@mui/icons-material/DataObject'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
-import { api, ApiError } from '../api/client'
-import type { Block, Document, DocumentDetail, Response } from '../api/types'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
+import {
+  EMPTY_ATTRIBUTES,
+  type Block,
+  type Document,
+  type DocumentDetail,
+  type Response,
+} from '../api/types'
 import Masthead from './Masthead'
 import Markdown from './Markdown'
 import { parseResponseSegments } from '../lib/responseSegments'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
-
-const EMPTY_ATTRIBUTES: Record<string, string> = {}
-
-const postLinkSx = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 0.5,
-  color: 'primary.main',
-  textDecoration: 'none',
-  '&:hover': { textDecoration: 'underline' },
-} as const
-
-// Shared <summary> styling: a flex row whose default disclosure marker is hidden
-// so the mode/attribute header + dotted leader read like the live document page.
-const summarySx = {
-  display: 'flex',
-  alignItems: 'baseline',
-  gap: 2,
-  mb: 2,
-  cursor: 'pointer',
-  listStyle: 'none',
-  '&::-webkit-details-marker': { display: 'none' },
-} as const
-
-const leaderSx = {
-  flex: 1,
-  borderBottom: '1px dotted',
-  borderColor: 'divider',
-  transform: 'translateY(-3px)',
-} as const
+import { leaderSx, postLinkSx, summarySx } from '../lib/styles'
+import { addToSet, toggleSet } from '../lib/sets'
 
 // ReadOnlyDocumentPage renders a single document read-only, mirroring the live
 // document page's structure (collapsible block cards with mode headers,
@@ -77,7 +56,7 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
     api
       .get<DocumentDetail>(`${apiBase}/${id}`)
       .then(setDoc)
-      .catch((e: unknown) => setError(String(e)))
+      .catch((e: unknown) => setError(errorMessage(e)))
   }, [apiBase, id])
 
   async function handleImport() {
@@ -87,7 +66,7 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
       const imported = await api.post<Document>(`${apiBase}/${id}/import`)
       navigate(`/documents/${imported.id}`)
     } catch (e: unknown) {
-      setImportError(e instanceof ApiError ? e.message : 'Could not import document')
+      setImportError(errorMessage(e, 'Could not import document'))
       setImporting(false)
     }
   }
@@ -243,18 +222,8 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
     defaultOpen && responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set(),
   )
 
-  function reveal(key: string) {
-    setExpanded((prev) => new Set(prev).add(key))
-  }
-
-  function toggleStructured(id: number) {
-    setStructured((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
+  const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
+  const toggleStructured = (id: number) => setStructured((prev) => toggleSet(prev, id))
 
   return (
     <Box component="section" sx={{ pt: 4 }}>
@@ -422,7 +391,6 @@ function ResponseDetails({
 // Attributes renders the document's shared key/value namespace read-only,
 // mirroring DocumentAttributes' collapsible section.
 function Attributes({ attributes }: { attributes: Record<string, string> }) {
-  // ⚡ Bolt: Memoize sorted keys to prevent allocating and sorting an array on every re-render.
   const keys = useMemo(() => Object.keys(attributes).sort(), [attributes])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   if (keys.length === 0) return null
@@ -449,7 +417,7 @@ function Attributes({ attributes }: { attributes: Record<string, string> }) {
               fieldKey={key}
               value={attributes[key] ?? ''}
               expanded={expanded.has(key)}
-              onReveal={() => setExpanded((prev) => new Set(prev).add(key))}
+              onReveal={() => setExpanded((prev) => addToSet(prev, key))}
             />
           ))}
         </Stack>

@@ -10,7 +10,8 @@ import {
   Stack,
   TextField,
 } from '@mui/material'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { RedditPost } from '../api/types'
 
 interface RedditUrlDialogProps {
@@ -45,7 +46,7 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
       setUrl('')
       onResolved(post)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setLoading(false)
     }

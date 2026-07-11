@@ -3,6 +3,7 @@ import { Box, Chip, Divider, Link as MuiLink, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { timeAgo } from '../lib/relativeTime'
 import { fonts } from '../theme'
+import { leaderSx } from '../lib/styles'
 import type { Document } from '../api/types'
 
 interface DocumentRowProps {
@@ -21,7 +22,6 @@ interface DocumentRowProps {
 // DocumentRow is one ledger line in a list of documents: a serif title that links
 // to the document, a dotted leader, and a mono "time ago" stamp. Shared by the
 // Documents/Archive lists and the Labels index so rows look identical everywhere.
-// ⚡ Bolt: Wrapping in React.memo prevents expensive re-renders when the list state changes.
 const DocumentRow = memo(function DocumentRow({
   doc,
   showArchived = false,
@@ -56,14 +56,7 @@ const DocumentRow = memo(function DocumentRow({
           >
             {doc.title || 'Untitled'}
           </Typography>
-          <Box
-            sx={{
-              flex: 1,
-              borderBottom: '1px dotted',
-              borderColor: 'divider',
-              transform: 'translateY(-3px)',
-            }}
-          />
+          <Box sx={leaderSx} />
           <Typography
             sx={{
               fontFamily: fonts.mono,

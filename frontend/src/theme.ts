@@ -10,6 +10,7 @@ const paper = '#FBFAF7' // cool-warm white (not cream)
 const muted = '#6B655B' // secondary text
 const hairline = '#E5E1D8' // dividers / borders
 const accent = '#2540E0' // ink-blue
+const struck = '#B23A2E' // struck-through diff text (a printer's red)
 
 const display = "'Fraunces', Georgia, serif"
 const body = "'Inter', system-ui, sans-serif"
@@ -54,4 +55,8 @@ const theme = createTheme({
 })
 
 export const fonts = { display, body, mono }
+// The raw color tokens, for the rare spot that needs a literal (CSS variables
+// handed to a non-MUI widget, diff strike color) — everything else should go
+// through the MUI theme.
+export const palette = { ink, paper, muted, hairline, accent, struck } as const
 export default theme
