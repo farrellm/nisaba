@@ -55,9 +55,7 @@ export default function AttributePage() {
 
 function Notice({ children }: { children: string }) {
   return (
-    <Typography
-      sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
-    >
+    <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
       {children}
     </Typography>
   )

@@ -80,35 +80,64 @@ export default function LabelsPage() {
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}
+          >
             {error}
           </Typography>
         ) : loading ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
+          >
             Loading…
           </Typography>
         ) : sections && sections.length > 0 ? (
           sections.map((section) => (
             <Box
               key={section.name}
-              sx={{ mb: 5, '&:hover .label-controls, &:focus-within .label-controls': { opacity: 1 } }}
+              sx={{
+                mb: 5,
+                '&:hover .label-controls, &:focus-within .label-controls': { opacity: 1 },
+              }}
             >
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                 <Typography
                   component="h2"
-                  sx={{ fontFamily: fonts.display, fontWeight: 500, fontSize: '1.5rem', letterSpacing: '-0.01em' }}
+                  sx={{
+                    fontFamily: fonts.display,
+                    fontWeight: 500,
+                    fontSize: '1.5rem',
+                    letterSpacing: '-0.01em',
+                  }}
                 >
                   {section.name}
                 </Typography>
-                <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-4px)' }} />
+                <Box
+                  sx={{
+                    flex: 1,
+                    borderBottom: '1px dotted',
+                    borderColor: 'divider',
+                    transform: 'translateY(-4px)',
+                  }}
+                />
                 <Typography
-                  sx={{ fontFamily: fonts.mono, fontSize: '0.75rem', color: 'text.secondary', whiteSpace: 'nowrap' }}
+                  sx={{
+                    fontFamily: fonts.mono,
+                    fontSize: '0.75rem',
+                    color: 'text.secondary',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
                   {section.docs.length === 1 ? '1 story' : `${section.docs.length} stories`}
                 </Typography>
                 <Box
                   className="label-controls"
-                  sx={{ display: 'flex', gap: 1.5, opacity: { xs: 1, md: 0.45 }, transition: 'opacity 120ms' }}
+                  sx={{
+                    display: 'flex',
+                    gap: 1.5,
+                    opacity: { xs: 1, md: 0.45 },
+                    transition: 'opacity 120ms',
+                  }}
                 >
                   <ControlLink onClick={() => setRenaming(section.name)}>Rename</ControlLink>
                   <ControlLink onClick={() => setDeleting(section.name)}>Delete</ControlLink>
@@ -123,7 +152,9 @@ export default function LabelsPage() {
             </Box>
           ))
         ) : (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
+          >
             No labels yet. Add labels to a document to start your index.
           </Typography>
         )}

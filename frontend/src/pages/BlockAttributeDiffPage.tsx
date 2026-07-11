@@ -69,9 +69,7 @@ export default function BlockAttributeDiffPage() {
             >
               This block&nbsp;&rarr;&nbsp;Document
             </Typography>
-            <Typography
-              sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', mt: 0.75 }}
-            >
+            <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', mt: 0.75 }}>
               <Box component="span" sx={{ color: removed ? STRUCK : 'text.disabled' }}>
                 &minus;{removed} {removed === 1 ? 'word' : 'words'}
               </Box>

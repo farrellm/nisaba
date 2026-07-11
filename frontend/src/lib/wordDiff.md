@@ -12,7 +12,7 @@ function wordDiff(before: string, after: string): DiffSegment[]
 Each segment marks a run of text that is unchanged (`equal`), present only in
 `after` (`add`), or present only in `before` (`remove`). Concatenating the
 `equal`+`remove` text reproduces `before`; concatenating `equal`+`add`
-reproduces `after` — with one caveat: text *absorbed* by the semantic-cleanup
+reproduces `after` — with one caveat: text _absorbed_ by the semantic-cleanup
 pass (step 5) exists identically in both inputs and appears in both a `remove`
 and an `add` segment, so the invariant is exact per side (drop the `add`
 segments to get `before`, drop the `remove` segments to get `after`) even
@@ -25,7 +25,7 @@ one of:
 
 - a **whitespace run** — `\s+`
 - a **word run** — `[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*`: alphanumerics plus
-  *internal* apostrophes and hyphens, so `don't`, `it’s`, and `re-read` are
+  _internal_ apostrophes and hyphens, so `don't`, `it’s`, and `re-read` are
   single tokens (the Unicode `u` flag keeps accented and non-Latin letters
   inside one token, e.g. `résumé`)
 - a **single punctuation/symbol character** — `[^\s\p{L}\p{N}]`
@@ -45,7 +45,7 @@ Two consequences of this token granularity:
 - **Punctuation is separated from adjacent words**, so editing the text around a
   word doesn't mark the word itself as changed. `room.` → `room and smiled.`
   diffs as `room`(equal) + ` and smiled`(add) + `.`(equal), not a wholesale
-  replacement. Only *internal* `'`/`’`/`-` bind to a word: leading, trailing,
+  replacement. Only _internal_ `'`/`’`/`-` bind to a word: leading, trailing,
   or doubled marks (`'tis`, `well--known`) still split off as punctuation.
 
 ## 2. Trim the common prefix and suffix
@@ -139,7 +139,7 @@ between two edits into both sides when it wouldn't stand on its own:
   before- and after-text);
 - otherwise when it's **small relative to the edits on both sides**: its word
   count is ≤ each neighboring edit's larger side (`max(wordCount(remove),
-  wordCount(add))`). This is diff-match-patch's `cleanupSemantic` rule adapted
+wordCount(add))`). This is diff-match-patch's `cleanupSemantic` rule adapted
   to word counts; a pure-punctuation equality (a matched comma) counts 0 words
   and is always absorbed between edits.
 
@@ -158,7 +158,7 @@ Equalities that fail the rule — a preserved phrase between two edits — stay
 it over the `add` and `remove` segments to show a `−N / +M words` summary, so
 a punctuation-only change (e.g. a stray `.`) contributes `0` and isn't reported
 as a changed word. Because absorbed equalities land in both the `remove` and
-`add` segments, the counts describe the *rendered markup* — exactly the words
+`add` segments, the counts describe the _rendered markup_ — exactly the words
 shown struck and inserted — not a minimal edit script.
 
 ## Complexity & edge cases

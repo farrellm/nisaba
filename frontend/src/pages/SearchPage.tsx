@@ -96,7 +96,13 @@ export default function SearchPage() {
 }
 
 // Helper is the small mono status line used for loading / empty / error states.
-function Helper({ children, color = 'text.secondary' }: { children: React.ReactNode; color?: string }) {
+function Helper({
+  children,
+  color = 'text.secondary',
+}: {
+  children: React.ReactNode
+  color?: string
+}) {
   return (
     <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color, py: 1.5 }}>
       {children}

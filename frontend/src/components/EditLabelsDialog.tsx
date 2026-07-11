@@ -152,9 +152,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
 
   // A suggested label keeps its own section, so don't also list it under "Other
   // labels" — every label lives in exactly one of the pool-based sections.
-  const others = allLabels.filter(
-    (l) => !isApplied(l) && !suggested.some((s) => sameName(s, l)),
-  )
+  const others = allLabels.filter((l) => !isApplied(l) && !suggested.some((s) => sameName(s, l)))
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
@@ -185,7 +183,10 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
           </Box>
 
           <Box>
-            <Typography variant="overline" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+            <Typography
+              variant="overline"
+              sx={{ color: 'text.secondary', display: 'block', mb: 1 }}
+            >
               On this document
             </Typography>
             {applied.length > 0 ? (
@@ -202,19 +203,27 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                 ))}
               </Box>
             ) : (
-              <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
+              <Typography
+                sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
+              >
                 No labels on this document yet.
               </Typography>
             )}
           </Box>
 
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}
+            >
               <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                 Suggested
               </Typography>
               <Button size="small" onClick={handleSuggest} disabled={suggesting}>
-                {suggesting ? 'Suggesting…' : suggested.length > 0 ? 'Regenerate' : 'Suggest from story'}
+                {suggesting
+                  ? 'Suggesting…'
+                  : suggested.length > 0
+                    ? 'Regenerate'
+                    : 'Suggest from story'}
               </Button>
             </Box>
             {suggested.length > 0 ? (
@@ -229,13 +238,17 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                       variant={on ? 'filled' : 'outlined'}
                       onClick={() => toggleLabel(name)}
                       sx={{ fontFamily: fonts.mono, color: on ? undefined : 'text.secondary' }}
-                      aria-label={on ? `Remove suggested label ${name}` : `Add suggested label ${name}`}
+                      aria-label={
+                        on ? `Remove suggested label ${name}` : `Add suggested label ${name}`
+                      }
                     />
                   )
                 })}
               </Box>
             ) : (
-              <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
+              <Typography
+                sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
+              >
                 {suggesting
                   ? 'Analyzing the story…'
                   : 'Generate labels from this document’s story.'}
@@ -244,7 +257,9 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
           </Box>
 
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}
+            >
               <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                 Other labels
               </Typography>
@@ -274,7 +289,9 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                 })}
               </Box>
             ) : (
-              <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
+              <Typography
+                sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
+              >
                 No other labels. Add one above.
               </Typography>
             )}

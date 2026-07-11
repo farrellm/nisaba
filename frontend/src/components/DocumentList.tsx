@@ -79,7 +79,9 @@ export default function DocumentList({
 
   const toggleLabel = (name: string) =>
     setSelected((prev) =>
-      prev.some((l) => sameName(l, name)) ? prev.filter((l) => !sameName(l, name)) : [...prev, name],
+      prev.some((l) => sameName(l, name))
+        ? prev.filter((l) => !sameName(l, name))
+        : [...prev, name],
     )
 
   // base: documents after the archived toggle, before label filtering.
@@ -94,11 +96,14 @@ export default function DocumentList({
     // ⚡ Bolt: Pre-computing lowercase labels avoids O(N*M) repeated string allocations in the loop.
     const selectedLower = selected.map((s) => s.toLowerCase())
     // ⚡ Bolt: Bypass filter if no labels selected, and use .some() instead of allocating a new mapped array per doc
-    const visible = selectedLower.length === 0 ? base : base.filter((d) => {
-      return selectedLower.every((selLower) =>
-        (d.labels ?? []).some((l) => l.toLowerCase() === selLower)
-      )
-    })
+    const visible =
+      selectedLower.length === 0
+        ? base
+        : base.filter((d) => {
+            return selectedLower.every((selLower) =>
+              (d.labels ?? []).some((l) => l.toLowerCase() === selLower),
+            )
+          })
     const copy = [...visible]
     copy.sort((a, b) => {
       switch (sort) {
@@ -185,7 +190,12 @@ export default function DocumentList({
               <Button
                 size="small"
                 onClick={() => setSelected([])}
-                sx={{ fontFamily: fonts.mono, fontSize: '0.72rem', color: 'text.secondary', minWidth: 0 }}
+                sx={{
+                  fontFamily: fonts.mono,
+                  fontSize: '0.72rem',
+                  color: 'text.secondary',
+                  minWidth: 0,
+                }}
               >
                 Clear
               </Button>
@@ -235,7 +245,11 @@ export default function DocumentList({
                 sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}
               >
                 {sortOptions.map((o) => (
-                  <MenuItem key={o.value} value={o.value} sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}>
+                  <MenuItem
+                    key={o.value}
+                    value={o.value}
+                    sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}
+                  >
                     {o.label}
                   </MenuItem>
                 ))}
@@ -247,19 +261,31 @@ export default function DocumentList({
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}
+          >
             {error}
           </Typography>
         ) : loading ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
+          >
             Loading…
           </Typography>
         ) : sorted && sorted.length > 0 ? (
           sorted.map((doc) => (
-            <DocumentRow key={doc.id} doc={doc} basePath={basePath} showArchived={showArchived} hideTime={hideTime} />
+            <DocumentRow
+              key={doc.id}
+              doc={doc}
+              basePath={basePath}
+              showArchived={showArchived}
+              hideTime={hideTime}
+            />
           ))
         ) : (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
+          >
             Nothing here yet.
           </Typography>
         )}

@@ -22,7 +22,12 @@ interface DocumentRowProps {
 // to the document, a dotted leader, and a mono "time ago" stamp. Shared by the
 // Documents/Archive lists and the Labels index so rows look identical everywhere.
 // ⚡ Bolt: Wrapping in React.memo prevents expensive re-renders when the list state changes.
-const DocumentRow = memo(function DocumentRow({ doc, showArchived = false, basePath = '/documents', hideTime = false }: DocumentRowProps) {
+const DocumentRow = memo(function DocumentRow({
+  doc,
+  showArchived = false,
+  basePath = '/documents',
+  hideTime = false,
+}: DocumentRowProps) {
   // With hideTime, show only the bare "archived" marker (no timestamp), else the
   // usual "time ago" optionally prefixed with "archived · ".
   const stamp = hideTime
@@ -38,7 +43,10 @@ const DocumentRow = memo(function DocumentRow({ doc, showArchived = false, baseP
       to={`${basePath}/${doc.id}`}
       underline="none"
       color="inherit"
-      sx={{ display: 'block', '&:hover .doc-title, &:focus-visible .doc-title': { color: 'primary.main' } }}
+      sx={{
+        display: 'block',
+        '&:hover .doc-title, &:focus-visible .doc-title': { color: 'primary.main' },
+      }}
     >
       <Box sx={{ py: 1.75 }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
@@ -49,10 +57,20 @@ const DocumentRow = memo(function DocumentRow({ doc, showArchived = false, baseP
             {doc.title || 'Untitled'}
           </Typography>
           <Box
-            sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }}
+            sx={{
+              flex: 1,
+              borderBottom: '1px dotted',
+              borderColor: 'divider',
+              transform: 'translateY(-3px)',
+            }}
           />
           <Typography
-            sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary', whiteSpace: 'nowrap' }}
+            sx={{
+              fontFamily: fonts.mono,
+              fontSize: '0.8rem',
+              color: 'text.secondary',
+              whiteSpace: 'nowrap',
+            }}
           >
             {stamp}
           </Typography>

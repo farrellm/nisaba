@@ -32,7 +32,12 @@ interface RedditSubmitDialogProps {
 // fields stay editable. Submitting posts to the user's configured subreddit via
 // POST /api/documents/:id/reddit-submit, which saves the resulting permalink on
 // the document and returns the refreshed document.
-export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: RedditSubmitDialogProps) {
+export default function RedditSubmitDialog({
+  open,
+  doc,
+  onClose,
+  onPosted,
+}: RedditSubmitDialogProps) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [titleLoading, setTitleLoading] = useState(false)
@@ -86,10 +91,10 @@ export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: Red
     setError(null)
     setSubmitting(true)
     try {
-      const updated = await api.post<DocumentDetail>(
-        `/api/documents/${doc.id}/reddit-submit`,
-        { title, body },
-      )
+      const updated = await api.post<DocumentDetail>(`/api/documents/${doc.id}/reddit-submit`, {
+        title,
+        body,
+      })
       const urls = updated.postUrls ?? []
       setPostedUrl(urls[urls.length - 1] ?? '')
       setPosted(true)

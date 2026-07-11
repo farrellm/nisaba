@@ -50,11 +50,15 @@ export default function RedditPostsPage() {
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}
+          >
             {error}
           </Typography>
         ) : loading ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
+          >
             Loading…
           </Typography>
         ) : posts && posts.length > 0 ? (
@@ -73,7 +77,12 @@ export default function RedditPostsPage() {
               sx={{
                 cursor: 'pointer',
                 '&:hover .post-title': { color: 'primary.main' },
-                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '2px', borderRadius: 1 }
+                '&:focus-visible': {
+                  outline: '2px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: '2px',
+                  borderRadius: 1,
+                },
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, py: 1.75 }}>
@@ -88,7 +97,9 @@ export default function RedditPostsPage() {
             </Box>
           ))
         ) : (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}
+          >
             Nothing here yet.
           </Typography>
         )}

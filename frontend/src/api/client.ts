@@ -73,7 +73,8 @@ async function postStream<T>(
     if (!trimmed) return
     const event = JSON.parse(trimmed)
     if (event.type === 'delta') onDelta(event.text as string)
-    else if (event.type === 'ping') return // keepalive; nothing to do
+    else if (event.type === 'ping')
+      return // keepalive; nothing to do
     else if (event.type === 'error') throw new ApiError(502, event.message ?? 'Stream error')
     else if (event.type === 'done') result = event[doneKey] as T
   }

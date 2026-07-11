@@ -125,14 +125,20 @@ export default function DocumentPage() {
       .get<DocumentDetail>(`/api/documents/${id}`)
       .then(setDoc)
       .catch((e: unknown) => setError(String(e)))
-    api.get<Mode[]>('/api/modes').then(setModes).catch(() => setModes([]))
+    api
+      .get<Mode[]>('/api/modes')
+      .then(setModes)
+      .catch(() => setModes([]))
   }, [id])
 
-  const createBlock = useCallback(async (mode: string): Promise<Block> => {
-    const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
-    setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? []), block] } : d))
-    return block
-  }, [id])
+  const createBlock = useCallback(
+    async (mode: string): Promise<Block> => {
+      const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
+      setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? []), block] } : d))
+      return block
+    },
+    [id],
+  )
 
   const replaceBlock = useCallback((updated: Block) => {
     setDoc((d) =>
@@ -146,7 +152,10 @@ export default function DocumentPage() {
 
   // Running a block mutates the document's shared attributes, so reload it.
   const reloadDocument = useCallback(() => {
-    api.get<DocumentDetail>(`/api/documents/${id}`).then(setDoc).catch(() => {})
+    api
+      .get<DocumentDetail>(`/api/documents/${id}`)
+      .then(setDoc)
+      .catch(() => {})
   }, [id])
 
   const modesByName = useMemo(() => new Map(modes.map((m) => [m.name, m])), [modes])
@@ -164,10 +173,7 @@ export default function DocumentPage() {
           <>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 4 }}>
               <Box sx={{ flexGrow: 1 }}>
-                <Typography
-                  variant="h1"
-                  sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)' }}
-                >
+                <Typography variant="h1" sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)' }}>
                   {doc.title || 'Untitled'}
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1.5 }}>

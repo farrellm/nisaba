@@ -106,7 +106,9 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
               <Typography variant="h1" sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)' }}>
                 {doc.title || 'Untitled'}
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mt: 1.5 }}>
+              <Box
+                sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, mt: 1.5 }}
+              >
                 {doc.url && (
                   <MuiLink
                     href={doc.url}
@@ -210,7 +212,10 @@ function ReadOnlyField({
           sx: {
             cursor: 'pointer',
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-            '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
+            '&:focus-within .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main',
+              borderWidth: 2,
+            },
           },
         }}
       />
@@ -235,9 +240,7 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   // The last block's newest response opens in the structured view by default.
   const [structured, setStructured] = useState<Set<number>>(() =>
-    defaultOpen && responses.length > 0
-      ? new Set([responses[responses.length - 1].id])
-      : new Set(),
+    defaultOpen && responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set(),
   )
 
   function reveal(key: string) {
@@ -369,13 +372,25 @@ function ResponseDetails({
               >
                 <Box
                   component="summary"
-                  sx={{ cursor: 'pointer', fontFamily: fonts.mono, fontSize: '0.8rem', color: 'text.secondary' }}
+                  sx={{
+                    cursor: 'pointer',
+                    fontFamily: fonts.mono,
+                    fontSize: '0.8rem',
+                    color: 'text.secondary',
+                  }}
                 >
                   {seg.name}
                 </Box>
                 <Box
                   component="blockquote"
-                  sx={{ my: 1, ml: 0, pl: 2.5, borderLeft: '3px solid', borderColor: 'divider', color: 'text.secondary' }}
+                  sx={{
+                    my: 1,
+                    ml: 0,
+                    pl: 2.5,
+                    borderLeft: '3px solid',
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                  }}
                 >
                   {/* Escape '<' so nested tags render as literal text:
                       react-markdown drops raw HTML. */}
@@ -412,7 +427,10 @@ function Attributes({ attributes }: { attributes: Record<string, string> }) {
   if (keys.length === 0) return null
   return (
     <Box component="section" sx={{ py: 4, borderTop: '1px dotted', borderColor: 'divider', mt: 2 }}>
-      <Box component="details" sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}>
+      <Box
+        component="details"
+        sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
+      >
         <Box component="summary" sx={{ ...summarySx, mb: 3 }}>
           <Typography
             variant="overline"

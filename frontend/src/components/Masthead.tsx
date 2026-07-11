@@ -38,7 +38,12 @@ export default function Masthead({ active }: { active?: Section }) {
       <Stack direction="row" spacing={3} alignItems="baseline">
         <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
           <Typography
-            sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}
+            sx={{
+              fontFamily: fonts.display,
+              fontWeight: 600,
+              fontSize: '1.5rem',
+              letterSpacing: '-0.02em',
+            }}
           >
             Nisaba
           </Typography>
@@ -54,7 +59,13 @@ export default function Masthead({ active }: { active?: Section }) {
               {item.label}
             </Typography>
           ) : (
-            <MuiLink key={item.key} component={RouterLink} to={item.to} underline="hover" sx={navLinkSx}>
+            <MuiLink
+              key={item.key}
+              component={RouterLink}
+              to={item.to}
+              underline="hover"
+              sx={navLinkSx}
+            >
               {item.label}
             </MuiLink>
           ),

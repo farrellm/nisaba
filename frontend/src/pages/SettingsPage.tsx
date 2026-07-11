@@ -75,7 +75,12 @@ export default function SettingsPage() {
         <Stack direction="row" spacing={3} alignItems="baseline">
           <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
             <Typography
-              sx={{ fontFamily: fonts.display, fontWeight: 600, fontSize: '1.5rem', letterSpacing: '-0.02em' }}
+              sx={{
+                fontFamily: fonts.display,
+                fontWeight: 600,
+                fontSize: '1.5rem',
+                letterSpacing: '-0.02em',
+              }}
             >
               Nisaba
             </Typography>

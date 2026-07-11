@@ -102,7 +102,11 @@ export function wordDiff(before: string, after: string): DiffSegment[] {
 // word-level table even when the document as a whole was not. Only a region
 // that is itself over the cap degrades to a wholesale remove+add — a changed
 // region has no common lines left, so there is nothing coarser to anchor on.
-function diffLinesRefined(lineA: string[], lineB: string[], push: (type: DiffSegment['type'], text: string) => void) {
+function diffLinesRefined(
+  lineA: string[],
+  lineB: string[],
+  push: (type: DiffSegment['type'], text: string) => void,
+) {
   let removed = ''
   let added = ''
   const flush = () => {
@@ -137,7 +141,11 @@ function diffLinesRefined(lineA: string[], lineB: string[], push: (type: DiffSeg
 // diffTokens runs the LCS + backtrack core over two token arrays, emitting
 // segments through push. The table is a single flat Int32Array (row-major,
 // width m+1) rather than number[][] — same algorithm, ~10x less memory.
-function diffTokens(a: string[], b: string[], push: (type: DiffSegment['type'], text: string) => void) {
+function diffTokens(
+  a: string[],
+  b: string[],
+  push: (type: DiffSegment['type'], text: string) => void,
+) {
   const n = a.length
   const m = b.length
   const width = m + 1
@@ -236,7 +244,11 @@ function groupChanges(segments: DiffSegment[]): DiffSegment[] {
   return out
 }
 
-function absorbable(eq: string, prev: { remove: string; add: string }, next: { remove: string; add: string }): boolean {
+function absorbable(
+  eq: string,
+  prev: { remove: string; add: string },
+  next: { remove: string; add: string },
+): boolean {
   if (eq.includes('\n')) return false
   if (/^\s+$/.test(eq)) return true
   const wc = wordCount(eq)

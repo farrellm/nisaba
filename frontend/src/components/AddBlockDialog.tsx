@@ -78,7 +78,10 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
               sx={{ alignItems: 'flex-start', py: 0.5 }}
               label={
                 <span>
-                  <Typography component="span" sx={{ fontFamily: fonts.display, fontSize: '1.05rem' }}>
+                  <Typography
+                    component="span"
+                    sx={{ fontFamily: fonts.display, fontSize: '1.05rem' }}
+                  >
                     {mode.label}
                   </Typography>
                   <Typography

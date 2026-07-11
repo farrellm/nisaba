@@ -41,7 +41,15 @@ interface BlockCardProps {
 // BlockCard renders one block: its mode, editable key/values, a run action, and
 // the responses produced so far. The body is a collapsible <details>; the mode
 // header is the always-visible <summary>.
-const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onBlockUpdated, onBlockDeleted, onAfterRun, defaultOpen }: BlockCardProps) {
+const BlockCard = memo(function BlockCard({
+  block,
+  mode,
+  documentAttributes,
+  onBlockUpdated,
+  onBlockDeleted,
+  onAfterRun,
+  defaultOpen,
+}: BlockCardProps) {
   const keys = mode?.keys ?? Object.keys(block.attributes)
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
@@ -85,7 +93,8 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   }
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
-  const busy = saving || copying || running || deleting || reparsingId !== null || savingEditId !== null
+  const busy =
+    saving || copying || running || deleting || reparsingId !== null || savingEditId !== null
 
   // Save/Copy share one treatment: a quiet muted icon, ringed in accent when the
   // block has uncommitted edits. The clean-state border is transparent (not
@@ -259,7 +268,14 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
           >
             {mode?.label ?? block.mode}
           </Typography>
-          <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
+          <Box
+            sx={{
+              flex: 1,
+              borderBottom: '1px dotted',
+              borderColor: 'divider',
+              transform: 'translateY(-3px)',
+            }}
+          />
           <Tooltip title={deleting ? '' : armed ? 'Click again to confirm' : 'Delete block'}>
             <span>
               <IconButton
@@ -273,7 +289,10 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                   e.stopPropagation()
                   handleDeleteClick()
                 }}
-                sx={{ transform: 'translateY(-2px)', ...(armed ? {} : { color: 'text.disabled', '&:hover': { color: 'error.main' } }) }}
+                sx={{
+                  transform: 'translateY(-2px)',
+                  ...(armed ? {} : { color: 'text.disabled', '&:hover': { color: 'error.main' } }),
+                }}
               >
                 {deleting ? (
                   <CircularProgress size={18} color="error" />
@@ -322,7 +341,10 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                     sx: {
                       cursor: 'pointer',
                       '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                      '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
+                      '&:focus-within .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'primary.main',
+                        borderWidth: 2,
+                      },
                     },
                   }}
                 />
@@ -372,7 +394,9 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
         </Stack>
 
         {error && (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}
+          >
             {error}
           </Typography>
         )}
@@ -416,10 +440,17 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                   bgcolor: 'primary.main',
                   color: 'primary.contrastText',
                   '&:hover': { bgcolor: 'primary.dark' },
-                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' },
+                  '&.Mui-disabled': {
+                    bgcolor: 'action.disabledBackground',
+                    color: 'action.disabled',
+                  },
                 }}
               >
-                {running ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
+                {running ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : (
+                  <PlayArrowIcon fontSize="small" />
+                )}
               </IconButton>
             </span>
           </Tooltip>
@@ -429,7 +460,13 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
           <Box sx={{ mt: 3 }}>
             <Typography
               variant="overline"
-              sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem', display: 'block', mb: 1 }}
+              sx={{
+                fontFamily: fonts.mono,
+                color: 'text.secondary',
+                fontSize: '0.7rem',
+                display: 'block',
+                mb: 1,
+              }}
             >
               streaming…
             </Typography>
@@ -444,203 +481,216 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
               }}
             >
               {streamingText}
-              <Box component="span" sx={{ opacity: 0.5 }}>▌</Box>
+              <Box component="span" sx={{ opacity: 0.5 }}>
+                ▌
+              </Box>
             </Typography>
           </Box>
         )}
 
         {(block.responses ?? []).length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 3 }}>
-            {(block.responses ?? []).slice().reverse().map((response, idx) => (
-              <Box key={response.id} component="details" {...(idx === 0 ? { open: true } : {})}>
-                <Box
-                  component="summary"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    cursor: 'pointer',
-                    listStyle: 'none',
-                    '&::-webkit-details-marker': { display: 'none' },
-                    mb: 1,
-                  }}
-                >
-                  <Typography
-                    variant="overline"
-                    sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
-                  >
-                    {response.model || 'no model'}
-                  </Typography>
-                  <Box sx={{ flexGrow: 1 }} />
-                  {editingId === response.id ? (
-                    <>
-                      <Tooltip title="Save edit">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busy}
-                            aria-label="Save edited response"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleSaveEdit(response.id)
-                            }}
-                            sx={editActionSx(editValue !== response.value)}
-                          >
-                            {savingEditId === response.id ? (
-                              <CircularProgress size={18} />
-                            ) : (
-                              <SaveOutlinedIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Cancel edit">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busy}
-                            aria-label="Cancel editing response"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              cancelEdit()
-                            }}
-                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                          >
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <>
-                      <Tooltip title={structured.has(response.id) ? 'Raw view' : 'Structured view'}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            aria-label={structured.has(response.id) ? 'Show raw response' : 'Show structured response'}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              toggleStructured(response.id)
-                            }}
-                            sx={{
-                              color: structured.has(response.id) ? 'primary.main' : 'text.disabled',
-                              '&:hover': { color: 'primary.main' },
-                            }}
-                          >
-                            <DataObjectIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Edit response">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busy}
-                            aria-label="Edit response"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              startEdit(response.id, response.value)
-                            }}
-                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                          >
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Re-parse into document attributes">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busy}
-                            aria-label="Re-parse response into document attributes"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleReparse(response.id)
-                            }}
-                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                          >
-                            {reparsingId === response.id ? (
-                              <CircularProgress size={18} />
-                            ) : (
-                              <ReplayIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </>
-                  )}
-                </Box>
-                {editingId === response.id ? (
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={6}
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    autoFocus
-                    inputProps={{ 'aria-label': 'Edit response value' }}
-                    InputProps={{
-                      sx: { fontFamily: fonts.mono, fontSize: '0.85rem' },
+            {(block.responses ?? [])
+              .slice()
+              .reverse()
+              .map((response, idx) => (
+                <Box key={response.id} component="details" {...(idx === 0 ? { open: true } : {})}>
+                  <Box
+                    component="summary"
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      cursor: 'pointer',
+                      listStyle: 'none',
+                      '&::-webkit-details-marker': { display: 'none' },
+                      mb: 1,
                     }}
-                  />
-                ) : structured.has(response.id) ? (
-                  <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
-                    {parseResponseSegments(response.value).map((seg, segIdx) =>
-                      seg.kind === 'text' ? (
-                        <Markdown key={segIdx}>{seg.text}</Markdown>
-                      ) : (
-                        <Box
-                          key={segIdx}
-                          component="details"
-                          open
-                          sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
+                  >
+                    <Typography
+                      variant="overline"
+                      sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
+                    >
+                      {response.model || 'no model'}
+                    </Typography>
+                    <Box sx={{ flexGrow: 1 }} />
+                    {editingId === response.id ? (
+                      <>
+                        <Tooltip title="Save edit">
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={busy}
+                              aria-label="Save edited response"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleSaveEdit(response.id)
+                              }}
+                              sx={editActionSx(editValue !== response.value)}
+                            >
+                              {savingEditId === response.id ? (
+                                <CircularProgress size={18} />
+                              ) : (
+                                <SaveOutlinedIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="Cancel edit">
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={busy}
+                              aria-label="Cancel editing response"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                cancelEdit()
+                              }}
+                              sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                            >
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </>
+                    ) : (
+                      <>
+                        <Tooltip
+                          title={structured.has(response.id) ? 'Raw view' : 'Structured view'}
                         >
-                          <Box
-                            component="summary"
-                            sx={{
-                              cursor: 'pointer',
-                              fontFamily: fonts.mono,
-                              fontSize: '0.8rem',
-                              color: 'text.secondary',
-                            }}
-                          >
-                            {seg.name}
-                          </Box>
-                          <Box
-                            component="blockquote"
-                            sx={{
-                              my: 1,
-                              ml: 0,
-                              pl: 2.5,
-                              borderLeft: '3px solid',
-                              borderColor: 'divider',
-                              color: 'text.secondary',
-                            }}
-                          >
-                            {/* Escape '<' so nested tags render as literal text:
-                                react-markdown drops raw HTML. */}
-                            <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
-                          </Box>
-                        </Box>
-                      ),
+                          <span>
+                            <IconButton
+                              size="small"
+                              aria-label={
+                                structured.has(response.id)
+                                  ? 'Show raw response'
+                                  : 'Show structured response'
+                              }
+                              onClick={(e) => {
+                                e.preventDefault()
+                                toggleStructured(response.id)
+                              }}
+                              sx={{
+                                color: structured.has(response.id)
+                                  ? 'primary.main'
+                                  : 'text.disabled',
+                                '&:hover': { color: 'primary.main' },
+                              }}
+                            >
+                              <DataObjectIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="Edit response">
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={busy}
+                              aria-label="Edit response"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                startEdit(response.id, response.value)
+                              }}
+                              sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                            >
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                        <Tooltip title="Re-parse into document attributes">
+                          <span>
+                            <IconButton
+                              size="small"
+                              disabled={busy}
+                              aria-label="Re-parse response into document attributes"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleReparse(response.id)
+                              }}
+                              sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                            >
+                              {reparsingId === response.id ? (
+                                <CircularProgress size={18} />
+                              ) : (
+                                <ReplayIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </>
                     )}
                   </Box>
-                ) : (
-                  <Typography
-                    sx={{
-                      fontFamily: fonts.mono,
-                      fontSize: '0.85rem',
-                      whiteSpace: 'pre-wrap',
-                      bgcolor: 'action.hover',
-                      borderRadius: 2,
-                      p: 2,
-                    }}
-                  >
-                    {response.value}
-                  </Typography>
-                )}
-              </Box>
-            ))}
+                  {editingId === response.id ? (
+                    <TextField
+                      fullWidth
+                      multiline
+                      minRows={6}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      autoFocus
+                      inputProps={{ 'aria-label': 'Edit response value' }}
+                      InputProps={{
+                        sx: { fontFamily: fonts.mono, fontSize: '0.85rem' },
+                      }}
+                    />
+                  ) : structured.has(response.id) ? (
+                    <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
+                      {parseResponseSegments(response.value).map((seg, segIdx) =>
+                        seg.kind === 'text' ? (
+                          <Markdown key={segIdx}>{seg.text}</Markdown>
+                        ) : (
+                          <Box
+                            key={segIdx}
+                            component="details"
+                            open
+                            sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
+                          >
+                            <Box
+                              component="summary"
+                              sx={{
+                                cursor: 'pointer',
+                                fontFamily: fonts.mono,
+                                fontSize: '0.8rem',
+                                color: 'text.secondary',
+                              }}
+                            >
+                              {seg.name}
+                            </Box>
+                            <Box
+                              component="blockquote"
+                              sx={{
+                                my: 1,
+                                ml: 0,
+                                pl: 2.5,
+                                borderLeft: '3px solid',
+                                borderColor: 'divider',
+                                color: 'text.secondary',
+                              }}
+                            >
+                              {/* Escape '<' so nested tags render as literal text:
+                                react-markdown drops raw HTML. */}
+                              <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
+                            </Box>
+                          </Box>
+                        ),
+                      )}
+                    </Box>
+                  ) : (
+                    <Typography
+                      sx={{
+                        fontFamily: fonts.mono,
+                        fontSize: '0.85rem',
+                        whiteSpace: 'pre-wrap',
+                        bgcolor: 'action.hover',
+                        borderRadius: 2,
+                        p: 2,
+                      }}
+                    >
+                      {response.value}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
           </Stack>
         )}
       </Box>

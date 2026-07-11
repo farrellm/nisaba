@@ -1,5 +1,15 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, CircularProgress, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material'
+import {
+  Box,
+  Button,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material'
 import UnfoldMore from '@mui/icons-material/UnfoldMore'
 import OpenInNew from '@mui/icons-material/OpenInNew'
 import EditNote from '@mui/icons-material/EditNote'
@@ -110,13 +120,25 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
           >
             Attributes
           </Typography>
-          <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
+          <Box
+            sx={{
+              flex: 1,
+              borderBottom: '1px dotted',
+              borderColor: 'divider',
+              transform: 'translateY(-3px)',
+            }}
+          />
         </Box>
 
         <Stack direction="row" spacing={1.5} sx={{ mb: 3 }}>
           <Tooltip title={!dirty && !saving ? 'No unsaved changes' : ''}>
             <span>
-              <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || saving}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleSave}
+                disabled={!dirty || saving}
+              >
                 {saving ? (
                   <>
                     <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
@@ -131,98 +153,104 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         </Stack>
 
         {keys.length === 0 ? (
-        <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
-          No attributes yet.
-        </Typography>
-      ) : (
-        <Stack spacing={2}>
-          {keys.map((key) => {
-            const value = values[key] ?? ''
-            const previewLength = 80
-            const collapsed = !expanded.has(key) && value.length > previewLength
-            // Truncate in JS: iOS Safari won't apply -webkit-line-clamp to a
-            // <textarea>, so a CSS-only ellipsis goes missing on iPhone.
-            const preview = value.length > previewLength ? `${value.slice(0, previewLength)}…` : value
-            const field = collapsed ? (
-              <TextField
-                label={key}
-                value={preview}
-                multiline
-                maxRows={3}
-                onClick={() => reveal(key)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    reveal(key)
-                  }
-                }}
-                inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
-                InputProps={{
-                  readOnly: true,
-                  endAdornment: (
-                    <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-                      <UnfoldMore fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  sx: {
-                    cursor: 'pointer',
-                    // Clip overflow beyond maxRows instead of showing a scrollbar.
-                    '& textarea': { overflow: 'hidden !important' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                    '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
-                  },
-                }}
-              />
-            ) : (
-              <TextField
-                label={key}
-                value={value}
-                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                // Once focused, the field counts as expanded so typing past the
-                // collapse threshold can't swap the editor out mid-keystroke.
-                onFocus={() => reveal(key)}
-                multiline
-                minRows={1}
-              />
-            )
-            return (
-              <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                <Box sx={{ flex: 1 }}>{field}</Box>
-                <Stack spacing={0.25} sx={{ mt: 1 }}>
-                  <Tooltip title="View as markdown">
-                    <IconButton
-                      component="a"
-                      href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
-                      target="_blank"
-                      rel="noopener"
-                      aria-label={`View ${key} as markdown`}
-                      size="small"
-                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                    >
-                      <OpenInNew fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {value.length > previewLength && (
-                    <Tooltip title="Edit rich text">
+          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
+            No attributes yet.
+          </Typography>
+        ) : (
+          <Stack spacing={2}>
+            {keys.map((key) => {
+              const value = values[key] ?? ''
+              const previewLength = 80
+              const collapsed = !expanded.has(key) && value.length > previewLength
+              // Truncate in JS: iOS Safari won't apply -webkit-line-clamp to a
+              // <textarea>, so a CSS-only ellipsis goes missing on iPhone.
+              const preview =
+                value.length > previewLength ? `${value.slice(0, previewLength)}…` : value
+              const field = collapsed ? (
+                <TextField
+                  label={key}
+                  value={preview}
+                  multiline
+                  maxRows={3}
+                  onClick={() => reveal(key)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      reveal(key)
+                    }
+                  }}
+                  inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
+                  InputProps={{
+                    readOnly: true,
+                    endAdornment: (
+                      <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
+                        <UnfoldMore fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      cursor: 'pointer',
+                      // Clip overflow beyond maxRows instead of showing a scrollbar.
+                      '& textarea': { overflow: 'hidden !important' },
+                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                      '&:focus-within .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'primary.main',
+                        borderWidth: 2,
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <TextField
+                  label={key}
+                  value={value}
+                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                  // Once focused, the field counts as expanded so typing past the
+                  // collapse threshold can't swap the editor out mid-keystroke.
+                  onFocus={() => reveal(key)}
+                  multiline
+                  minRows={1}
+                />
+              )
+              return (
+                <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1 }}>{field}</Box>
+                  <Stack spacing={0.25} sx={{ mt: 1 }}>
+                    <Tooltip title="View as markdown">
                       <IconButton
-                        onClick={() => setEditingKey(key)}
-                        aria-label={`Edit ${key} in rich text editor`}
+                        component="a"
+                        href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label={`View ${key} as markdown`}
                         size="small"
                         sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
                       >
-                        <EditNote fontSize="small" />
+                        <OpenInNew fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                  )}
+                    {value.length > previewLength && (
+                      <Tooltip title="Edit rich text">
+                        <IconButton
+                          onClick={() => setEditingKey(key)}
+                          aria-label={`Edit ${key} in rich text editor`}
+                          size="small"
+                          sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                        >
+                          <EditNote fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Stack>
                 </Stack>
-              </Stack>
-            )
-          })}
-        </Stack>
-      )}
+              )
+            })}
+          </Stack>
+        )}
 
         {error && (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
+          <Typography
+            sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}
+          >
             {error}
           </Typography>
         )}

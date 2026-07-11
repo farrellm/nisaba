@@ -11,8 +11,7 @@
 // repeated same-name opening tag as an implicit close before the second open.
 
 export type ResponseSegment =
-  | { kind: 'text'; text: string }
-  | { kind: 'tag'; name: string; inner: string }
+  { kind: 'text'; text: string } | { kind: 'tag'; name: string; inner: string }
 
 export function parseResponseSegments(s: string): ResponseSegment[] {
   const out: ResponseSegment[] = []
@@ -81,7 +80,11 @@ export function parseResponseSegments(s: string): ResponseSegment[] {
 // (both indices point at the second open's '<', so the caller re-parses it as a
 // fresh element). Self-closing same-name tags are treated as body and skipped.
 // Returns null when no boundary exists.
-function findMatchingClose(s: string, from: number, name: string): { start: number; after: number } | null {
+function findMatchingClose(
+  s: string,
+  from: number,
+  name: string,
+): { start: number; after: number } | null {
   let i = from
   while (i < s.length) {
     const lt = s.indexOf('<', i)
@@ -93,7 +96,11 @@ function findMatchingClose(s: string, from: number, name: string): { start: numb
 
     if (inner.startsWith('/')) {
       if (tagName(inner.slice(1)) === name) return { start: i, after: gt + 1 }
-    } else if (isNameStart(inner[0] ?? '') && tagName(inner) === name && !inner.trim().endsWith('/')) {
+    } else if (
+      isNameStart(inner[0] ?? '') &&
+      tagName(inner) === name &&
+      !inner.trim().endsWith('/')
+    ) {
       // Repeated open of the same name: implicitly close just before it.
       return { start: i, after: i }
     }
