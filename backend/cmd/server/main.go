@@ -16,6 +16,7 @@ import (
 	"github.com/farrellm/nisaba/internal/db"
 	"github.com/farrellm/nisaba/internal/handler"
 	"github.com/farrellm/nisaba/internal/mode"
+	"github.com/farrellm/nisaba/internal/reddit"
 	"github.com/farrellm/nisaba/internal/store"
 )
 
@@ -91,9 +92,9 @@ func main() {
 				r.Get("/{id}", handler.GetCharlotteDocument(cs))
 				r.Post("/{id}/import", handler.ImportCharlotteDocument(cs, st))
 			})
-			redditAuth := handler.NewRedditAuth(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
-			r.Get("/reddit/posts", handler.ListRedditPosts(st, redditAuth))
-			r.Get("/reddit/post", handler.GetRedditPost(redditAuth))
+			redditClient := reddit.NewClient(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword)
+			r.Get("/reddit/posts", handler.ListRedditPosts(st, redditClient))
+			r.Get("/reddit/post", handler.GetRedditPost(redditClient))
 
 			r.Route("/documents", func(r chi.Router) {
 				r.Get("/", handler.ListDocuments(st))
@@ -106,7 +107,7 @@ func main() {
 					r.Delete("/", handler.DeleteDocument(st))
 					r.Post("/suggest-labels", handler.SuggestDocumentLabels(st))
 					r.Post("/recommend-labels", handler.RecommendDocumentLabels(st))
-					r.Post("/reddit-submit", handler.SubmitRedditPost(st, redditAuth))
+					r.Post("/reddit-submit", handler.SubmitRedditPost(st, redditClient))
 
 					r.Route("/blocks", func(r chi.Router) {
 						r.Post("/", handler.CreateBlock(st))

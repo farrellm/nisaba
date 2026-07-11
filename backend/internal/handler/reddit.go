@@ -1,204 +1,60 @@
 package handler
 
 import (
-	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/farrellm/nisaba/internal/auth"
+	"github.com/farrellm/nisaba/internal/reddit"
 	"github.com/farrellm/nisaba/internal/store"
 )
 
-// redditClient is the shared HTTP client for outbound Reddit requests. It has an
-// explicit timeout (unlike http.DefaultClient) so a slow upstream can't hang the
-// handler indefinitely.
-var redditClient = &http.Client{Timeout: 10 * time.Second}
-
-// redditNoRedirectClient is used to peek at the Location of a Reddit share link
-// (…/s/<id>) without following it, so we can extract and re-validate the
-// canonical permalink it points at rather than chasing the redirect blindly.
-var redditNoRedirectClient = &http.Client{
-	Timeout: 10 * time.Second,
-	CheckRedirect: func(*http.Request, []*http.Request) error {
-		return http.ErrUseLastResponse
-	},
-}
-
-// redditUserAgent identifies this app to Reddit. Reddit requires a descriptive
-// User-Agent on every request, including the OAuth token exchange.
-const redditUserAgent = "nisaba/1.0 (writing prompt importer)"
-
-// redditAuth fetches and caches an application-only OAuth token (the
-// client_credentials grant), which Reddit requires now that anonymous JSON
-// access is blocked. The token is shared across requests and refreshed shortly
-// before it expires.
-type redditAuth struct {
-	clientID     string
-	clientSecret string
-	// username/password authenticate a script-app account for submitting posts
-	// (the password grant). They are optional: reading uses the app-only token
-	// above, submitting needs a user identity.
-	username string
-	password string
-
-	mu      sync.Mutex
-	token   string
-	expires time.Time
-}
-
-// invalidate forces the next accessToken call to fetch a fresh token (e.g. after
-// Reddit rejects the current one with 401).
-func (a *redditAuth) invalidate() {
-	a.mu.Lock()
-	a.token = ""
-	a.mu.Unlock()
-}
-
-func (a *redditAuth) accessToken(ctx context.Context) (string, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.token != "" && time.Now().Before(a.expires) {
-		return a.token, nil
+// writeRedditError maps a reddit.Client error onto the HTTP response.
+// notFoundMsg names the missing resource (subreddit vs post) for 404s.
+func writeRedditError(w http.ResponseWriter, r *http.Request, err error, notFoundMsg string) {
+	var statusErr *reddit.StatusError
+	var submitErr *reddit.SubmitError
+	switch {
+	case errors.Is(err, reddit.ErrInvalidURL):
+		writeError(w, http.StatusBadRequest, "Not a Reddit URL")
+	case errors.Is(err, reddit.ErrShareResolve):
+		writeError(w, http.StatusBadGateway, "Could not resolve Reddit share link")
+	case errors.Is(err, reddit.ErrAuth):
+		writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+	case errors.Is(err, reddit.ErrUnreachable):
+		writeError(w, http.StatusBadGateway, "Could not reach Reddit")
+	case errors.Is(err, reddit.ErrNotFound):
+		writeError(w, http.StatusNotFound, notFoundMsg)
+	case errors.Is(err, reddit.ErrRateLimited):
+		writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
+	case errors.Is(err, reddit.ErrRejected):
+		writeError(w, http.StatusBadGateway, "Reddit rejected the request; try again")
+	case errors.Is(err, reddit.ErrBadResponse):
+		writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
+	case errors.As(err, &statusErr):
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", statusErr.Code))
+	case errors.As(err, &submitErr):
+		writeError(w, http.StatusBadRequest, submitErr.Message)
+	default:
+		// Only request construction can land here; it never should.
+		internalError(w, r, "Could not build request", err)
 	}
-
-	form := url.Values{"grant_type": {"client_credentials"}}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://www.reddit.com/api/v1/access_token", strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	req.SetBasicAuth(a.clientID, a.clientSecret)
-	req.Header.Set("User-Agent", redditUserAgent)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := redditClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("reddit token request returned %d", resp.StatusCode)
-	}
-
-	var body struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", err
-	}
-	if body.AccessToken == "" {
-		return "", fmt.Errorf("reddit token response missing access_token")
-	}
-
-	a.token = body.AccessToken
-	// Refresh a minute before expiry to avoid racing the boundary.
-	a.expires = time.Now().Add(time.Duration(body.ExpiresIn-60) * time.Second)
-	return a.token, nil
-}
-
-// redditListing mirrors the shape of Reddit's /new listing response (only the
-// fields we use). The OAuth endpoint returns the same structure as the old
-// /new.json endpoint.
-type redditListing struct {
-	Data struct {
-		Children []struct {
-			Data struct {
-				Title     string `json:"title"`
-				Permalink string `json:"permalink"`
-				Author    string `json:"author"`
-			} `json:"data"`
-		} `json:"children"`
-	} `json:"data"`
-}
-
-// redditPost is the trimmed post we return to the frontend.
-type redditPost struct {
-	Title  string `json:"title"`
-	URL    string `json:"url"`
-	Author string `json:"author"`
-}
-
-// NewRedditAuth creates a shared OAuth token holder for the Reddit handlers, so
-// the listing and single-post endpoints reuse one cached application-only token.
-// username/password are optional and only used to submit posts.
-func NewRedditAuth(clientID, clientSecret, username, password string) *redditAuth {
-	return &redditAuth{
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		username:     username,
-		password:     password,
-	}
-}
-
-// configured reports whether Reddit credentials were supplied.
-func (a *redditAuth) configured() bool {
-	return a.clientID != "" && a.clientSecret != ""
-}
-
-// canSubmit reports whether the script-app account credentials needed to submit
-// a post (in addition to the app credentials) were supplied.
-func (a *redditAuth) canSubmit() bool {
-	return a.configured() && a.username != "" && a.password != ""
-}
-
-// userAccessToken fetches a fresh user-context OAuth token via the password
-// grant, authenticating as the configured script-app account. Unlike the
-// application-only token it is not cached: submissions are infrequent, and a
-// per-submit fetch avoids tangling with the cached app token (a.token).
-func (a *redditAuth) userAccessToken(ctx context.Context) (string, error) {
-	form := url.Values{
-		"grant_type": {"password"},
-		"username":   {a.username},
-		"password":   {a.password},
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://www.reddit.com/api/v1/access_token", strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	req.SetBasicAuth(a.clientID, a.clientSecret)
-	req.Header.Set("User-Agent", redditUserAgent)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := redditClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("reddit token request returned %d", resp.StatusCode)
-	}
-
-	var body struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", err
-	}
-	if body.AccessToken == "" {
-		return "", fmt.Errorf("reddit token response missing access_token")
-	}
-	return body.AccessToken, nil
 }
 
 // ListRedditPosts fetches the newest posts from the logged-in user's configured
 // subreddit via Reddit's application-only OAuth API and returns their titles and
 // permalink URLs. Anonymous access is blocked by Reddit, so clientID/secret from
 // a registered app are required.
-func ListRedditPosts(st *store.Store, ra *redditAuth) http.HandlerFunc {
+func ListRedditPosts(st *store.Store, rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := auth.UserIDFrom(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		if !ra.configured() {
+		if !rc.Configured() {
 			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
 			return
 		}
@@ -209,169 +65,25 @@ func ListRedditPosts(st *store.Store, ra *redditAuth) http.HandlerFunc {
 			return
 		}
 
-		token, err := ra.accessToken(r.Context())
+		posts, err := rc.NewestPosts(r.Context(), user.Subreddit)
 		if err != nil {
-			writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+			writeRedditError(w, r, err, "Subreddit not found")
 			return
-		}
-
-		// The subreddit is read server-side and escaped as defense in depth, even
-		// though it is validated on save.
-		endpoint := "https://oauth.reddit.com/r/" + url.PathEscape(user.Subreddit) + "/new?limit=25"
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
-		if err != nil {
-			internalError(w, r, "Could not build request", err)
-			return
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("User-Agent", redditUserAgent)
-
-		resp, err := redditClient.Do(req)
-		if err != nil {
-			writeError(w, http.StatusBadGateway, "Could not reach Reddit")
-			return
-		}
-		defer resp.Body.Close()
-
-		switch resp.StatusCode {
-		case http.StatusOK:
-			// fall through to decode
-		case http.StatusNotFound:
-			writeError(w, http.StatusNotFound, "Subreddit not found")
-			return
-		case http.StatusTooManyRequests:
-			writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
-			return
-		case http.StatusUnauthorized:
-			// Cached token may be stale; drop it so the next attempt refreshes.
-			ra.invalidate()
-			writeError(w, http.StatusBadGateway, "Reddit rejected the request; try again")
-			return
-		default:
-			writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", resp.StatusCode))
-			return
-		}
-
-		var listing redditListing
-		if err := json.NewDecoder(resp.Body).Decode(&listing); err != nil {
-			writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
-			return
-		}
-
-		posts := make([]redditPost, 0, len(listing.Data.Children))
-		for _, c := range listing.Data.Children {
-			posts = append(posts, redditPost{
-				Title:  c.Data.Title,
-				URL:    "https://www.reddit.com" + c.Data.Permalink,
-				Author: c.Data.Author,
-			})
 		}
 		writeJSON(w, http.StatusOK, posts)
 	}
 }
 
-// redditPostPath validates a user-supplied Reddit post URL and returns the safe,
-// traversal-free path to forward to oauth.reddit.com. ok is false for any
-// non-Reddit host, non-permalink path, or path containing dot-segments (which
-// would otherwise let "../" traverse to another oauth.reddit.com endpoint once
-// the upstream resolves it — SSRF). The dot-segment check runs on the decoded
-// path: EscapedPath() is always a consistent escaping of Path, so a decoded path
-// free of "."/".." segments cannot produce traversal in either literal ("../")
-// or percent-encoded ("%2e%2e") form.
-func redditPostPath(raw string) (path string, ok bool) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return "", false
-	}
-	// Tolerate URLs pasted without a scheme (e.g. "www.reddit.com/r/…"),
-	// which url.Parse would otherwise treat as a path with no host.
-	if !strings.Contains(raw, "://") {
-		raw = "https://" + raw
-	}
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Host == "" {
-		return "", false
-	}
-	host := strings.ToLower(parsed.Hostname())
-	if host != "reddit.com" && !strings.HasSuffix(host, ".reddit.com") {
-		return "", false
-	}
-	// Accept post permalinks (…/comments/<id>/…), which return the 2-element
-	// array the caller decodes, and share links (…/s/<id>), which redirect to a
-	// permalink and are resolved before the API call. Reject subreddit/user/home
-	// URLs up front.
-	if !strings.Contains(parsed.Path, "/comments/") && !isRedditShareLink(parsed.Path) {
-		return "", false
-	}
-	for _, seg := range strings.Split(parsed.Path, "/") {
-		if seg == "." || seg == ".." {
-			return "", false
-		}
-	}
-
-	// Reject paths with encoded dots or slashes which might bypass traversal checks
-	// depending on how the upstream server normalizes the path.
-	// Check both Path (for double-encoding resolved to single-encoding) and
-	// RawPath (for single-encoding preserved raw).
-	lowerPath := strings.ToLower(parsed.Path)
-	lowerRawPath := strings.ToLower(parsed.RawPath)
-	if strings.Contains(lowerPath, "%2e") || strings.Contains(lowerPath, "%2f") ||
-		strings.Contains(lowerRawPath, "%2e") || strings.Contains(lowerRawPath, "%2f") ||
-		strings.Contains(lowerRawPath, "%252e") || strings.Contains(lowerRawPath, "%252f") {
-		return "", false
-	}
-
-	// Use the escaped path so reserved characters survive the round-trip.
-	return strings.TrimRight(parsed.EscapedPath(), "/"), true
-}
-
-// isRedditShareLink reports whether path is a Reddit share link of the form
-// /r/<sub>/s/<id> (or /u/... , /user/...), which Reddit issues from the mobile
-// "share" action and redirects to the canonical comments permalink.
-func isRedditShareLink(path string) bool {
-	segs := strings.Split(strings.Trim(path, "/"), "/")
-	return len(segs) == 4 && segs[2] == "s"
-}
-
-// resolveRedditSharePath expands a Reddit share link (…/s/<id>) to its canonical
-// comments permalink path by reading the redirect Reddit issues for it. Paths
-// that are already permalinks are returned unchanged. The redirect target is
-// re-validated through redditPostPath so the SSRF guards apply to it too.
-func resolveRedditSharePath(ctx context.Context, path string) (string, bool) {
-	if !isRedditShareLink(path) {
-		return path, true
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.reddit.com"+path, nil)
-	if err != nil {
-		return "", false
-	}
-	req.Header.Set("User-Agent", redditUserAgent)
-	resp, err := redditNoRedirectClient.Do(req)
-	if err != nil {
-		return "", false
-	}
-	defer resp.Body.Close()
-	loc := resp.Header.Get("Location")
-	if loc == "" {
-		return "", false
-	}
-	resolved, ok := redditPostPath(loc)
-	if !ok || isRedditShareLink(resolved) {
-		return "", false
-	}
-	return resolved, true
-}
-
 // GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
 // OAuth API and returns its title and normalized permalink URL. It lets users
 // import a specific post that isn't in the subreddit's newest listing.
-func GetRedditPost(ra *redditAuth) http.HandlerFunc {
+func GetRedditPost(rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := auth.UserIDFrom(r.Context()); !ok {
 			writeError(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
-		if !ra.configured() {
+		if !rc.Configured() {
 			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
 			return
 		}
@@ -381,74 +93,13 @@ func GetRedditPost(ra *redditAuth) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "Missing url")
 			return
 		}
-		path, ok := redditPostPath(raw)
-		if !ok {
-			writeError(w, http.StatusBadRequest, "Not a Reddit URL")
-			return
-		}
-		path, ok = resolveRedditSharePath(r.Context(), path)
-		if !ok {
-			writeError(w, http.StatusBadGateway, "Could not resolve Reddit share link")
-			return
-		}
 
-		token, err := ra.accessToken(r.Context())
+		post, err := rc.FetchPost(r.Context(), raw)
 		if err != nil {
-			writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+			writeRedditError(w, r, err, "Post not found")
 			return
 		}
-
-		endpoint := "https://oauth.reddit.com" + path + "?raw_json=1&limit=1"
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
-		if err != nil {
-			internalError(w, r, "Could not build request", err)
-			return
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("User-Agent", redditUserAgent)
-
-		resp, err := redditClient.Do(req)
-		if err != nil {
-			writeError(w, http.StatusBadGateway, "Could not reach Reddit")
-			return
-		}
-		defer resp.Body.Close()
-
-		switch resp.StatusCode {
-		case http.StatusOK:
-			// fall through to decode
-		case http.StatusNotFound:
-			writeError(w, http.StatusNotFound, "Post not found")
-			return
-		case http.StatusTooManyRequests:
-			writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
-			return
-		case http.StatusUnauthorized:
-			ra.invalidate()
-			writeError(w, http.StatusBadGateway, "Reddit rejected the request; try again")
-			return
-		default:
-			writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", resp.StatusCode))
-			return
-		}
-
-		// The comments endpoint returns a 2-element array: [post listing, comments].
-		var listings []redditListing
-		if err := json.NewDecoder(resp.Body).Decode(&listings); err != nil {
-			writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
-			return
-		}
-		if len(listings) == 0 || len(listings[0].Data.Children) == 0 {
-			writeError(w, http.StatusNotFound, "Post not found")
-			return
-		}
-
-		data := listings[0].Data.Children[0].Data
-		writeJSON(w, http.StatusOK, redditPost{
-			Title:  data.Title,
-			URL:    "https://www.reddit.com" + data.Permalink,
-			Author: data.Author,
-		})
+		writeJSON(w, http.StatusOK, post)
 	}
 }
 
@@ -459,13 +110,13 @@ func GetRedditPost(ra *redditAuth) http.HandlerFunc {
 // this needs REDDIT_USERNAME/PASSWORD in addition to the app credentials and
 // reports 503 when they're absent. It is nested under /documents/{id} so the
 // returned post URL is saved against that document.
-func SubmitRedditPost(st *store.Store, ra *redditAuth) http.HandlerFunc {
+func SubmitRedditPost(st *store.Store, rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
-		if !ra.canSubmit() {
+		if !rc.CanSubmit() {
 			writeError(w, http.StatusServiceUnavailable, "Reddit posting is not configured")
 			return
 		}
@@ -490,72 +141,14 @@ func SubmitRedditPost(st *store.Store, ra *redditAuth) http.HandlerFunc {
 			return
 		}
 
-		token, err := ra.userAccessToken(r.Context())
+		postURL, err := rc.SubmitSelfPost(r.Context(), user.Subreddit, title, body.Body)
 		if err != nil {
-			writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+			writeRedditError(w, r, err, "Post not found")
 			return
 		}
 
-		form := url.Values{
-			"sr":       {user.Subreddit},
-			"kind":     {"self"},
-			"title":    {title},
-			"text":     {body.Body},
-			"api_type": {"json"},
-		}
-		req, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
-			"https://oauth.reddit.com/api/submit", strings.NewReader(form.Encode()))
-		if err != nil {
-			internalError(w, r, "Could not build request", err)
-			return
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("User-Agent", redditUserAgent)
-		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-		resp, err := redditClient.Do(req)
-		if err != nil {
-			writeError(w, http.StatusBadGateway, "Could not reach Reddit")
-			return
-		}
-		defer resp.Body.Close()
-
-		switch resp.StatusCode {
-		case http.StatusOK:
-			// fall through to decode; Reddit reports logical errors in the body.
-		case http.StatusTooManyRequests:
-			writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
-			return
-		default:
-			writeError(w, http.StatusBadGateway, fmt.Sprintf("Reddit returned an unexpected status (%d)", resp.StatusCode))
-			return
-		}
-
-		// On a 200 Reddit still reports validation failures (banned, rate limit,
-		// empty title, …) in json.errors as [code, message, field] triples.
-		var submitResp struct {
-			JSON struct {
-				Errors [][]string `json:"errors"`
-				Data   struct {
-					URL string `json:"url"`
-				} `json:"data"`
-			} `json:"json"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&submitResp); err != nil {
-			writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
-			return
-		}
-		if len(submitResp.JSON.Errors) > 0 {
-			msg := "Reddit rejected the post"
-			if e := submitResp.JSON.Errors[0]; len(e) >= 2 && e[1] != "" {
-				msg = e[1]
-			}
-			writeError(w, http.StatusBadRequest, msg)
-			return
-		}
-
-		if url := submitResp.JSON.Data.URL; url != "" {
-			if err := st.AddDocumentPost(r.Context(), doc.ID, url); err != nil {
+		if postURL != "" {
+			if err := st.AddDocumentPost(r.Context(), doc.ID, postURL); err != nil {
 				internalError(w, r, "Posted, but could not save the post URL", err)
 				return
 			}
