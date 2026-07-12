@@ -1,16 +1,7 @@
 import { memo, useState } from 'react'
-import {
-  Box,
-  CircularProgress,
-  IconButton,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material'
+import { Box, CircularProgress, IconButton, Stack, Tooltip, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import DataObjectIcon from '@mui/icons-material/DataObject'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -23,10 +14,11 @@ import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
 import AuthorField from './AuthorField'
 import CollapsibleValueField from './CollapsibleValueField'
-import Markdown from './Markdown'
+import ResponseView from './ResponseView'
 import StatusLine from './StatusLine'
+import StreamingPreview from './StreamingPreview'
 import type { Block, Mode } from '../api/types'
-import { parseResponseSegments } from '../lib/responseSegments'
+import { StreamBuffer } from '../lib/streamBuffer'
 import { fonts } from '../theme'
 import { leaderSx, summarySx } from '../lib/styles'
 import { addToSet, toggleSet } from '../lib/sets'
@@ -65,9 +57,10 @@ const BlockCard = memo(function BlockCard({
   const [saving, setSaving] = useState(false)
   const [copying, setCopying] = useState(false)
   const [running, setRunning] = useState(false)
-  // Transient text accumulated while a streamed run is in flight; null when not
-  // streaming. Rendered as a live preview until the final block replaces it.
-  const [streamingText, setStreamingText] = useState<string | null>(null)
+  // The in-flight streamed run's text buffer; null when not streaming. The
+  // StreamingPreview below subscribes to it, so per-delta re-renders stay out
+  // of this (large) component.
+  const [stream, setStream] = useState<StreamBuffer | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -152,6 +145,8 @@ const BlockCard = memo(function BlockCard({
   async function handleRun() {
     setError(null)
     setRunning(true)
+    const buffer = user?.streamingEnabled ? new StreamBuffer() : null
+    if (buffer) setStream(buffer)
     try {
       // Always stream so the server's keepalive pings keep the connection warm
       // through a long run (avoids proxy 504s). The streamingEnabled setting only
@@ -159,21 +154,19 @@ const BlockCard = memo(function BlockCard({
       const updated = await api.postStream<Block>(
         `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
         { attributes: values },
-        user?.streamingEnabled
-          ? (text) => setStreamingText((prev) => (prev ?? '') + text)
-          : () => {},
+        buffer ? (text) => buffer.push(text) : () => {},
         'block',
       )
       // A freshly run response opens in the structured view by default — except
       // for streamed runs, which stay in the raw view the user just watched.
       const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
-      if (fresh && !user?.streamingEnabled) setStructured((prev) => new Set(prev).add(fresh.id))
+      if (fresh && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, fresh.id))
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
       setError(errorMessage(err, 'Could not run. Try again.'))
     } finally {
-      setStreamingText(null)
+      setStream(null)
       setRunning(false)
     }
   }
@@ -378,37 +371,7 @@ const BlockCard = memo(function BlockCard({
           </Tooltip>
         </Stack>
 
-        {streamingText !== null && (
-          <Box sx={{ mt: 3 }}>
-            <Typography
-              variant="overline"
-              sx={{
-                fontFamily: fonts.mono,
-                color: 'text.secondary',
-                fontSize: '0.7rem',
-                display: 'block',
-                mb: 1,
-              }}
-            >
-              streaming…
-            </Typography>
-            <Typography
-              sx={{
-                fontFamily: fonts.mono,
-                fontSize: '0.85rem',
-                whiteSpace: 'pre-wrap',
-                bgcolor: 'action.hover',
-                borderRadius: 2,
-                p: 2,
-              }}
-            >
-              {streamingText}
-              <Box component="span" sx={{ opacity: 0.5 }}>
-                ▌
-              </Box>
-            </Typography>
-          </Box>
-        )}
+        {stream && <StreamingPreview stream={stream} />}
 
         {(block.responses ?? []).length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 3 }}>
@@ -416,202 +379,104 @@ const BlockCard = memo(function BlockCard({
               .slice()
               .reverse()
               .map((response, idx) => (
-                <Box key={response.id} component="details" {...(idx === 0 ? { open: true } : {})}>
-                  <Box
-                    component="summary"
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      cursor: 'pointer',
-                      listStyle: 'none',
-                      '&::-webkit-details-marker': { display: 'none' },
-                      mb: 1,
-                    }}
-                  >
-                    <Typography
-                      variant="overline"
-                      sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
-                    >
-                      {response.model || 'no model'}
-                    </Typography>
-                    <Box sx={{ flexGrow: 1 }} />
-                    {editingId === response.id ? (
-                      <>
-                        <Tooltip title="Save edit">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={busy}
-                              aria-label="Save edited response"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleSaveEdit(response.id)
-                              }}
-                              sx={editActionSx(editValue !== response.value)}
-                            >
-                              {savingEditId === response.id ? (
-                                <CircularProgress size={18} />
-                              ) : (
-                                <SaveOutlinedIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title="Cancel edit">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={busy}
-                              aria-label="Cancel editing response"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                cancelEdit()
-                              }}
-                              sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                            >
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </>
-                    ) : (
-                      <>
-                        <Tooltip
-                          title={structured.has(response.id) ? 'Raw view' : 'Structured view'}
-                        >
-                          <span>
-                            <IconButton
-                              size="small"
-                              aria-label={
-                                structured.has(response.id)
-                                  ? 'Show raw response'
-                                  : 'Show structured response'
-                              }
-                              onClick={(e) => {
-                                e.preventDefault()
-                                toggleStructured(response.id)
-                              }}
-                              sx={{
-                                color: structured.has(response.id)
-                                  ? 'primary.main'
-                                  : 'text.disabled',
-                                '&:hover': { color: 'primary.main' },
-                              }}
-                            >
-                              <DataObjectIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title="Edit response">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={busy}
-                              aria-label="Edit response"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                startEdit(response.id, response.value)
-                              }}
-                              sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                            >
-                              <EditOutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                        <Tooltip title="Re-parse into document attributes">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={busy}
-                              aria-label="Re-parse response into document attributes"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleReparse(response.id)
-                              }}
-                              sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                            >
-                              {reparsingId === response.id ? (
-                                <CircularProgress size={18} />
-                              ) : (
-                                <ReplayIcon fontSize="small" />
-                              )}
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </>
-                    )}
-                  </Box>
-                  {editingId === response.id ? (
-                    <TextField
-                      fullWidth
-                      multiline
-                      minRows={6}
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      autoFocus
-                      inputProps={{ 'aria-label': 'Edit response value' }}
-                      InputProps={{
-                        sx: { fontFamily: fonts.mono, fontSize: '0.85rem' },
-                      }}
-                    />
-                  ) : structured.has(response.id) ? (
-                    <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
-                      {parseResponseSegments(response.value).map((seg, segIdx) =>
-                        seg.kind === 'text' ? (
-                          <Markdown key={segIdx}>{seg.text}</Markdown>
-                        ) : (
-                          <Box
-                            key={segIdx}
-                            component="details"
-                            open
-                            sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
+                <ResponseView
+                  key={response.id}
+                  response={response}
+                  defaultOpen={idx === 0}
+                  structured={structured.has(response.id)}
+                  onToggleStructured={() => toggleStructured(response.id)}
+                  actions={
+                    <>
+                      <Tooltip title="Edit response">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={busy}
+                            aria-label="Edit response"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              startEdit(response.id, response.value)
+                            }}
+                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
                           >
-                            <Box
-                              component="summary"
-                              sx={{
-                                cursor: 'pointer',
-                                fontFamily: fonts.mono,
-                                fontSize: '0.8rem',
-                                color: 'text.secondary',
-                              }}
-                            >
-                              {seg.name}
-                            </Box>
-                            <Box
-                              component="blockquote"
-                              sx={{
-                                my: 1,
-                                ml: 0,
-                                pl: 2.5,
-                                borderLeft: '3px solid',
-                                borderColor: 'divider',
-                                color: 'text.secondary',
-                              }}
-                            >
-                              {/* Escape '<' so nested tags render as literal text:
-                                react-markdown drops raw HTML. */}
-                              <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
-                            </Box>
-                          </Box>
-                        ),
-                      )}
-                    </Box>
-                  ) : (
-                    <Typography
-                      sx={{
-                        fontFamily: fonts.mono,
-                        fontSize: '0.85rem',
-                        whiteSpace: 'pre-wrap',
-                        bgcolor: 'action.hover',
-                        borderRadius: 2,
-                        p: 2,
-                      }}
-                    >
-                      {response.value}
-                    </Typography>
-                  )}
-                </Box>
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Re-parse into document attributes">
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={busy}
+                            aria-label="Re-parse response into document attributes"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              handleReparse(response.id)
+                            }}
+                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+                          >
+                            {reparsingId === response.id ? (
+                              <CircularProgress size={18} />
+                            ) : (
+                              <ReplayIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </>
+                  }
+                  editing={
+                    editingId === response.id
+                      ? {
+                          value: editValue,
+                          onChange: setEditValue,
+                          actions: (
+                            <>
+                              <Tooltip title="Save edit">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={busy}
+                                    aria-label="Save edited response"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      handleSaveEdit(response.id)
+                                    }}
+                                    sx={editActionSx(editValue !== response.value)}
+                                  >
+                                    {savingEditId === response.id ? (
+                                      <CircularProgress size={18} />
+                                    ) : (
+                                      <SaveOutlinedIcon fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <Tooltip title="Cancel edit">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={busy}
+                                    aria-label="Cancel editing response"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      cancelEdit()
+                                    }}
+                                    sx={{
+                                      color: 'text.disabled',
+                                      '&:hover': { color: 'primary.main' },
+                                    }}
+                                  >
+                                    <CloseIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </>
+                          ),
+                        }
+                      : undefined
+                  }
+                />
               ))}
           </Stack>
         )}

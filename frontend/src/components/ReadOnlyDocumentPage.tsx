@@ -6,29 +6,20 @@ import {
   CircularProgress,
   Container,
   Fab,
-  IconButton,
   Link as MuiLink,
   Snackbar,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material'
-import DataObjectIcon from '@mui/icons-material/DataObject'
 import SaveAltIcon from '@mui/icons-material/SaveAlt'
 import { api } from '../api/client'
 import { errorMessage } from '../lib/errors'
-import {
-  EMPTY_ATTRIBUTES,
-  type Block,
-  type Document,
-  type DocumentDetail,
-  type Response,
-} from '../api/types'
+import { EMPTY_ATTRIBUTES, type Block, type Document, type DocumentDetail } from '../api/types'
 import CollapsibleValueField from './CollapsibleValueField'
 import Masthead from './Masthead'
+import ResponseView from './ResponseView'
 import StatusLine from './StatusLine'
-import Markdown from './Markdown'
-import { parseResponseSegments } from '../lib/responseSegments'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 import { leaderSx, postLinkSx, summarySx } from '../lib/styles'
@@ -206,128 +197,17 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
               .slice()
               .reverse()
               .map((response, idx) => (
-                <ResponseDetails
+                <ResponseView
                   key={response.id}
                   response={response}
-                  open={idx === 0}
+                  defaultOpen={idx === 0}
                   structured={structured.has(response.id)}
-                  onToggle={() => toggleStructured(response.id)}
+                  onToggleStructured={() => toggleStructured(response.id)}
                 />
               ))}
           </Stack>
         )}
       </Box>
-    </Box>
-  )
-}
-
-// ResponseDetails renders one response as a collapsible with the model as its
-// header and a structured/raw toggle (read-only port of BlockCard's response).
-function ResponseDetails({
-  response,
-  open,
-  structured,
-  onToggle,
-}: {
-  response: Response
-  open: boolean
-  structured: boolean
-  onToggle: () => void
-}) {
-  return (
-    <Box component="details" {...(open ? { open: true } : {})}>
-      <Box
-        component="summary"
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          cursor: 'pointer',
-          listStyle: 'none',
-          '&::-webkit-details-marker': { display: 'none' },
-          mb: 1,
-        }}
-      >
-        <Typography
-          variant="overline"
-          sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
-        >
-          {response.model || 'no model'}
-        </Typography>
-        <Box sx={{ flexGrow: 1 }} />
-        <Tooltip title={structured ? 'Raw view' : 'Structured view'}>
-          <IconButton
-            size="small"
-            aria-label={structured ? 'Show raw response' : 'Show structured response'}
-            onClick={(e) => {
-              e.preventDefault()
-              onToggle()
-            }}
-            sx={{
-              color: structured ? 'primary.main' : 'text.disabled',
-              '&:hover': { color: 'primary.main' },
-            }}
-          >
-            <DataObjectIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
-      {structured ? (
-        <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
-          {parseResponseSegments(response.value).map((seg, segIdx) =>
-            seg.kind === 'text' ? (
-              <Markdown key={segIdx}>{seg.text}</Markdown>
-            ) : (
-              <Box
-                key={segIdx}
-                component="details"
-                open
-                sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
-              >
-                <Box
-                  component="summary"
-                  sx={{
-                    cursor: 'pointer',
-                    fontFamily: fonts.mono,
-                    fontSize: '0.8rem',
-                    color: 'text.secondary',
-                  }}
-                >
-                  {seg.name}
-                </Box>
-                <Box
-                  component="blockquote"
-                  sx={{
-                    my: 1,
-                    ml: 0,
-                    pl: 2.5,
-                    borderLeft: '3px solid',
-                    borderColor: 'divider',
-                    color: 'text.secondary',
-                  }}
-                >
-                  {/* Escape '<' so nested tags render as literal text:
-                      react-markdown drops raw HTML. */}
-                  <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
-                </Box>
-              </Box>
-            ),
-          )}
-        </Box>
-      ) : (
-        <Typography
-          sx={{
-            fontFamily: fonts.mono,
-            fontSize: '0.85rem',
-            whiteSpace: 'pre-wrap',
-            bgcolor: 'action.hover',
-            borderRadius: 2,
-            p: 2,
-          }}
-        >
-          {response.value}
-        </Typography>
-      )}
     </Box>
   )
 }
