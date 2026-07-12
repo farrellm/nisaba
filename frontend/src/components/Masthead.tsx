@@ -12,10 +12,24 @@ const NAV: { key: Section; label: string; to: string }[] = [
   { key: 'prompts', label: 'Prompts', to: '/reddit' },
 ]
 
+const wordmarkSx = {
+  fontFamily: fonts.display,
+  fontWeight: 600,
+  fontSize: '1.5rem',
+  letterSpacing: '-0.02em',
+} as const
+
+interface MastheadProps {
+  active?: Section
+  // 'wordmark' renders just the (non-link) wordmark and the account menu — the
+  // landing page's header, which is already home so the nav would be noise.
+  variant?: 'full' | 'wordmark'
+}
+
 // Masthead is the shared top bar across the app: the Nisaba wordmark (links home),
 // the global nav, and the account menu. The current section is shown muted and
 // non-interactive so the user can see where they are.
-export default function Masthead({ active }: { active?: Section }) {
+export default function Masthead({ active, variant = 'full' }: MastheadProps) {
   return (
     <Box
       component="header"
@@ -29,42 +43,37 @@ export default function Masthead({ active }: { active?: Section }) {
         justifyContent: 'space-between',
       }}
     >
-      <Stack direction="row" spacing={3} alignItems="baseline">
-        <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
-          <Typography
-            sx={{
-              fontFamily: fonts.display,
-              fontWeight: 600,
-              fontSize: '1.5rem',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Nisaba
-          </Typography>
-        </MuiLink>
-        {NAV.map((item) =>
-          item.key === active ? (
-            <Typography
-              key={item.key}
-              component="span"
-              aria-current="page"
-              sx={{ ...navLinkSx, color: 'text.secondary' }}
-            >
-              {item.label}
-            </Typography>
-          ) : (
-            <MuiLink
-              key={item.key}
-              component={RouterLink}
-              to={item.to}
-              underline="hover"
-              sx={navLinkSx}
-            >
-              {item.label}
-            </MuiLink>
-          ),
-        )}
-      </Stack>
+      {variant === 'wordmark' ? (
+        <Typography sx={wordmarkSx}>Nisaba</Typography>
+      ) : (
+        <Stack direction="row" spacing={3} alignItems="baseline">
+          <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
+            <Typography sx={wordmarkSx}>Nisaba</Typography>
+          </MuiLink>
+          {NAV.map((item) =>
+            item.key === active ? (
+              <Typography
+                key={item.key}
+                component="span"
+                aria-current="page"
+                sx={{ ...navLinkSx, color: 'text.secondary' }}
+              >
+                {item.label}
+              </Typography>
+            ) : (
+              <MuiLink
+                key={item.key}
+                component={RouterLink}
+                to={item.to}
+                underline="hover"
+                sx={navLinkSx}
+              >
+                {item.label}
+              </MuiLink>
+            ),
+          )}
+        </Stack>
+      )}
       <AccountMenu />
     </Box>
   )

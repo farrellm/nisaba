@@ -9,8 +9,7 @@ import AutoStoriesOutlined from '@mui/icons-material/AutoStoriesOutlined'
 import HistoryEduOutlined from '@mui/icons-material/HistoryEduOutlined'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { Link as RouterLink } from 'react-router-dom'
-import { fonts } from '../theme'
-import AccountMenu from '../components/AccountMenu'
+import Masthead from '../components/Masthead'
 import { usePageTitle } from '../lib/usePageTitle'
 
 type NavCard = {
@@ -34,31 +33,7 @@ export default function IndexPage() {
   usePageTitle()
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Masthead bar */}
-      <Box
-        component="header"
-        sx={{
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          px: { xs: 3, md: 5 },
-          py: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Typography
-          sx={{
-            fontFamily: fonts.display,
-            fontWeight: 600,
-            fontSize: '1.5rem',
-            letterSpacing: '-0.02em',
-          }}
-        >
-          Nisaba
-        </Typography>
-        <AccountMenu />
-      </Box>
+      <Masthead variant="wordmark" />
 
       <Container maxWidth="sm" sx={{ pt: { xs: 7, md: 12 }, pb: 8 }}>
         <Stack spacing={2}>

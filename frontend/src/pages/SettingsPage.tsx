@@ -1,22 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import {
-  Alert,
-  Box,
-  Button,
-  Container,
-  Divider,
-  Link as MuiLink,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import { Alert, Box, Button, Container, Divider, Stack, TextField, Typography } from '@mui/material'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import { useAsyncAction } from '../lib/useAsyncAction'
-import { fonts } from '../theme'
-import { navLinkSx } from '../lib/styles'
-import AccountMenu from '../components/AccountMenu'
+import Masthead from '../components/Masthead'
 import { usePageTitle } from '../lib/usePageTitle'
 
 // SettingsPage lets the user edit their configured subreddit. On save it PUTs to
@@ -47,41 +34,7 @@ export default function SettingsPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Masthead bar */}
-      <Box
-        component="header"
-        sx={{
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          px: { xs: 3, md: 5 },
-          py: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Stack direction="row" spacing={3} alignItems="baseline">
-          <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
-            <Typography
-              sx={{
-                fontFamily: fonts.display,
-                fontWeight: 600,
-                fontSize: '1.5rem',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Nisaba
-            </Typography>
-          </MuiLink>
-          <MuiLink component={RouterLink} to="/reddit" underline="hover" sx={navLinkSx}>
-            Prompts
-          </MuiLink>
-          <MuiLink component={RouterLink} to="/documents" underline="hover" sx={navLinkSx}>
-            Documents
-          </MuiLink>
-        </Stack>
-        <AccountMenu />
-      </Box>
+      <Masthead />
 
       <Container maxWidth="sm" sx={{ pt: { xs: 5, md: 8 }, pb: 12 }}>
         <Typography variant="overline" sx={{ color: 'primary.main', display: 'block', mb: 2 }}>

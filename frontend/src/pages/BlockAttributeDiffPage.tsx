@@ -6,13 +6,13 @@ import type { DocumentDetail } from '../api/types'
 import StatusLine from '../components/StatusLine'
 import { usePageTitle } from '../lib/usePageTitle'
 import { wordCount, wordDiff } from '../lib/wordDiff'
-import { fonts } from '../theme'
+import { fonts, palette } from '../theme'
 
 const noticeSx = { fontSize: '0.85rem' } as const
 
 // A muted brick red for deletions — desaturated so it sits inside the warm
 // editorial palette rather than shouting like the MUI error color.
-const STRUCK = '#B23A2E'
+const STRUCK = palette.struck
 
 // BlockAttributeDiffPage is a standalone, chrome-free "collation": a full-page,
 // unified word-level diff between one block's value for an attribute (the
