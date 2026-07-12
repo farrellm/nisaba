@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Alert, Box, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, CircularProgress, Link as MuiLink, Stack, TextField, Typography } from '@mui/material'
 import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
@@ -65,7 +65,14 @@ export default function LoginPage() {
             required
           />
           <Button type="submit" variant="contained" size="large" disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign in'}
+            {submitting ? (
+              <>
+                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                Signing in…
+              </>
+            ) : (
+              'Sign in'
+            )}
           </Button>
         </Stack>
 

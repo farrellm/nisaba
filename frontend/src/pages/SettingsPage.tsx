@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Container,
   Divider,
   Link as MuiLink,
@@ -113,7 +114,14 @@ export default function SettingsPage() {
             />
             <Box>
               <Button type="submit" variant="contained" disabled={saving}>
-                {saving ? 'Saving…' : 'Save'}
+                {saving ? (
+                  <>
+                    <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+                    Saving…
+                  </>
+                ) : (
+                  'Save'
+                )}
               </Button>
             </Box>
           </Stack>
