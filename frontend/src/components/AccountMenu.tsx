@@ -70,7 +70,10 @@ export default function AccountMenu() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Typography variant="overline" sx={{ color: 'text.secondary', px: 2, py: 0.5, display: 'block' }}>
+        <Typography
+          variant="overline"
+          sx={{ color: 'text.secondary', px: 2, py: 0.5, display: 'block' }}
+        >
           {user?.username}
         </Typography>
         <Divider />

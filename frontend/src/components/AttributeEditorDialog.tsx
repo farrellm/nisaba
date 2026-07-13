@@ -12,8 +12,8 @@ import {
 import { Crepe } from '@milkdown/crepe'
 import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/frame.css'
-import { ApiError } from '../api/client'
-import { fonts } from '../theme'
+import { errorMessage } from '../lib/errors'
+import { fonts, palette } from '../theme'
 
 interface AttributeEditorDialogProps {
   open: boolean
@@ -97,7 +97,7 @@ export default function AttributeEditorDialog({
       await onSave(crepeRef.current?.getMarkdown() ?? '')
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSaving(false)
     }
@@ -151,9 +151,12 @@ export default function AttributeEditorDialog({
             px: { xs: 2, sm: 4 },
             py: 3,
             // Tune Crepe's frame theme to the app's ink-blue editorial palette.
+            // The surface/hover/selected tints below are Crepe-specific
+            // derivatives of palette.paper/palette.accent; keep them in step
+            // if the palette changes.
             '& .milkdown': {
-              '--crepe-color-primary': '#2540E0',
-              '--crepe-color-background': '#FBFAF7',
+              '--crepe-color-primary': palette.accent,
+              '--crepe-color-background': palette.paper,
               '--crepe-color-surface': '#F3F1EA',
               '--crepe-color-surface-low': '#ECE9E0',
               '--crepe-color-hover': '#ECE9E0',

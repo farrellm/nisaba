@@ -1,17 +1,7 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import {
-  Box,
-  CircularProgress,
-  IconButton,
-  InputAdornment,
-  Stack,
-  TextField,
-  Tooltip,
-  Typography,
-} from '@mui/material'
+import { memo, useState } from 'react'
+import { Box, CircularProgress, IconButton, Stack, Tooltip, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import DataObjectIcon from '@mui/icons-material/DataObject'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import DeleteIcon from '@mui/icons-material/Delete'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -19,14 +9,20 @@ import Difference from '@mui/icons-material/Difference'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
-import UnfoldMore from '@mui/icons-material/UnfoldMore'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
 import AuthorField from './AuthorField'
-import Markdown from './Markdown'
+import CollapsibleValueField from './CollapsibleValueField'
+import ResponseView from './ResponseView'
+import StatusLine from './StatusLine'
+import StreamingPreview from './StreamingPreview'
 import type { Block, Mode } from '../api/types'
-import { parseResponseSegments } from '../lib/responseSegments'
+import { StreamBuffer } from '../lib/streamBuffer'
 import { fonts } from '../theme'
+import { leaderSx, summarySx } from '../lib/styles'
+import { addToSet, toggleSet } from '../lib/sets'
+import { useArmedAction } from '../lib/useArmedAction'
 
 interface BlockCardProps {
   block: Block
@@ -41,7 +37,15 @@ interface BlockCardProps {
 // BlockCard renders one block: its mode, editable key/values, a run action, and
 // the responses produced so far. The body is a collapsible <details>; the mode
 // header is the always-visible <summary>.
-const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onBlockUpdated, onBlockDeleted, onAfterRun, defaultOpen }: BlockCardProps) {
+const BlockCard = memo(function BlockCard({
+  block,
+  mode,
+  documentAttributes,
+  onBlockUpdated,
+  onBlockDeleted,
+  onAfterRun,
+  defaultOpen,
+}: BlockCardProps) {
   const keys = mode?.keys ?? Object.keys(block.attributes)
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {}
@@ -53,10 +57,10 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   const [saving, setSaving] = useState(false)
   const [copying, setCopying] = useState(false)
   const [running, setRunning] = useState(false)
-  // Transient text accumulated while a streamed run is in flight; null when not
-  // streaming. Rendered as a live preview until the final block replaces it.
-  const [streamingText, setStreamingText] = useState<string | null>(null)
-  const [armed, setArmed] = useState(false)
+  // The in-flight streamed run's text buffer; null when not streaming. The
+  // StreamingPreview below subscribes to it, so per-delta re-renders stay out
+  // of this (large) component.
+  const [stream, setStream] = useState<StreamBuffer | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -70,22 +74,13 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       ? new Set([responses[responses.length - 1].id])
       : new Set()
   })
-  const armedTimer = useRef<ReturnType<typeof setTimeout>>()
 
-  function reveal(key: string) {
-    setExpanded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
-  }
-
-  function toggleStructured(id: number) {
-    setStructured((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
+  const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
+  const toggleStructured = (id: number) => setStructured((prev) => toggleSet(prev, id))
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (block.attributes[key] ?? ''))
-  const busy = saving || copying || running || deleting || reparsingId !== null || savingEditId !== null
+  const busy =
+    saving || copying || running || deleting || reparsingId !== null || savingEditId !== null
 
   // Save/Copy share one treatment: a quiet muted icon, ringed in accent when the
   // block has uncommitted edits. The clean-state border is transparent (not
@@ -97,9 +92,6 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
     '&:hover': { color: 'primary.main', bgcolor: active ? 'action.hover' : 'transparent' },
   })
 
-  // Clear the pending revert timer if the card unmounts.
-  useEffect(() => () => clearTimeout(armedTimer.current), [])
-
   async function handleSave() {
     setError(null)
     setSaving(true)
@@ -110,7 +102,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       )
       onBlockUpdated(updated)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSaving(false)
     }
@@ -127,24 +119,15 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not copy. Try again.')
+      setError(errorMessage(err, 'Could not copy. Try again.'))
     } finally {
       setCopying(false)
     }
   }
 
-  // Deleting is a two-step action: the first click arms the control (and starts
-  // a timer to disarm it), the second confirms. Both clicks must not toggle the
-  // surrounding <details>, so the caller stops propagation.
-  function handleDeleteClick() {
-    if (!armed) {
-      setArmed(true)
-      armedTimer.current = setTimeout(() => setArmed(false), 4000)
-      return
-    }
-    clearTimeout(armedTimer.current)
-    handleDelete()
-  }
+  // Deleting is a two-step action (see useArmedAction). Both clicks must not
+  // toggle the surrounding <details>, so the caller stops propagation.
+  const { armed, fire: fireDelete, disarm: disarmDelete } = useArmedAction(handleDelete)
 
   async function handleDelete() {
     setError(null)
@@ -153,8 +136,8 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       await api.del(`/api/documents/${block.documentId}/blocks/${block.id}`)
       onBlockDeleted(block.id)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete. Try again.')
-      setArmed(false)
+      setError(errorMessage(err, 'Could not delete. Try again.'))
+      disarmDelete()
       setDeleting(false)
     }
   }
@@ -162,6 +145,8 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
   async function handleRun() {
     setError(null)
     setRunning(true)
+    const buffer = user?.streamingEnabled ? new StreamBuffer() : null
+    if (buffer) setStream(buffer)
     try {
       // Always stream so the server's keepalive pings keep the connection warm
       // through a long run (avoids proxy 504s). The streamingEnabled setting only
@@ -169,21 +154,19 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       const updated = await api.postStream<Block>(
         `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
         { attributes: values },
-        user?.streamingEnabled
-          ? (text) => setStreamingText((prev) => (prev ?? '') + text)
-          : () => {},
+        buffer ? (text) => buffer.push(text) : () => {},
         'block',
       )
       // A freshly run response opens in the structured view by default — except
       // for streamed runs, which stay in the raw view the user just watched.
       const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
-      if (fresh && !user?.streamingEnabled) setStructured((prev) => new Set(prev).add(fresh.id))
+      if (fresh && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, fresh.id))
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not run. Try again.')
+      setError(errorMessage(err, 'Could not run. Try again.'))
     } finally {
-      setStreamingText(null)
+      setStream(null)
       setRunning(false)
     }
   }
@@ -200,7 +183,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       onBlockUpdated(updated)
       onAfterRun()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not re-parse. Try again.')
+      setError(errorMessage(err, 'Could not re-parse. Try again.'))
     } finally {
       setReparsingId(null)
     }
@@ -228,7 +211,7 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
       onAfterRun() // editing auto-reparses into the document's shared attributes
       setEditingId(null)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSavingEditId(null)
     }
@@ -241,25 +224,14 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
         {...(defaultOpen ? { open: true } : {})}
         sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
       >
-        <Box
-          component="summary"
-          sx={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 2,
-            mb: 2,
-            cursor: 'pointer',
-            listStyle: 'none',
-            '&::-webkit-details-marker': { display: 'none' },
-          }}
-        >
+        <Box component="summary" sx={summarySx}>
           <Typography
             variant="overline"
             sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
           >
             {mode?.label ?? block.mode}
           </Typography>
-          <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
+          <Box sx={leaderSx} />
           <Tooltip title={deleting ? '' : armed ? 'Click again to confirm' : 'Delete block'}>
             <span>
               <IconButton
@@ -271,9 +243,12 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  handleDeleteClick()
+                  fireDelete()
                 }}
-                sx={{ transform: 'translateY(-2px)', ...(armed ? {} : { color: 'text.disabled', '&:hover': { color: 'error.main' } }) }}
+                sx={{
+                  transform: 'translateY(-2px)',
+                  ...(armed ? {} : { color: 'text.disabled', '&:hover': { color: 'error.main' } }),
+                }}
               >
                 {deleting ? (
                   <CircularProgress size={18} color="error" />
@@ -290,57 +265,21 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
         <Stack spacing={2}>
           {keys.map((key) => {
             const value = values[key] ?? ''
-            const collapsed = key !== 'author' && !expanded.has(key) && value.length > 80
-            let field
-            if (key === 'author') {
-              field = (
+            const field =
+              key === 'author' ? (
                 <AuthorField
                   value={value}
                   onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
                 />
-              )
-            } else if (collapsed) {
-              field = (
-                <TextField
-                  label={key}
-                  value={`${value.slice(0, 40)}…`}
-                  onClick={() => reveal(key)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      reveal(key)
-                    }
-                  }}
-                  inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
-                  InputProps={{
-                    readOnly: true,
-                    endAdornment: (
-                      <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-                        <UnfoldMore fontSize="small" />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      cursor: 'pointer',
-                      '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                      '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
-                    },
-                  }}
-                />
-              )
-            } else {
-              field = (
-                <TextField
+              ) : (
+                <CollapsibleValueField
                   label={key}
                   value={value}
-                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                  // Once focused, the field counts as expanded so typing past the
-                  // collapse threshold can't swap the editor out mid-keystroke.
-                  onFocus={() => reveal(key)}
-                  multiline
-                  minRows={1}
+                  expanded={expanded.has(key)}
+                  onExpand={() => reveal(key)}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
                 />
               )
-            }
 
             // Diff link mirrors the Save/Copy buttons (editActionSx): ringed in
             // accent when the saved block value diverges from the document
@@ -372,9 +311,9 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
         </Stack>
 
         {error && (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
+          <StatusLine tone="error" sx={{ fontSize: '0.8rem', mt: 1.5 }}>
             {error}
-          </Typography>
+          </StatusLine>
         )}
 
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>
@@ -416,121 +355,38 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                   bgcolor: 'primary.main',
                   color: 'primary.contrastText',
                   '&:hover': { bgcolor: 'primary.dark' },
-                  '&.Mui-disabled': { bgcolor: 'action.disabledBackground', color: 'action.disabled' },
+                  '&.Mui-disabled': {
+                    bgcolor: 'action.disabledBackground',
+                    color: 'action.disabled',
+                  },
                 }}
               >
-                {running ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
+                {running ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : (
+                  <PlayArrowIcon fontSize="small" />
+                )}
               </IconButton>
             </span>
           </Tooltip>
         </Stack>
 
-        {streamingText !== null && (
-          <Box sx={{ mt: 3 }}>
-            <Typography
-              variant="overline"
-              sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem', display: 'block', mb: 1 }}
-            >
-              streaming…
-            </Typography>
-            <Typography
-              sx={{
-                fontFamily: fonts.mono,
-                fontSize: '0.85rem',
-                whiteSpace: 'pre-wrap',
-                bgcolor: 'action.hover',
-                borderRadius: 2,
-                p: 2,
-              }}
-            >
-              {streamingText}
-              <Box component="span" sx={{ opacity: 0.5 }}>▌</Box>
-            </Typography>
-          </Box>
-        )}
+        {stream && <StreamingPreview stream={stream} />}
 
         {(block.responses ?? []).length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 3 }}>
-            {(block.responses ?? []).slice().reverse().map((response, idx) => (
-              <Box key={response.id} component="details" {...(idx === 0 ? { open: true } : {})}>
-                <Box
-                  component="summary"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    cursor: 'pointer',
-                    listStyle: 'none',
-                    '&::-webkit-details-marker': { display: 'none' },
-                    mb: 1,
-                  }}
-                >
-                  <Typography
-                    variant="overline"
-                    sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
-                  >
-                    {response.model || 'no model'}
-                  </Typography>
-                  <Box sx={{ flexGrow: 1 }} />
-                  {editingId === response.id ? (
+            {(block.responses ?? [])
+              .slice()
+              .reverse()
+              .map((response, idx) => (
+                <ResponseView
+                  key={response.id}
+                  response={response}
+                  defaultOpen={idx === 0}
+                  structured={structured.has(response.id)}
+                  onToggleStructured={() => toggleStructured(response.id)}
+                  actions={
                     <>
-                      <Tooltip title="Save edit">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busy}
-                            aria-label="Save edited response"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              handleSaveEdit(response.id)
-                            }}
-                            sx={editActionSx(editValue !== response.value)}
-                          >
-                            {savingEditId === response.id ? (
-                              <CircularProgress size={18} />
-                            ) : (
-                              <SaveOutlinedIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                      <Tooltip title="Cancel edit">
-                        <span>
-                          <IconButton
-                            size="small"
-                            disabled={busy}
-                            aria-label="Cancel editing response"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              cancelEdit()
-                            }}
-                            sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
-                          >
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <>
-                      <Tooltip title={structured.has(response.id) ? 'Raw view' : 'Structured view'}>
-                        <span>
-                          <IconButton
-                            size="small"
-                            aria-label={structured.has(response.id) ? 'Show raw response' : 'Show structured response'}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              toggleStructured(response.id)
-                            }}
-                            sx={{
-                              color: structured.has(response.id) ? 'primary.main' : 'text.disabled',
-                              '&:hover': { color: 'primary.main' },
-                            }}
-                          >
-                            <DataObjectIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
                       <Tooltip title="Edit response">
                         <span>
                           <IconButton
@@ -568,79 +424,60 @@ const BlockCard = memo(function BlockCard({ block, mode, documentAttributes, onB
                         </span>
                       </Tooltip>
                     </>
-                  )}
-                </Box>
-                {editingId === response.id ? (
-                  <TextField
-                    fullWidth
-                    multiline
-                    minRows={6}
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    autoFocus
-                    inputProps={{ 'aria-label': 'Edit response value' }}
-                    InputProps={{
-                      sx: { fontFamily: fonts.mono, fontSize: '0.85rem' },
-                    }}
-                  />
-                ) : structured.has(response.id) ? (
-                  <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
-                    {parseResponseSegments(response.value).map((seg, segIdx) =>
-                      seg.kind === 'text' ? (
-                        <Markdown key={segIdx}>{seg.text}</Markdown>
-                      ) : (
-                        <Box
-                          key={segIdx}
-                          component="details"
-                          open
-                          sx={{ my: 1, '&:first-of-type': { mt: 0 }, '&:last-child': { mb: 0 } }}
-                        >
-                          <Box
-                            component="summary"
-                            sx={{
-                              cursor: 'pointer',
-                              fontFamily: fonts.mono,
-                              fontSize: '0.8rem',
-                              color: 'text.secondary',
-                            }}
-                          >
-                            {seg.name}
-                          </Box>
-                          <Box
-                            component="blockquote"
-                            sx={{
-                              my: 1,
-                              ml: 0,
-                              pl: 2.5,
-                              borderLeft: '3px solid',
-                              borderColor: 'divider',
-                              color: 'text.secondary',
-                            }}
-                          >
-                            {/* Escape '<' so nested tags render as literal text:
-                                react-markdown drops raw HTML. */}
-                            <Markdown>{seg.inner.split('<').join('\\<')}</Markdown>
-                          </Box>
-                        </Box>
-                      ),
-                    )}
-                  </Box>
-                ) : (
-                  <Typography
-                    sx={{
-                      fontFamily: fonts.mono,
-                      fontSize: '0.85rem',
-                      whiteSpace: 'pre-wrap',
-                      bgcolor: 'action.hover',
-                      borderRadius: 2,
-                      p: 2,
-                    }}
-                  >
-                    {response.value}
-                  </Typography>
-                )}
-              </Box>
-            ))}
+                  }
+                  editing={
+                    editingId === response.id
+                      ? {
+                          value: editValue,
+                          onChange: setEditValue,
+                          actions: (
+                            <>
+                              <Tooltip title="Save edit">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={busy}
+                                    aria-label="Save edited response"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      handleSaveEdit(response.id)
+                                    }}
+                                    sx={editActionSx(editValue !== response.value)}
+                                  >
+                                    {savingEditId === response.id ? (
+                                      <CircularProgress size={18} />
+                                    ) : (
+                                      <SaveOutlinedIcon fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <Tooltip title="Cancel edit">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={busy}
+                                    aria-label="Cancel editing response"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      cancelEdit()
+                                    }}
+                                    sx={{
+                                      color: 'text.disabled',
+                                      '&:hover': { color: 'primary.main' },
+                                    }}
+                                  >
+                                    <CloseIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </>
+                          ),
+                        }
+                      : undefined
+                  }
+                />
+              ))}
           </Stack>
         )}
       </Box>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Box,
   Container,
@@ -14,8 +14,9 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, ApiError } from '../api/client'
-import type { Block, DocumentDetail, Mode } from '../api/types'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
+import { EMPTY_ATTRIBUTES, type Block, type DocumentDetail, type Mode } from '../api/types'
 import Masthead from '../components/Masthead'
 import AddBlockDialog from '../components/AddBlockDialog'
 import EditLabelsDialog from '../components/EditLabelsDialog'
@@ -23,20 +24,10 @@ import RedditSubmitDialog from '../components/RedditSubmitDialog'
 import BlockCard from '../components/BlockCard'
 import DocumentAttributes from '../components/DocumentAttributes'
 import ModelSelector from '../components/ModelSelector'
+import StatusLine from '../components/StatusLine'
+import { useArmedAction } from '../lib/useArmedAction'
 import { usePageTitle } from '../lib/usePageTitle'
-import { fonts } from '../theme'
-
-const EMPTY_ATTRIBUTES: Record<string, string> = {}
-
-// Shared style for the "Original post" / "Posted" permalink chips under the title.
-const postLinkSx = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 0.5,
-  color: 'primary.main',
-  textDecoration: 'none',
-  '&:hover': { textDecoration: 'underline' },
-} as const
+import { postLinkSx } from '../lib/styles'
 
 // DocumentPage loads a document via GET /api/documents/:id and renders its
 // blocks. Users add blocks (choosing a mode), edit each block's key/values, and
@@ -57,15 +48,13 @@ export default function DocumentPage() {
   // matching BlockCard: the first click arms (and starts a disarm timer), the
   // second confirms.
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
-  const [armed, setArmed] = useState(false)
   const [busy, setBusy] = useState(false)
-  const armedTimer = useRef<ReturnType<typeof setTimeout>>()
+  const { armed, fire: fireDelete, disarm } = useArmedAction(handleDelete)
   const menuOpen = Boolean(anchorEl)
 
   function closeMenu() {
     setAnchorEl(null)
-    setArmed(false)
-    clearTimeout(armedTimer.current)
+    disarm()
   }
 
   async function handleToggleArchive() {
@@ -87,24 +76,10 @@ export default function DocumentPage() {
         closeMenu()
       }
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : `Could not ${archive ? 'archive' : 'unarchive'}. Try again.`,
-      )
+      setError(errorMessage(err, `Could not ${archive ? 'archive' : 'unarchive'}. Try again.`))
       setBusy(false)
       closeMenu()
     }
-  }
-
-  function handleDeleteClick() {
-    if (!armed) {
-      setArmed(true)
-      armedTimer.current = setTimeout(() => setArmed(false), 4000)
-      return
-    }
-    clearTimeout(armedTimer.current)
-    handleDelete()
   }
 
   async function handleDelete() {
@@ -114,7 +89,7 @@ export default function DocumentPage() {
       await api.del(`/api/documents/${id}`)
       navigate('/documents', { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete. Try again.')
+      setError(errorMessage(err, 'Could not delete. Try again.'))
       setBusy(false)
       closeMenu()
     }
@@ -124,15 +99,21 @@ export default function DocumentPage() {
     api
       .get<DocumentDetail>(`/api/documents/${id}`)
       .then(setDoc)
-      .catch((e: unknown) => setError(String(e)))
-    api.get<Mode[]>('/api/modes').then(setModes).catch(() => setModes([]))
+      .catch((e: unknown) => setError(errorMessage(e)))
+    api
+      .get<Mode[]>('/api/modes')
+      .then(setModes)
+      .catch(() => setModes([]))
   }, [id])
 
-  const createBlock = useCallback(async (mode: string): Promise<Block> => {
-    const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
-    setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? []), block] } : d))
-    return block
-  }, [id])
+  const createBlock = useCallback(
+    async (mode: string): Promise<Block> => {
+      const block = await api.post<Block>(`/api/documents/${id}/blocks`, { mode })
+      setDoc((d) => (d ? { ...d, blocks: [...(d.blocks ?? []), block] } : d))
+      return block
+    },
+    [id],
+  )
 
   const replaceBlock = useCallback((updated: Block) => {
     setDoc((d) =>
@@ -146,7 +127,10 @@ export default function DocumentPage() {
 
   // Running a block mutates the document's shared attributes, so reload it.
   const reloadDocument = useCallback(() => {
-    api.get<DocumentDetail>(`/api/documents/${id}`).then(setDoc).catch(() => {})
+    api
+      .get<DocumentDetail>(`/api/documents/${id}`)
+      .then(setDoc)
+      .catch(() => {})
   }, [id])
 
   const modesByName = useMemo(() => new Map(modes.map((m) => [m.name, m])), [modes])
@@ -157,17 +141,14 @@ export default function DocumentPage() {
 
       <Container maxWidth="md" sx={{ pt: { xs: 7, md: 12 }, pb: 12 }}>
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, color: 'error.main' }}>{error}</Typography>
+          <StatusLine tone="error">{error}</StatusLine>
         ) : !doc ? (
-          <Typography sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}>Loading…</Typography>
+          <StatusLine>Loading…</StatusLine>
         ) : (
           <>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 4 }}>
               <Box sx={{ flexGrow: 1 }}>
-                <Typography
-                  variant="h1"
-                  sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)' }}
-                >
+                <Typography variant="h1" sx={{ fontSize: 'clamp(2.25rem, 6vw, 3.5rem)' }}>
                   {doc.title || 'Untitled'}
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1.5 }}>
@@ -233,7 +214,7 @@ export default function DocumentPage() {
                 <MenuItem onClick={handleToggleArchive} disabled={busy}>
                   <ListItemText>{doc.isArchived ? 'Unarchive' : 'Archive'}</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={handleDeleteClick} disabled={busy}>
+                <MenuItem onClick={fireDelete} disabled={busy}>
                   <ListItemText sx={armed ? { color: 'error.main' } : undefined}>
                     {armed ? 'Confirm delete' : 'Delete document'}
                   </ListItemText>
@@ -242,9 +223,7 @@ export default function DocumentPage() {
             </Box>
 
             {(doc.blocks ?? []).length === 0 ? (
-              <Typography sx={{ fontFamily: fonts.mono, color: 'text.secondary' }}>
-                No blocks yet. Add one to get started.
-              </Typography>
+              <StatusLine>No blocks yet. Add one to get started.</StatusLine>
             ) : (
               (doc.blocks ?? []).map((block, i, arr) => (
                 <BlockCard

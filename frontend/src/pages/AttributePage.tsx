@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box } from '@mui/material'
 import { useParams } from 'react-router-dom'
 import { api } from '../api/client'
+import type { AttributeValue } from '../api/types'
 import Markdown from '../components/Markdown'
-import { fonts } from '../theme'
+import StatusLine from '../components/StatusLine'
 
 // AttributePage is a standalone, chrome-free view of a single document attribute
 // value rendered as markdown. No masthead, no key label — just the content. Meant
@@ -24,9 +25,7 @@ export default function AttributePage() {
 
   useEffect(() => {
     api
-      .get<{ value: string; title: string }>(
-        `/api/public/documents/${id}/attributes/${encodeURIComponent(key)}`,
-      )
+      .get<AttributeValue>(`/api/public/documents/${id}/attributes/${encodeURIComponent(key)}`)
       .then((r) => {
         setValue(r.value)
         setTitle(r.title)
@@ -42,23 +41,13 @@ export default function AttributePage() {
         sx={{ maxWidth: 720, mx: 'auto', px: { xs: 3, md: 4 }, py: { xs: 6, md: 10 } }}
       >
         {error ? (
-          <Notice>{error}</Notice>
+          <StatusLine sx={{ fontSize: '0.85rem' }}>{error}</StatusLine>
         ) : !loaded ? null : value ? (
           <Markdown>{value}</Markdown>
         ) : (
-          <Notice>No value for this attribute.</Notice>
+          <StatusLine sx={{ fontSize: '0.85rem' }}>No value for this attribute.</StatusLine>
         )}
       </Box>
     </Box>
-  )
-}
-
-function Notice({ children }: { children: string }) {
-  return (
-    <Typography
-      sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}
-    >
-      {children}
-    </Typography>
   )
 }

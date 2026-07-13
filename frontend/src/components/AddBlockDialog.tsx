@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -12,7 +11,8 @@ import {
   RadioGroup,
   Typography,
 } from '@mui/material'
-import { ApiError } from '../api/client'
+import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { Block, Mode } from '../api/types'
 import { fonts } from '../theme'
 
@@ -27,8 +27,7 @@ interface AddBlockDialogProps {
 // fields are seeded server-side from the document's attributes.
 export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBlockDialogProps) {
   const [selected, setSelected] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { busy: submitting, error, setError, run } = useAsyncAction()
 
   useEffect(() => {
     if (open && !selected && modes.length > 0) setSelected(modes[0].name)
@@ -40,18 +39,12 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
+    run(async () => {
       await onCreate(selected)
       onClose()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
-    } finally {
-      setSubmitting(false)
-    }
+    })
   }
 
   return (
@@ -78,7 +71,10 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
               sx={{ alignItems: 'flex-start', py: 0.5 }}
               label={
                 <span>
-                  <Typography component="span" sx={{ fontFamily: fonts.display, fontSize: '1.05rem' }}>
+                  <Typography
+                    component="span"
+                    sx={{ fontFamily: fonts.display, fontSize: '1.05rem' }}
+                  >
                     {mode.label}
                   </Typography>
                   <Typography
@@ -100,16 +96,9 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
         <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
           Cancel
         </Button>
-        <Button type="submit" variant="contained" disabled={submitting || !selected}>
-          {submitting ? (
-            <>
-              <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-              Adding…
-            </>
-          ) : (
-            'Add block'
-          )}
-        </Button>
+        <SubmitButton busy={submitting} busyLabel="Adding…" disabled={!selected}>
+          Add block
+        </SubmitButton>
       </DialogActions>
     </Dialog>
   )

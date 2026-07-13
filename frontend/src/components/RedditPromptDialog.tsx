@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -11,7 +10,10 @@ import {
   TextField,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { stripPromptTag } from '../lib/text'
+import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { Document, DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditPromptDialogProps {
@@ -29,41 +31,39 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [prompt, setPrompt] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { busy: submitting, error, setError, run } = useAsyncAction()
 
   // Seed the prompt from the post title (and clear the title) whenever the
   // dialog opens for a different post. Strip any "[WP]" tag (case-insensitive)
   // and trim surrounding whitespace.
   useEffect(() => {
     setTitle('')
-    setPrompt((post?.title ?? '').replace(/\[wp\]/gi, '').trim())
+    setPrompt(stripPromptTag(post?.title ?? ''))
     setError(null)
-  }, [post])
+    // setError is a stable useState setter (via useAsyncAction).
+  }, [post, setError])
 
   function handleClose() {
     if (submitting) return
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!post) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      const doc = await api.post<Document>('/api/documents', {
-        title,
-        url: post.url,
-      })
-      await api.put<DocumentDetail>(`/api/documents/${doc.id}`, {
-        attributes: { prompt },
-      })
-      navigate(`/documents/${doc.id}`)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
-      setSubmitting(false)
-    }
+    run(
+      async () => {
+        const doc = await api.post<Document>('/api/documents', {
+          title,
+          url: post.url,
+        })
+        await api.put<DocumentDetail>(`/api/documents/${doc.id}`, {
+          attributes: { prompt },
+        })
+        navigate(`/documents/${doc.id}`)
+      },
+      { keepBusyOnSuccess: true },
+    )
   }
 
   return (
@@ -97,16 +97,9 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
           <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
-            {submitting ? (
-              <>
-                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                Creating…
-              </>
-            ) : (
-              'Create'
-            )}
-          </Button>
+          <SubmitButton busy={submitting} busyLabel="Creating…" disabled={!title.trim()}>
+            Create
+          </SubmitButton>
         </DialogActions>
       </form>
     </Dialog>

@@ -12,7 +12,10 @@ import {
   TextField,
   CircularProgress,
 } from '@mui/material'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { stripPromptTag } from '../lib/text'
+import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { DocumentDetail, RedditPost } from '../api/types'
 
 interface RedditSubmitDialogProps {
@@ -32,12 +35,16 @@ interface RedditSubmitDialogProps {
 // fields stay editable. Submitting posts to the user's configured subreddit via
 // POST /api/documents/:id/reddit-submit, which saves the resulting permalink on
 // the document and returns the refreshed document.
-export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: RedditSubmitDialogProps) {
+export default function RedditSubmitDialog({
+  open,
+  doc,
+  onClose,
+  onPosted,
+}: RedditSubmitDialogProps) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [titleLoading, setTitleLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { busy: submitting, error, setError, run } = useAsyncAction()
   const [posted, setPosted] = useState(false)
   const [postedUrl, setPostedUrl] = useState('')
 
@@ -59,7 +66,7 @@ export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: Red
       .get<RedditPost>(`/api/reddit/post?url=${encodeURIComponent(url)}`)
       .then((post) => {
         if (cancelled) return
-        const stripped = post.title.replace(/\[wp\]/gi, '').trim()
+        const stripped = stripPromptTag(post.title)
         setTitle(`[PI] ${stripped}`)
         // Credit the original prompt above the story.
         const credit = `[Original post](${url}) by u/${post.author}.\n\n---\n\n`
@@ -74,31 +81,26 @@ export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: Red
     return () => {
       cancelled = true
     }
-  }, [open, doc])
+    // setError is a stable useState setter (via useAsyncAction).
+  }, [open, doc, setError])
 
   function handleClose() {
     if (submitting) return
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
-      const updated = await api.post<DocumentDetail>(
-        `/api/documents/${doc.id}/reddit-submit`,
-        { title, body },
-      )
+    run(async () => {
+      const updated = await api.post<DocumentDetail>(`/api/documents/${doc.id}/reddit-submit`, {
+        title,
+        body,
+      })
       const urls = updated.postUrls ?? []
       setPostedUrl(urls[urls.length - 1] ?? '')
       setPosted(true)
       onPosted(updated)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
-    } finally {
-      setSubmitting(false)
-    }
+    })
   }
 
   return (
@@ -157,16 +159,9 @@ export default function RedditSubmitDialog({ open, doc, onClose, onPosted }: Red
             {posted ? 'Done' : 'Cancel'}
           </Button>
           {!posted && (
-            <Button type="submit" variant="contained" disabled={submitting || !title.trim()}>
-              {submitting ? (
-                <>
-                  <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                  Posting…
-                </>
-              ) : (
-                'Post'
-              )}
-            </Button>
+            <SubmitButton busy={submitting} busyLabel="Posting…" disabled={!title.trim()}>
+              Post
+            </SubmitButton>
           )}
         </DialogActions>
       </form>

@@ -1,11 +1,16 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, CircularProgress, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from '@mui/material'
-import UnfoldMore from '@mui/icons-material/UnfoldMore'
+import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material'
 import OpenInNew from '@mui/icons-material/OpenInNew'
+import CollapsibleValueField from './CollapsibleValueField'
+import StatusLine from './StatusLine'
+import SubmitButton from './SubmitButton'
 import EditNote from '@mui/icons-material/EditNote'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { errorMessage } from '../lib/errors'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
+import { leaderSx, summarySx } from '../lib/styles'
+import { addToSet } from '../lib/sets'
 
 // Lazy-loaded so Milkdown Crepe (and its CSS) stays out of the initial bundle.
 const AttributeEditorDialog = lazy(() => import('./AttributeEditorDialog'))
@@ -19,9 +24,8 @@ interface DocumentAttributesProps {
 // editable value field per key (keys are created by running blocks, so they are
 // fixed here), with a Save button at the top of the section.
 export default function DocumentAttributes({ doc, onChange }: DocumentAttributesProps) {
-  // ⚡ Bolt: Memoize sorted keys to prevent allocating and sorting an array on every re-render.
-  // Use doc.attributes as the dependency directly to avoid creating a new {} reference on every render
-  // when doc.attributes is null/undefined.
+  // Key by doc.attributes directly so a null/undefined map does not mint a new
+  // {} dependency (and re-sort) every render.
   const keys = useMemo(() => Object.keys(doc.attributes ?? {}).sort(), [doc.attributes])
   const attributes = doc.attributes ?? {}
   const [values, setValues] = useState<Record<string, string>>(() => {
@@ -52,9 +56,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [editingKey, setEditingKey] = useState<string | null>(null)
 
-  function reveal(key: string) {
-    setExpanded((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
-  }
+  const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
 
   const dirty = keys.some((key) => (values[key] ?? '') !== (attributes[key] ?? ''))
 
@@ -67,7 +69,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
       })
       onChange(updated)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save. Try again.')
+      setError(errorMessage(err, 'Could not save. Try again.'))
     } finally {
       setSaving(false)
     }
@@ -92,139 +94,91 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
         component="details"
         sx={{ '&[open]': { borderBottom: '1px dotted', borderColor: 'divider', pb: 4 } }}
       >
-        <Box
-          component="summary"
-          sx={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 2,
-            mb: 3,
-            cursor: 'pointer',
-            listStyle: 'none',
-            '&::-webkit-details-marker': { display: 'none' },
-          }}
-        >
+        <Box component="summary" sx={{ ...summarySx, mb: 3 }}>
           <Typography
             variant="overline"
             sx={{ fontFamily: fonts.mono, color: 'primary.main', whiteSpace: 'nowrap' }}
           >
             Attributes
           </Typography>
-          <Box sx={{ flex: 1, borderBottom: '1px dotted', borderColor: 'divider', transform: 'translateY(-3px)' }} />
+          <Box sx={leaderSx} />
         </Box>
 
         <Stack direction="row" spacing={1.5} sx={{ mb: 3 }}>
           <Tooltip title={!dirty && !saving ? 'No unsaved changes' : ''}>
             <span>
-              <Button variant="outlined" size="small" onClick={handleSave} disabled={!dirty || saving}>
-                {saving ? (
-                  <>
-                    <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                    Saving…
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
+              <SubmitButton
+                type="button"
+                variant="outlined"
+                size="small"
+                onClick={handleSave}
+                busy={saving}
+                busyLabel="Saving…"
+                disabled={!dirty}
+              >
+                Save
+              </SubmitButton>
             </span>
           </Tooltip>
         </Stack>
 
         {keys.length === 0 ? (
-        <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
-          No attributes yet.
-        </Typography>
-      ) : (
-        <Stack spacing={2}>
-          {keys.map((key) => {
-            const value = values[key] ?? ''
-            const previewLength = 80
-            const collapsed = !expanded.has(key) && value.length > previewLength
-            // Truncate in JS: iOS Safari won't apply -webkit-line-clamp to a
-            // <textarea>, so a CSS-only ellipsis goes missing on iPhone.
-            const preview = value.length > previewLength ? `${value.slice(0, previewLength)}…` : value
-            const field = collapsed ? (
-              <TextField
-                label={key}
-                value={preview}
-                multiline
-                maxRows={3}
-                onClick={() => reveal(key)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    reveal(key)
-                  }
-                }}
-                inputProps={{ tabIndex: 0, 'aria-label': `Expand ${key}` }}
-                InputProps={{
-                  readOnly: true,
-                  endAdornment: (
-                    <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-                      <UnfoldMore fontSize="small" />
-                    </InputAdornment>
-                  ),
-                  sx: {
-                    cursor: 'pointer',
-                    // Clip overflow beyond maxRows instead of showing a scrollbar.
-                    '& textarea': { overflow: 'hidden !important' },
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                    '&:focus-within .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main', borderWidth: 2 },
-                  },
-                }}
-              />
-            ) : (
-              <TextField
-                label={key}
-                value={value}
-                onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                // Once focused, the field counts as expanded so typing past the
-                // collapse threshold can't swap the editor out mid-keystroke.
-                onFocus={() => reveal(key)}
-                multiline
-                minRows={1}
-              />
-            )
-            return (
-              <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                <Box sx={{ flex: 1 }}>{field}</Box>
-                <Stack spacing={0.25} sx={{ mt: 1 }}>
-                  <Tooltip title="View as markdown">
-                    <IconButton
-                      component="a"
-                      href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
-                      target="_blank"
-                      rel="noopener"
-                      aria-label={`View ${key} as markdown`}
-                      size="small"
-                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                    >
-                      <OpenInNew fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  {value.length > previewLength && (
-                    <Tooltip title="Edit rich text">
+          <StatusLine sx={{ fontSize: '0.85rem' }}>No attributes yet.</StatusLine>
+        ) : (
+          <Stack spacing={2}>
+            {keys.map((key) => {
+              const value = values[key] ?? ''
+              const field = (
+                <CollapsibleValueField
+                  label={key}
+                  value={value}
+                  expanded={expanded.has(key)}
+                  onExpand={() => reveal(key)}
+                  onChange={(v) => setValues((prev) => ({ ...prev, [key]: v }))}
+                  previewLength={80}
+                  previewRows={3}
+                />
+              )
+              return (
+                <Stack key={key} direction="row" spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1 }}>{field}</Box>
+                  <Stack spacing={0.25} sx={{ mt: 1 }}>
+                    <Tooltip title="View as markdown">
                       <IconButton
-                        onClick={() => setEditingKey(key)}
-                        aria-label={`Edit ${key} in rich text editor`}
+                        component="a"
+                        href={`/documents/${doc.id}/attributes/${encodeURIComponent(key)}`}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label={`View ${key} as markdown`}
                         size="small"
                         sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
                       >
-                        <EditNote fontSize="small" />
+                        <OpenInNew fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                  )}
+                    {value.length > 80 && (
+                      <Tooltip title="Edit rich text">
+                        <IconButton
+                          onClick={() => setEditingKey(key)}
+                          aria-label={`Edit ${key} in rich text editor`}
+                          size="small"
+                          sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                        >
+                          <EditNote fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Stack>
                 </Stack>
-              </Stack>
-            )
-          })}
-        </Stack>
-      )}
+              )
+            })}
+          </Stack>
+        )}
 
         {error && (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.8rem', color: 'error.main', mt: 1.5 }}>
+          <StatusLine tone="error" sx={{ fontSize: '0.8rem', mt: 1.5 }}>
             {error}
-          </Typography>
+          </StatusLine>
         )}
       </Box>
 

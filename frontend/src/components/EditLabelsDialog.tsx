@@ -4,7 +4,6 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,13 +12,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import StatusLine from './StatusLine'
+import SubmitButton from './SubmitButton'
+import { errorMessage } from '../lib/errors'
+import { collator, sameName } from '../lib/text'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
-
-// ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
-// Improves alpha sort performance by ~100x for large label lists.
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
 
 interface EditLabelsDialogProps {
   open: boolean
@@ -27,8 +26,6 @@ interface EditLabelsDialogProps {
   onClose: () => void
   onChange: (doc: DocumentDetail) => void
 }
-
-const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 // EditLabelsDialog edits which of the user's labels apply to a document. Edits are
 // local (filed/shelved pills) until Save commits them with a single PUT. Typing a
@@ -95,7 +92,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
       const names = await api.post<string[]>(`/api/documents/${doc.id}/suggest-labels`)
       setSuggested(names ?? [])
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not suggest labels. Try again.')
+      setError(errorMessage(err, 'Could not suggest labels. Try again.'))
     } finally {
       setSuggesting(false)
     }
@@ -110,7 +107,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
       const names = await api.post<string[]>(`/api/documents/${doc.id}/recommend-labels`)
       setRecommended(names ?? [])
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not recommend labels. Try again.')
+      setError(errorMessage(err, 'Could not recommend labels. Try again.'))
     } finally {
       setRecommending(false)
     }
@@ -144,7 +141,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
       onChange(updated)
       onClose()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
+      setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -152,9 +149,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
 
   // A suggested label keeps its own section, so don't also list it under "Other
   // labels" — every label lives in exactly one of the pool-based sections.
-  const others = allLabels.filter(
-    (l) => !isApplied(l) && !suggested.some((s) => sameName(s, l)),
-  )
+  const others = allLabels.filter((l) => !isApplied(l) && !suggested.some((s) => sameName(s, l)))
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
@@ -185,7 +180,10 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
           </Box>
 
           <Box>
-            <Typography variant="overline" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+            <Typography
+              variant="overline"
+              sx={{ color: 'text.secondary', display: 'block', mb: 1 }}
+            >
               On this document
             </Typography>
             {applied.length > 0 ? (
@@ -202,19 +200,23 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                 ))}
               </Box>
             ) : (
-              <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
-                No labels on this document yet.
-              </Typography>
+              <StatusLine sx={{ fontSize: '0.85rem' }}>No labels on this document yet.</StatusLine>
             )}
           </Box>
 
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}
+            >
               <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                 Suggested
               </Typography>
               <Button size="small" onClick={handleSuggest} disabled={suggesting}>
-                {suggesting ? 'Suggesting…' : suggested.length > 0 ? 'Regenerate' : 'Suggest from story'}
+                {suggesting
+                  ? 'Suggesting…'
+                  : suggested.length > 0
+                    ? 'Regenerate'
+                    : 'Suggest from story'}
               </Button>
             </Box>
             {suggested.length > 0 ? (
@@ -229,22 +231,26 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                       variant={on ? 'filled' : 'outlined'}
                       onClick={() => toggleLabel(name)}
                       sx={{ fontFamily: fonts.mono, color: on ? undefined : 'text.secondary' }}
-                      aria-label={on ? `Remove suggested label ${name}` : `Add suggested label ${name}`}
+                      aria-label={
+                        on ? `Remove suggested label ${name}` : `Add suggested label ${name}`
+                      }
                     />
                   )
                 })}
               </Box>
             ) : (
-              <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
+              <StatusLine sx={{ fontSize: '0.85rem' }}>
                 {suggesting
                   ? 'Analyzing the story…'
                   : 'Generate labels from this document’s story.'}
-              </Typography>
+              </StatusLine>
             )}
           </Box>
 
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}
+            >
               <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                 Other labels
               </Typography>
@@ -274,9 +280,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
                 })}
               </Box>
             ) : (
-              <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.85rem', color: 'text.secondary' }}>
-                No other labels. Add one above.
-              </Typography>
+              <StatusLine sx={{ fontSize: '0.85rem' }}>No other labels. Add one above.</StatusLine>
             )}
           </Box>
         </Stack>
@@ -285,16 +289,9 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
         <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
           Cancel
         </Button>
-        <Button onClick={handleSave} variant="contained" disabled={submitting}>
-          {submitting ? (
-            <>
-              <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-              Saving…
-            </>
-          ) : (
-            'Save'
-          )}
-        </Button>
+        <SubmitButton type="button" onClick={handleSave} busy={submitting} busyLabel="Saving…">
+          Save
+        </SubmitButton>
       </DialogActions>
     </Dialog>
   )

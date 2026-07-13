@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react'
 import {
   Alert,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -10,7 +9,9 @@ import {
   Stack,
   TextField,
 } from '@mui/material'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
+import { useAsyncAction } from '../lib/useAsyncAction'
+import SubmitButton from './SubmitButton'
 import type { RedditPost } from '../api/types'
 
 interface RedditUrlDialogProps {
@@ -24,8 +25,7 @@ interface RedditUrlDialogProps {
 // create-document dialog).
 export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrlDialogProps) {
   const [url, setUrl] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const { busy: loading, error, setError, run } = useAsyncAction()
 
   function handleClose() {
     if (loading) return
@@ -34,21 +34,15 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
     onClose()
   }
 
-  async function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
+    run(async () => {
       const post = await api.get<RedditPost>(
         `/api/reddit/post?url=${encodeURIComponent(url.trim())}`,
       )
       setUrl('')
       onResolved(post)
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong. Try again.')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   return (
@@ -76,16 +70,9 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
           <Button onClick={handleClose} disabled={loading} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={loading || !url.trim()}>
-            {loading ? (
-              <>
-                <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
-                Loading…
-              </>
-            ) : (
-              'Continue'
-            )}
-          </Button>
+          <SubmitButton busy={loading} busyLabel="Loading…" disabled={!url.trim()}>
+            Continue
+          </SubmitButton>
         </DialogActions>
       </form>
     </Dialog>

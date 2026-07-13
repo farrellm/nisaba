@@ -13,7 +13,10 @@ import {
   type SelectChangeEvent,
 } from '@mui/material'
 import { fonts } from '../theme'
+import { collator, sameName } from '../lib/text'
+import { listStatusSx } from '../lib/styles'
 import DocumentRow from './DocumentRow'
+import StatusLine from './StatusLine'
 import Masthead from './Masthead'
 import type { Document } from '../api/types'
 
@@ -24,14 +27,6 @@ const sortOptions: { value: SortOrder; label: string }[] = [
   { value: 'oldest', label: 'Oldest first' },
   { value: 'alpha', label: 'Alphabetical' },
 ]
-
-// ⚡ Bolt: Extracting Intl.Collator prevents initializing it on every comparison in the sort loop.
-// Improves alpha sort performance by ~100x for large document lists.
-const collator = new Intl.Collator(undefined, { sensitivity: 'base' })
-
-// Labels are user-global and lowercase-unique, but match case-insensitively to
-// mirror EditLabelsDialog's convention and stay robust to legacy data.
-const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 interface DocumentListProps {
   heading: string
@@ -79,7 +74,9 @@ export default function DocumentList({
 
   const toggleLabel = (name: string) =>
     setSelected((prev) =>
-      prev.some((l) => sameName(l, name)) ? prev.filter((l) => !sameName(l, name)) : [...prev, name],
+      prev.some((l) => sameName(l, name))
+        ? prev.filter((l) => !sameName(l, name))
+        : [...prev, name],
     )
 
   // base: documents after the archived toggle, before label filtering.
@@ -91,14 +88,15 @@ export default function DocumentList({
   const sorted = useMemo(() => {
     if (!base) return base
     // visible: base narrowed to docs carrying *all* selected labels (AND).
-    // ⚡ Bolt: Pre-computing lowercase labels avoids O(N*M) repeated string allocations in the loop.
     const selectedLower = selected.map((s) => s.toLowerCase())
-    // ⚡ Bolt: Bypass filter if no labels selected, and use .some() instead of allocating a new mapped array per doc
-    const visible = selectedLower.length === 0 ? base : base.filter((d) => {
-      return selectedLower.every((selLower) =>
-        (d.labels ?? []).some((l) => l.toLowerCase() === selLower)
-      )
-    })
+    const visible =
+      selectedLower.length === 0
+        ? base
+        : base.filter((d) => {
+            return selectedLower.every((selLower) =>
+              (d.labels ?? []).some((l) => l.toLowerCase() === selLower),
+            )
+          })
     const copy = [...visible]
     copy.sort((a, b) => {
       switch (sort) {
@@ -120,8 +118,6 @@ export default function DocumentList({
   const candidatePills = useMemo(() => {
     if (!sorted) return []
     const seen = new Map<string, string>()
-    // ⚡ Bolt: Using a pre-computed Set of lowercased selected labels prevents
-    // repetitive .toLowerCase() allocation and allows O(1) existence checks.
     const selectedLowerSet = new Set(selected.map((s) => s.toLowerCase()))
 
     for (const doc of sorted) {
@@ -185,7 +181,12 @@ export default function DocumentList({
               <Button
                 size="small"
                 onClick={() => setSelected([])}
-                sx={{ fontFamily: fonts.mono, fontSize: '0.72rem', color: 'text.secondary', minWidth: 0 }}
+                sx={{
+                  fontFamily: fonts.mono,
+                  fontSize: '0.72rem',
+                  color: 'text.secondary',
+                  minWidth: 0,
+                }}
               >
                 Clear
               </Button>
@@ -235,7 +236,11 @@ export default function DocumentList({
                 sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}
               >
                 {sortOptions.map((o) => (
-                  <MenuItem key={o.value} value={o.value} sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}>
+                  <MenuItem
+                    key={o.value}
+                    value={o.value}
+                    sx={{ fontFamily: fonts.mono, fontSize: '0.8rem' }}
+                  >
                     {o.label}
                   </MenuItem>
                 ))}
@@ -247,21 +252,23 @@ export default function DocumentList({
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}>
+          <StatusLine tone="error" sx={listStatusSx}>
             {error}
-          </Typography>
+          </StatusLine>
         ) : loading ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
-            Loading…
-          </Typography>
+          <StatusLine sx={listStatusSx}>Loading…</StatusLine>
         ) : sorted && sorted.length > 0 ? (
           sorted.map((doc) => (
-            <DocumentRow key={doc.id} doc={doc} basePath={basePath} showArchived={showArchived} hideTime={hideTime} />
+            <DocumentRow
+              key={doc.id}
+              doc={doc}
+              basePath={basePath}
+              showArchived={showArchived}
+              hideTime={hideTime}
+            />
           ))
         ) : (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
-            Nothing here yet.
-          </Typography>
+          <StatusLine sx={listStatusSx}>Nothing here yet.</StatusLine>
         )}
       </Container>
 

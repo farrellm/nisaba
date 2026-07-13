@@ -17,7 +17,10 @@ export default function ModelSelector({ doc, onChange }: ModelSelectorProps) {
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    api.get<LLMModel[]>('/api/models').then(setModels).catch(() => setModels([]))
+    api
+      .get<LLMModel[]>('/api/models')
+      .then(setModels)
+      .catch(() => setModels([]))
   }, [])
 
   async function handleChange(e: SelectChangeEvent) {

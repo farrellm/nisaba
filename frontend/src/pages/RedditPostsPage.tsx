@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Box, Container, Divider, Fab, Tooltip, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useAuth } from '../auth/AuthContext'
-import { api } from '../api/client'
 import { fonts } from '../theme'
 import type { RedditPost } from '../api/types'
 import Masthead from '../components/Masthead'
 import RedditPromptDialog from '../components/RedditPromptDialog'
 import RedditUrlDialog from '../components/RedditUrlDialog'
+import StatusLine from '../components/StatusLine'
+import { listStatusSx } from '../lib/styles'
+import { useFetch } from '../lib/useFetch'
 import { usePageTitle } from '../lib/usePageTitle'
 
 // RedditPostsPage lists the newest posts from the user's configured subreddit.
@@ -15,25 +17,15 @@ import { usePageTitle } from '../lib/usePageTitle'
 export default function RedditPostsPage() {
   usePageTitle('Writing Prompts')
   const { user } = useAuth()
-  const [posts, setPosts] = useState<RedditPost[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: posts, error, loading } = useFetch<RedditPost[]>('/api/reddit/posts')
   const [selected, setSelected] = useState<RedditPost | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [urlDialogOpen, setUrlDialogOpen] = useState(false)
-
-  useEffect(() => {
-    api
-      .get<RedditPost[]>('/api/reddit/posts')
-      .then(setPosts)
-      .catch((e: unknown) => setError(String(e)))
-  }, [])
 
   function openPost(post: RedditPost) {
     setSelected(post)
     setDialogOpen(true)
   }
-
-  const loading = posts === null && error === null
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -50,13 +42,11 @@ export default function RedditPostsPage() {
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'error.main', py: 1.5 }}>
+          <StatusLine tone="error" sx={listStatusSx}>
             {error}
-          </Typography>
+          </StatusLine>
         ) : loading ? (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
-            Loading…
-          </Typography>
+          <StatusLine sx={listStatusSx}>Loading…</StatusLine>
         ) : posts && posts.length > 0 ? (
           posts.map((post, i) => (
             <Box
@@ -73,7 +63,12 @@ export default function RedditPostsPage() {
               sx={{
                 cursor: 'pointer',
                 '&:hover .post-title': { color: 'primary.main' },
-                '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '2px', borderRadius: 1 }
+                '&:focus-visible': {
+                  outline: '2px solid',
+                  outlineColor: 'primary.main',
+                  outlineOffset: '2px',
+                  borderRadius: 1,
+                },
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, py: 1.75 }}>
@@ -88,9 +83,7 @@ export default function RedditPostsPage() {
             </Box>
           ))
         ) : (
-          <Typography sx={{ fontFamily: fonts.mono, fontSize: '0.9rem', color: 'text.secondary', py: 1.5 }}>
-            Nothing here yet.
-          </Typography>
+          <StatusLine sx={listStatusSx}>Nothing here yet.</StatusLine>
         )}
       </Container>
 
