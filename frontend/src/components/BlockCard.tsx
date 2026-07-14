@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Box, CircularProgress, IconButton, Stack, Tooltip, Typography } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -9,7 +9,7 @@ import Difference from '@mui/icons-material/Difference'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import type { DeltaKind } from '../api/client'
 import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
@@ -18,8 +18,15 @@ import CollapsibleValueField from './CollapsibleValueField'
 import ResponseView from './ResponseView'
 import StatusLine from './StatusLine'
 import StreamingPreview from './StreamingPreview'
-import type { Block, Mode } from '../api/types'
+import type { Block, DocumentDetail, Mode } from '../api/types'
 import { StreamBuffer } from '../lib/streamBuffer'
+import {
+  RunRecorder,
+  clearRunEntry,
+  isRunStale,
+  loadRunEntry,
+  type RunEntry,
+} from '../lib/runState'
 import { fonts } from '../theme'
 import { leaderSx, summarySx } from '../lib/styles'
 import { addToSet, toggleSet } from '../lib/sets'
@@ -33,6 +40,14 @@ interface BlockCardProps {
   onBlockDeleted: (id: number) => void
   onAfterRun: () => void
   defaultOpen?: boolean
+}
+
+// How often a restored run polls the document for its saved response.
+const RESUME_POLL_MS = 5000
+
+function describeElapsed(startedAt: number): string {
+  const mins = Math.floor((Date.now() - startedAt) / 60000)
+  return mins < 1 ? 'moments ago' : mins === 1 ? '1 minute ago' : `${mins} minutes ago`
 }
 
 // BlockCard renders one block: its mode, editable key/values, a run action, and
@@ -62,6 +77,9 @@ const BlockCard = memo(function BlockCard({
   // StreamingPreview below subscribes to it, so per-delta re-renders stay out
   // of this (large) component.
   const [stream, setStream] = useState<StreamBuffer | null>(null)
+  // A run restored from localStorage after a reload; non-null while polling
+  // the document for its saved response.
+  const [resumeEntry, setResumeEntry] = useState<RunEntry | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [reparsingId, setReparsingId] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -75,6 +93,90 @@ const BlockCard = memo(function BlockCard({
       ? new Set([responses[responses.length - 1].id])
       : new Set()
   })
+
+  // Restore a run that was in flight when the page was last unloaded. The run
+  // keeps going server-side (detached), so re-show the running state and the
+  // persisted partial text, then poll until its response lands. Mount-only:
+  // document refetches update the block prop without remounting the card.
+  useEffect(() => {
+    const entry = loadRunEntry(block.documentId, block.id)
+    if (!entry) return
+    if ((block.responses ?? []).length > entry.baseResponseCount) {
+      // The run finished while we were away; this page load already has it.
+      clearRunEntry(block.documentId, block.id)
+      return
+    }
+    const buffer = new StreamBuffer()
+    if (entry.text !== '') buffer.push(entry.text)
+    setStream(buffer)
+    setRunning(true)
+    setResumeEntry(entry)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // While restoring, poll the document until the run's response appears. A run
+  // that failed while the tab was gone saved nothing and left no failure
+  // signal to poll, so give up at the staleness bound; the dismiss button next
+  // to the status line covers the impatient path.
+  useEffect(() => {
+    if (!resumeEntry) return
+    let stopped = false
+
+    const settle = () => {
+      stopped = true
+      clearRunEntry(block.documentId, block.id)
+      setResumeEntry(null)
+      setStream(null)
+      setRunning(false)
+    }
+
+    const tick = async () => {
+      if (stopped) return
+      if (isRunStale(resumeEntry)) {
+        settle()
+        setError('The run did not complete within 15 minutes.')
+        return
+      }
+      if (loadRunEntry(block.documentId, block.id) === null) {
+        // Another tab finished or dismissed this run; stand down, refreshing
+        // in case its response is already saved.
+        settle()
+        onAfterRun()
+        return
+      }
+      try {
+        const doc = await api.get<DocumentDetail>(`/api/documents/${block.documentId}`)
+        if (stopped) return
+        const fresh = (doc.blocks ?? []).find((b) => b.id === block.id)
+        if (!fresh || (fresh.responses ?? []).length <= resumeEntry.baseResponseCount) return
+        settle()
+        // Same treatment as a live run completing (see handleRun).
+        const newest = (fresh.responses ?? [])[(fresh.responses ?? []).length - 1]
+        if (newest && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, newest.id))
+        onBlockUpdated(fresh)
+        onAfterRun()
+      } catch {
+        // transient fetch error — keep polling; staleness bounds the wait
+      }
+    }
+
+    void tick()
+    const interval = setInterval(() => void tick(), RESUME_POLL_MS)
+    return () => {
+      stopped = true
+      clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeEntry])
+
+  // Stop waiting for a restored run without erroring. If the run does finish
+  // later, its response is saved server-side and shows up on the next refresh.
+  function dismissResume() {
+    clearRunEntry(block.documentId, block.id)
+    setResumeEntry(null)
+    setStream(null)
+    setRunning(false)
+  }
 
   const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
   const toggleStructured = (id: number) => setStructured((prev) => toggleSet(prev, id))
@@ -148,6 +250,10 @@ const BlockCard = memo(function BlockCard({
     setRunning(true)
     const buffer = new StreamBuffer()
     setStream(buffer)
+    // Remember the run in localStorage so a reload can restore the running
+    // state and the preview text accumulated so far (the server finishes the
+    // run either way — see the restore effect above).
+    const recorder = new RunRecorder(block.documentId, block.id, (block.responses ?? []).length)
     // With streaming off, deltas accumulate unseen and flush into the preview
     // only when a tool-call block completes, so the output jumps to everything
     // produced so far (thinking, text, and the tool call with its result) at
@@ -158,31 +264,48 @@ const BlockCard = memo(function BlockCard({
       unflushed += text
       if (user?.streamingEnabled || kind === 'tool') {
         buffer.push(unflushed)
+        recorder.append(unflushed)
         unflushed = ''
       }
     }
+    let updated: Block
     try {
       // Always stream so the server's keepalive pings keep the connection warm
       // through a long run (avoids proxy 504s). The streamingEnabled setting only
       // controls whether incoming text is displayed live or at tool boundaries.
-      const updated = await api.postStream<Block>(
+      updated = await api.postStream<Block>(
         `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
         { attributes: values },
         onDelta,
         'block',
       )
-      // A freshly run response opens in the structured view by default — except
-      // for streamed runs, which stay in the raw view the user just watched.
-      const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
-      if (fresh && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, fresh.id))
-      onBlockUpdated(updated)
-      onAfterRun()
     } catch (err) {
-      setError(errorMessage(err, 'Could not run. Try again.'))
-    } finally {
-      setStream(null)
-      setRunning(false)
+      if (err instanceof ApiError) {
+        // The server refused the run or reported a failure — nothing will be
+        // saved, so forget the run.
+        setError(errorMessage(err, 'Could not run. Try again.'))
+        recorder.clear()
+        setStream(null)
+        setRunning(false)
+        return
+      }
+      // The connection was interrupted (reload or app-switch teardown, network
+      // blip) but the detached run continues server-side: keep the entry and
+      // hand over to the resume/poll path. Notably, iOS Safari runs this catch
+      // during page teardown on reload — clearing here would erase the entry
+      // the reloaded page needs to restore.
+      setResumeEntry(recorder.stop())
+      return
     }
+    recorder.clear()
+    setStream(null)
+    setRunning(false)
+    // A freshly run response opens in the structured view by default — except
+    // for streamed runs, which stay in the raw view the user just watched.
+    const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
+    if (fresh && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, fresh.id))
+    onBlockUpdated(updated)
+    onAfterRun()
   }
 
   // Re-derive the document's shared attributes from a stored response, without
@@ -386,6 +509,30 @@ const BlockCard = memo(function BlockCard({
         </Stack>
 
         {stream && <StreamingPreview stream={stream} />}
+
+        {resumeEntry && (
+          <StatusLine
+            sx={{
+              fontSize: '0.8rem',
+              mt: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            Waiting for a run started {describeElapsed(resumeEntry.startedAt)} to finish…
+            <Tooltip title="Stop waiting">
+              <IconButton
+                size="small"
+                aria-label="Stop waiting for run"
+                onClick={dismissResume}
+                sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </StatusLine>
+        )}
 
         {(block.responses ?? []).length > 0 && (
           <Stack spacing={1.5} sx={{ mt: 3 }}>
