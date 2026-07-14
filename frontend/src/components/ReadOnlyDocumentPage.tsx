@@ -23,7 +23,7 @@ import StatusLine from './StatusLine'
 import { usePageTitle } from '../lib/usePageTitle'
 import { fonts } from '../theme'
 import { leaderSx, postLinkSx, summarySx } from '../lib/styles'
-import { addToSet, toggleSet } from '../lib/sets'
+import { addToSet, setInSet, toggleSet } from '../lib/sets'
 import { useAsyncAction } from '../lib/useAsyncAction'
 
 // ReadOnlyDocumentPage renders a single document read-only, mirroring the live
@@ -156,6 +156,10 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
   const [structured, setStructured] = useState<Set<number>>(() =>
     defaultOpen && responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set(),
   )
+  // Which responses' <details> are expanded (newest open by default).
+  const [openIds, setOpenIds] = useState<Set<number>>(() =>
+    responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set(),
+  )
 
   const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))
   const toggleStructured = (id: number) => setStructured((prev) => toggleSet(prev, id))
@@ -196,11 +200,12 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
             {responses
               .slice()
               .reverse()
-              .map((response, idx) => (
+              .map((response) => (
                 <ResponseView
                   key={response.id}
                   response={response}
-                  defaultOpen={idx === 0}
+                  open={openIds.has(response.id)}
+                  onToggle={(open) => setOpenIds((prev) => setInSet(prev, response.id, open))}
                   structured={structured.has(response.id)}
                   onToggleStructured={() => toggleStructured(response.id)}
                 />
