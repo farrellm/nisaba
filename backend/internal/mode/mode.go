@@ -48,6 +48,9 @@ var brainstormTools1Tmpl string
 //go:embed templates/brainstorm-tools-2.mustache
 var brainstormTools2Tmpl string
 
+//go:embed templates/brainstorm-tools-3.mustache
+var brainstormTools3Tmpl string
+
 //go:embed templates/authors.mustache
 var authorsTmpl string
 
@@ -82,6 +85,7 @@ var modes = []Mode{
 	{Name: "brainstorm-creative-2", Label: "Brainstorm (creative, two-act)", Keys: []string{"prompt"}, Template: brainstormCreative2Tmpl},
 	{Name: "brainstorm-tools-1", Label: "Brainstorm (tools, one-act)", Keys: []string{"prompt"}, Template: brainstormTools1Tmpl, Tools: []llm.Tool{llm.GenerateNameTool}},
 	{Name: "brainstorm-tools-2", Label: "Brainstorm (tools, two-act)", Keys: []string{"prompt"}, Template: brainstormTools2Tmpl, Tools: []llm.Tool{llm.GenerateNameTool}},
+	{Name: "brainstorm-tools-3", Label: "Brainstorm (tools, three-act)", Keys: []string{"prompt"}, Template: brainstormTools3Tmpl, Tools: []llm.Tool{llm.GenerateNameTool}},
 	{Name: "revise-outline-1", Label: "Revise outline (one-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline1Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
 	{Name: "revise-outline-2", Label: "Revise outline (two-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline2Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
 	{Name: "authors", Label: "Suggest authors", Keys: []string{"outline", "characters"}, Template: authorsTmpl},
