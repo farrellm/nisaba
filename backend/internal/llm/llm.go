@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 
 	"github.com/zendev-sh/goai"
 	"github.com/zendev-sh/goai/provider"
@@ -252,6 +253,37 @@ const (
 	thinkingClose = "\n</thinking>\n"
 )
 
+// DeltaKind classifies a streamed delta for onDelta consumers: ordinary model
+// output (text/thinking) vs. a completed tool-call block. The frontend uses
+// the tool kind to refresh a non-streamed run's preview at tool boundaries.
+type DeltaKind string
+
+const (
+	DeltaKindText DeltaKind = "text"
+	DeltaKindTool DeltaKind = "tool"
+)
+
+// toolBlock frames one tool call as a <toolname> block carrying its arguments
+// and result. Shared by combineSteps and GenerateStream so the live preview
+// and the persisted value can't drift.
+func toolBlock(name, input, result string) string {
+	return "<" + name + ">\narguments: " + input + "\nresult: " + result + "\n</" + name + ">\n"
+}
+
+// toolResultText renders a tool execution's outcome the way GoAI renders it
+// into ToolResult.Output (buildToolResults): the error text, truncated to 500
+// runes, when the tool failed; the raw output otherwise.
+func toolResultText(output string, err error) string {
+	if err == nil {
+		return output
+	}
+	errStr := err.Error()
+	if runes := []rune(errStr); len(runes) > 500 {
+		errStr = string(runes[:500]) + "..."
+	}
+	return "error: " + errStr
+}
+
 // GenerateStream is the streaming sibling of Generate. It pushes the model's
 // reply to onDelta as it arrives and returns the same combined per-step output
 // Generate would (via combineSteps on the final result), so the value persisted
@@ -260,59 +292,97 @@ const (
 // It consumes GoAI's raw chunk stream (ts.Stream()) so reasoning streams live,
 // framed exactly like combineSteps: reasoning deltas are wrapped in
 // <thinking>…</thinking> (opened on the first reasoning token of a run, closed
-// when text or a tool call follows), text deltas are emitted as-is, and each
-// tool call the model requests is emitted as a <toolname>…</toolname> block.
-// GoAI still runs the automatic tool loop (WithMaxSteps) and executes tools
-// itself; we only observe the ChunkToolCall events for display, so the tool
-// *result* isn't shown live — it lands only in the final combineSteps value
-// that replaces the preview. Everything runs in this goroutine, so onDelta is
-// called sequentially with no locking.
-func GenerateStream(ctx context.Context, model, system, prompt string, tools []Tool, onDelta func(string)) (string, error) {
-	emit := func(s string) {
-		if onDelta != nil && s != "" {
-			onDelta(s)
-		}
-	}
-
+// when text or a tool call follows) and text deltas are emitted as-is, both
+// with DeltaKindText. GoAI still runs the automatic tool loop (WithMaxSteps)
+// and executes tools itself; tool *results* never reach the raw chunk stream
+// (GoAI consumes its internal tool-results chunk), so each call is instead
+// emitted the moment its tool finishes executing — via the OnToolCall hook —
+// as one atomic <toolname>…</toolname> block carrying arguments and result,
+// with DeltaKindTool. The hook fires from GoAI's tool goroutines, concurrent
+// with this stream loop, so all emission is serialized under one mutex.
+func GenerateStream(ctx context.Context, model, system, prompt string, tools []Tool, onDelta func(DeltaKind, string)) (string, error) {
 	client, opts, err := buildCall(model, system, prompt, tools)
 	if err != nil {
 		return "", err
 	}
+
+	// mu guards emission and the tool-call bookkeeping below; emit and
+	// closeThinking must be called with it held.
+	var mu sync.Mutex
+	emit := func(kind DeltaKind, s string) {
+		if onDelta != nil && s != "" {
+			onDelta(kind, s)
+		}
+	}
+	inThinking := false
+	closeThinking := func() {
+		if inThinking {
+			emit(DeltaKindText, thinkingClose)
+			inThinking = false
+		}
+	}
+
+	// Calls seen on the stream whose result hasn't been emitted yet, in call
+	// order, plus the IDs already emitted by the hook — the chunk channel is
+	// buffered, so a fast tool can resolve before its ChunkToolCall is read.
+	type toolCall struct{ id, name, input string }
+	var pending []toolCall
+	resolved := map[string]bool{}
+
+	// Sequential execution makes the hook fire in call order, so the preview's
+	// tool blocks land in the same order combineSteps persists them (parallel
+	// tools resolve in completion order and the two can disagree).
+	opts = append(opts, goai.WithSequentialToolExecution(), goai.WithOnToolCall(func(info goai.ToolCallInfo) {
+		mu.Lock()
+		defer mu.Unlock()
+		closeThinking()
+		emit(DeltaKindTool, toolBlock(info.ToolName, string(info.Input), toolResultText(info.Output, info.Error)))
+		resolved[info.ToolCallID] = true
+		for i, c := range pending {
+			if c.id == info.ToolCallID {
+				pending = append(pending[:i], pending[i+1:]...)
+				break
+			}
+		}
+	}))
 
 	ts, err := goai.StreamText(ctx, client, opts...)
 	if err != nil {
 		return "", err
 	}
 
-	inThinking := false
-	closeThinking := func() {
-		if inThinking {
-			emit(thinkingClose)
-			inThinking = false
-		}
-	}
 	for chunk := range ts.Stream() {
+		mu.Lock()
 		switch chunk.Type {
 		case provider.ChunkReasoning:
-			if chunk.Text == "" {
-				continue // trailing signature/metadata chunk carries no text
+			if chunk.Text != "" { // trailing signature/metadata chunk carries no text
+				if !inThinking {
+					emit(DeltaKindText, thinkingOpen)
+					inThinking = true
+				}
+				emit(DeltaKindText, chunk.Text)
 			}
-			if !inThinking {
-				emit(thinkingOpen)
-				inThinking = true
-			}
-			emit(chunk.Text)
 		case provider.ChunkText:
 			closeThinking()
-			emit(chunk.Text)
+			emit(DeltaKindText, chunk.Text)
 		case provider.ChunkToolCall:
-			// Mirror combineSteps' tool framing, minus the result (GoAI executes
-			// the tool after emitting this; the result lands in the final value).
+			// The block itself is emitted by the OnToolCall hook above; just
+			// note the call so one that never resolves (a tool without an
+			// Execute, a loop cut short) still gets flushed after the stream.
 			closeThinking()
-			emit("<" + chunk.ToolName + ">\narguments: " + chunk.ToolInput + "\n</" + chunk.ToolName + ">\n")
+			if !resolved[chunk.ToolCallID] {
+				pending = append(pending, toolCall{id: chunk.ToolCallID, name: chunk.ToolName, input: chunk.ToolInput})
+			}
 		}
+		mu.Unlock()
 	}
+
+	mu.Lock()
 	closeThinking()
+	for _, c := range pending {
+		emit(DeltaKindTool, toolBlock(c.name, c.input, ""))
+	}
+	mu.Unlock()
 
 	if err := ts.Err(); err != nil {
 		return "", err
@@ -342,15 +412,7 @@ func combineSteps(res *goai.TextResult) string {
 			results[r.ToolCallID] = r.Output
 		}
 		for _, c := range s.ToolCalls {
-			b.WriteString("<")
-			b.WriteString(c.Name)
-			b.WriteString(">\narguments: ")
-			b.Write(c.Input)
-			b.WriteString("\nresult: ")
-			b.WriteString(results[c.ID])
-			b.WriteString("\n</")
-			b.WriteString(c.Name)
-			b.WriteString(">\n")
+			b.WriteString(toolBlock(c.Name, string(c.Input), results[c.ID]))
 		}
 	}
 	return b.String()

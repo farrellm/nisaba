@@ -86,11 +86,11 @@ func (g fakeGen) Generate(context.Context, string, string, string, []llm.Tool) (
 	return g.output, g.err
 }
 
-func (g fakeGen) GenerateStream(_ context.Context, _, _, _ string, _ []llm.Tool, onDelta func(string)) (string, error) {
+func (g fakeGen) GenerateStream(_ context.Context, _, _, _ string, _ []llm.Tool, onDelta func(llm.DeltaKind, string)) (string, error) {
 	if g.err != nil {
 		return "", g.err
 	}
-	onDelta(g.output)
+	onDelta(llm.DeltaKindText, g.output)
 	return g.output, nil
 }
 
@@ -237,7 +237,8 @@ func TestExecuteStreamForwardsDeltas(t *testing.T) {
 		t.Fatal(err)
 	}
 	var deltas []string
-	if _, err := svc.ExecuteStream(context.Background(), run, func(d string) { deltas = append(deltas, d) }); err != nil {
+	onDelta := func(_ llm.DeltaKind, d string) { deltas = append(deltas, d) }
+	if _, err := svc.ExecuteStream(context.Background(), run, onDelta); err != nil {
 		t.Fatal(err)
 	}
 	if len(deltas) != 1 || !strings.Contains(deltas[0], "streamed") {
