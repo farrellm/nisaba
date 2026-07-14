@@ -8,8 +8,11 @@ import { fonts } from '../theme'
 
 interface ResponseViewProps {
   response: Response
-  // Whether this response's <details> starts open (the newest one does).
-  defaultOpen: boolean
+  // Whether this response's <details> is open. Controlled by the caller so it
+  // can collapse older responses when a new run starts.
+  open: boolean
+  // Fires when the user toggles the <details>, with its new open state.
+  onToggle: (open: boolean) => void
   // Structured view renders top-level tags as collapsible quoted sections;
   // raw view shows the verbatim mono text.
   structured: boolean
@@ -33,7 +36,8 @@ interface ResponseViewProps {
 // document views.
 export default function ResponseView({
   response,
-  defaultOpen,
+  open,
+  onToggle,
   structured,
   onToggleStructured,
   actions,
@@ -43,7 +47,11 @@ export default function ResponseView({
   const segments = useMemo(() => parseResponseSegments(response.value), [response.value])
 
   return (
-    <Box component="details" {...(defaultOpen ? { open: true } : {})}>
+    <Box
+      component="details"
+      open={open}
+      onToggle={(e) => onToggle((e.currentTarget as HTMLDetailsElement).open)}
+    >
       <Box
         component="summary"
         sx={{

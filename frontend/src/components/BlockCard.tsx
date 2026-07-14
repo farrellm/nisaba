@@ -29,7 +29,7 @@ import {
 } from '../lib/runState'
 import { fonts } from '../theme'
 import { leaderSx, summarySx } from '../lib/styles'
-import { addToSet, toggleSet } from '../lib/sets'
+import { addToSet, setInSet, toggleSet } from '../lib/sets'
 import { useArmedAction } from '../lib/useArmedAction'
 
 interface BlockCardProps {
@@ -93,6 +93,13 @@ const BlockCard = memo(function BlockCard({
       ? new Set([responses[responses.length - 1].id])
       : new Set()
   })
+  // Which responses' <details> are expanded. Controlled so a run can collapse
+  // the old ones on click and open just the new one on completion. Seeds with
+  // the newest response open, matching how each list started before.
+  const [openIds, setOpenIds] = useState<Set<number>>(() => {
+    const responses = block.responses ?? []
+    return responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set()
+  })
 
   // Restore a run that was in flight when the page was last unloaded. The run
   // keeps going server-side (detached), so re-show the running state and the
@@ -153,6 +160,7 @@ const BlockCard = memo(function BlockCard({
         // Same treatment as a live run completing (see handleRun).
         const newest = (fresh.responses ?? [])[(fresh.responses ?? []).length - 1]
         if (newest && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, newest.id))
+        if (newest) setOpenIds(new Set([newest.id]))
         onBlockUpdated(fresh)
         onAfterRun()
       } catch {
@@ -248,6 +256,9 @@ const BlockCard = memo(function BlockCard({
   async function handleRun() {
     setError(null)
     setRunning(true)
+    // Collapse the old responses immediately; the in-flight preview block (and,
+    // on completion, the new response) takes over the open slot.
+    setOpenIds(new Set())
     const buffer = new StreamBuffer()
     setStream(buffer)
     // Remember the run in localStorage so a reload can restore the running
@@ -304,6 +315,7 @@ const BlockCard = memo(function BlockCard({
     // for streamed runs, which stay in the raw view the user just watched.
     const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
     if (fresh && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, fresh.id))
+    if (fresh) setOpenIds(new Set([fresh.id]))
     onBlockUpdated(updated)
     onAfterRun()
   }
@@ -539,11 +551,12 @@ const BlockCard = memo(function BlockCard({
             {(block.responses ?? [])
               .slice()
               .reverse()
-              .map((response, idx) => (
+              .map((response) => (
                 <ResponseView
                   key={response.id}
                   response={response}
-                  defaultOpen={idx === 0}
+                  open={openIds.has(response.id)}
+                  onToggle={(open) => setOpenIds((prev) => setInSet(prev, response.id, open))}
                   structured={structured.has(response.id)}
                   onToggleStructured={() => toggleStructured(response.id)}
                   actions={
