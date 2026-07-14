@@ -10,6 +10,17 @@ export class ApiError extends Error {
   }
 }
 
+// StreamInterruptedError means an NDJSON stream ended without its terminal
+// event — the connection was cut, not a failure the server reported. Distinct
+// from ApiError so callers can tell "the request failed" from "the connection
+// dropped but the (detached) server-side work is likely still running".
+export class StreamInterruptedError extends Error {
+  constructor() {
+    super('Stream ended without a result')
+    this.name = 'StreamInterruptedError'
+  }
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method,
@@ -94,7 +105,7 @@ async function postStream<T>(
   }
   if (buffer) handle(buffer)
 
-  if (result === undefined) throw new ApiError(502, 'Stream ended without a result')
+  if (result === undefined) throw new StreamInterruptedError()
   return result
 }
 

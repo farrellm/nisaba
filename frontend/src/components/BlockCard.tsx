@@ -9,7 +9,7 @@ import Difference from '@mui/icons-material/Difference'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
-import { api } from '../api/client'
+import { api, ApiError } from '../api/client'
 import type { DeltaKind } from '../api/client'
 import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
@@ -268,29 +268,44 @@ const BlockCard = memo(function BlockCard({
         unflushed = ''
       }
     }
+    let updated: Block
     try {
       // Always stream so the server's keepalive pings keep the connection warm
       // through a long run (avoids proxy 504s). The streamingEnabled setting only
       // controls whether incoming text is displayed live or at tool boundaries.
-      const updated = await api.postStream<Block>(
+      updated = await api.postStream<Block>(
         `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
         { attributes: values },
         onDelta,
         'block',
       )
-      // A freshly run response opens in the structured view by default — except
-      // for streamed runs, which stay in the raw view the user just watched.
-      const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
-      if (fresh && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, fresh.id))
-      onBlockUpdated(updated)
-      onAfterRun()
     } catch (err) {
-      setError(errorMessage(err, 'Could not run. Try again.'))
-    } finally {
-      recorder.clear()
-      setStream(null)
-      setRunning(false)
+      if (err instanceof ApiError) {
+        // The server refused the run or reported a failure — nothing will be
+        // saved, so forget the run.
+        setError(errorMessage(err, 'Could not run. Try again.'))
+        recorder.clear()
+        setStream(null)
+        setRunning(false)
+        return
+      }
+      // The connection was interrupted (reload or app-switch teardown, network
+      // blip) but the detached run continues server-side: keep the entry and
+      // hand over to the resume/poll path. Notably, iOS Safari runs this catch
+      // during page teardown on reload — clearing here would erase the entry
+      // the reloaded page needs to restore.
+      setResumeEntry(recorder.stop())
+      return
     }
+    recorder.clear()
+    setStream(null)
+    setRunning(false)
+    // A freshly run response opens in the structured view by default — except
+    // for streamed runs, which stay in the raw view the user just watched.
+    const fresh = (updated.responses ?? [])[(updated.responses ?? []).length - 1]
+    if (fresh && !user?.streamingEnabled) setStructured((prev) => addToSet(prev, fresh.id))
+    onBlockUpdated(updated)
+    onAfterRun()
   }
 
   // Re-derive the document's shared attributes from a stored response, without

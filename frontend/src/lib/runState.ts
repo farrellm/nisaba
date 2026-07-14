@@ -79,16 +79,25 @@ export function clearRunEntry(documentId: number, blockId: number): void {
 
 // RunRecorder owns one run's entry for the duration of the run: it writes the
 // entry immediately on construction (so the run is remembered before any text
-// arrives), batches text appends, and removes the entry on clear().
+// arrives), batches text appends, and removes the entry on clear(). While the
+// page is being hidden or unloaded it writes immediately, so a browser that
+// freezes the page mid-throttle-window (iOS Safari) doesn't lose the tail.
 export class RunRecorder {
   private entry: RunEntry
   private lastWrite = 0
   private pending: ReturnType<typeof setTimeout> | null = null
   private stopped = false
+  // Unconditional: an extra write on becoming visible again is harmless, and
+  // not gating on visibilityState avoids depending on event ordering quirks.
+  private onHide = () => this.write()
 
   constructor(documentId: number, blockId: number, baseResponseCount: number) {
     this.entry = { blockId, documentId, startedAt: Date.now(), baseResponseCount, text: '' }
     this.write()
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pagehide', this.onHide)
+      document.addEventListener('visibilitychange', this.onHide)
+    }
   }
 
   append(text: string) {
@@ -106,14 +115,29 @@ export class RunRecorder {
     }
   }
 
-  // clear removes the entry once the run has settled (saved or failed with the
-  // user watching). Idempotent; later append() calls become no-ops.
-  clear() {
+  // stop ends recording without removing the entry: a final write lands any
+  // throttled text, and the up-to-date entry is returned so the caller can
+  // hand the run over to the resume/poll path (the stream broke but the
+  // detached run continues server-side). Idempotent.
+  stop(): RunEntry {
+    if (this.stopped) return this.entry
     this.stopped = true
     if (this.pending !== null) {
       clearTimeout(this.pending)
       this.pending = null
     }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('pagehide', this.onHide)
+      document.removeEventListener('visibilitychange', this.onHide)
+    }
+    this.write()
+    return this.entry
+  }
+
+  // clear removes the entry once the run has settled (saved, or genuinely
+  // failed with nothing coming). Later append() calls become no-ops.
+  clear() {
+    this.stop()
     clearRunEntry(this.entry.documentId, this.entry.blockId)
   }
 
