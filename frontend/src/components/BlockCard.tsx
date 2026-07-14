@@ -10,6 +10,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import { api } from '../api/client'
+import type { DeltaKind } from '../api/client'
 import { errorMessage } from '../lib/errors'
 import { useAuth } from '../auth/AuthContext'
 import AuthorField from './AuthorField'
@@ -145,16 +146,29 @@ const BlockCard = memo(function BlockCard({
   async function handleRun() {
     setError(null)
     setRunning(true)
-    const buffer = user?.streamingEnabled ? new StreamBuffer() : null
-    if (buffer) setStream(buffer)
+    const buffer = new StreamBuffer()
+    setStream(buffer)
+    // With streaming off, deltas accumulate unseen and flush into the preview
+    // only when a tool-call block completes, so the output jumps to everything
+    // produced so far (thinking, text, and the tool call with its result) at
+    // each tool boundary. A run with no tool calls never flushes — no preview,
+    // same as before.
+    let unflushed = ''
+    const onDelta = (text: string, kind: DeltaKind) => {
+      unflushed += text
+      if (user?.streamingEnabled || kind === 'tool') {
+        buffer.push(unflushed)
+        unflushed = ''
+      }
+    }
     try {
       // Always stream so the server's keepalive pings keep the connection warm
       // through a long run (avoids proxy 504s). The streamingEnabled setting only
-      // controls whether the incoming text is displayed live.
+      // controls whether incoming text is displayed live or at tool boundaries.
       const updated = await api.postStream<Block>(
         `/api/documents/${block.documentId}/blocks/${block.id}/run/stream`,
         { attributes: values },
-        buffer ? (text) => buffer.push(text) : () => {},
+        onDelta,
         'block',
       )
       // A freshly run response opens in the structured view by default — except

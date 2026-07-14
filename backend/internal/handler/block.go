@@ -12,6 +12,7 @@ import (
 
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/blockrun"
+	"github.com/farrellm/nisaba/internal/llm"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
 )
@@ -300,7 +301,9 @@ func RunBlock(st documentGetter, runner *blockrun.Service) http.HandlerFunc {
 // the streaming generator and pushes the reply to the client as it arrives,
 // framed as newline-delimited JSON (NDJSON). Each line is one event:
 //
-//	{"type":"delta","text":"..."}   incremental text
+//	{"type":"delta","kind":"text|tool","text":"..."}   incremental output; kind
+//	                                 "tool" marks a completed tool-call block (the
+//	                                 client refreshes a non-streamed preview on it)
 //	{"type":"ping"}                  keepalive while the model runs (client ignores)
 //	{"type":"error","message":"..."} terminal failure (after streaming began)
 //	{"type":"done","block":{...}}    the fully hydrated block, like RunBlock's body
@@ -372,8 +375,8 @@ func RunBlockStream(st documentGetter, runner *blockrun.Service) http.HandlerFun
 			}
 		}()
 
-		hydrated, err := runner.ExecuteStream(r.Context(), run, func(delta string) {
-			writeEvent(map[string]string{"type": "delta", "text": delta})
+		hydrated, err := runner.ExecuteStream(r.Context(), run, func(kind llm.DeltaKind, delta string) {
+			writeEvent(map[string]string{"type": "delta", "kind": string(kind), "text": delta})
 		})
 		// Stop the keepalive and wait for its goroutine to exit before writing the
 		// terminal event, so no stray ping can land after done/error.

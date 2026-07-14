@@ -71,7 +71,7 @@ type Store interface {
 // Generator abstracts the LLM call (internal/llm) for tests.
 type Generator interface {
 	Generate(ctx context.Context, model, system, prompt string, tools []llm.Tool) (string, error)
-	GenerateStream(ctx context.Context, model, system, prompt string, tools []llm.Tool, onDelta func(string)) (string, error)
+	GenerateStream(ctx context.Context, model, system, prompt string, tools []llm.Tool, onDelta func(llm.DeltaKind, string)) (string, error)
 }
 
 // LLM is the default Generator, backed by internal/llm.
@@ -81,7 +81,7 @@ func (LLM) Generate(ctx context.Context, model, system, prompt string, tools []l
 	return llm.Generate(ctx, model, system, prompt, tools)
 }
 
-func (LLM) GenerateStream(ctx context.Context, model, system, prompt string, tools []llm.Tool, onDelta func(string)) (string, error) {
+func (LLM) GenerateStream(ctx context.Context, model, system, prompt string, tools []llm.Tool, onDelta func(llm.DeltaKind, string)) (string, error) {
 	return llm.GenerateStream(ctx, model, system, prompt, tools, onDelta)
 }
 
@@ -209,7 +209,7 @@ func (s *Service) Execute(ctx context.Context, run Run) (model.Block, error) {
 
 // ExecuteStream is the streaming sibling of Execute: the model's reply is
 // forwarded to onDelta as it arrives, then persisted exactly like Execute.
-func (s *Service) ExecuteStream(ctx context.Context, run Run, onDelta func(string)) (model.Block, error) {
+func (s *Service) ExecuteStream(ctx context.Context, run Run, onDelta func(llm.DeltaKind, string)) (model.Block, error) {
 	ctx, cancel := detach(ctx)
 	defer cancel()
 

@@ -33,16 +33,21 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return res.json() as Promise<T>
 }
 
+// DeltaKind mirrors the backend's llm.DeltaKind: ordinary model text vs. a
+// completed tool-call block (used to refresh a non-streamed preview at tool
+// boundaries).
+export type DeltaKind = 'text' | 'tool'
+
 // postStream POSTs a JSON body and consumes a newline-delimited JSON (NDJSON)
-// response stream. Each line is one event: {type:"delta",text} streams text to
-// onDelta, {type:"ping"} is an ignored keepalive, {type:"error",message} throws,
-// and {type:"done",<key>} resolves the promise with that payload (the server
-// sends the final value under `doneKey`, e.g. "block"). Mirrors RunBlockStream
-// on the backend.
+// response stream. Each line is one event: {type:"delta",kind?,text} streams
+// text to onDelta (kind defaults to "text"), {type:"ping"} is an ignored
+// keepalive, {type:"error",message} throws, and {type:"done",<key>} resolves
+// the promise with that payload (the server sends the final value under
+// `doneKey`, e.g. "block"). Mirrors RunBlockStream on the backend.
 async function postStream<T>(
   path: string,
   body: unknown,
-  onDelta: (text: string) => void,
+  onDelta: (text: string, kind: DeltaKind) => void,
   doneKey: string,
 ): Promise<T> {
   const res = await fetch(path, {
@@ -72,7 +77,7 @@ async function postStream<T>(
     const trimmed = line.trim()
     if (!trimmed) return
     const event = JSON.parse(trimmed)
-    if (event.type === 'delta') onDelta(event.text as string)
+    if (event.type === 'delta') onDelta(event.text as string, (event.kind as DeltaKind) ?? 'text')
     else if (event.type === 'ping')
       return // keepalive; nothing to do
     else if (event.type === 'error') throw new ApiError(502, event.message ?? 'Stream error')
@@ -98,6 +103,10 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   del: <T>(path: string) => request<T>('DELETE', path),
-  postStream: <T>(path: string, body: unknown, onDelta: (text: string) => void, doneKey: string) =>
-    postStream<T>(path, body, onDelta, doneKey),
+  postStream: <T>(
+    path: string,
+    body: unknown,
+    onDelta: (text: string, kind: DeltaKind) => void,
+    doneKey: string,
+  ) => postStream<T>(path, body, onDelta, doneKey),
 }
