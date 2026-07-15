@@ -75,7 +75,8 @@ var (
 // models is the fixed, cross-provider list. IDs are provider-native model names.
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
-	// {ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic"},
+	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic",
+		ToolProviderOptions: anthropicCaching},
 	{ID: "claude-sonnet-5", Label: "Claude Sonnet 5", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
 	{ID: "claude-opus-4-8", Label: "Claude Opus 4.8", Provider: "anthropic",
