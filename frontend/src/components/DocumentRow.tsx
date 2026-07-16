@@ -76,6 +76,7 @@ const DocumentRow = memo(function DocumentRow({
                 label={label}
                 size="small"
                 variant="outlined"
+                aria-label={`Label ${label}`}
                 sx={{
                   fontFamily: fonts.mono,
                   fontSize: '0.7rem',

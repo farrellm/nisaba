@@ -18,3 +18,6 @@
 ## 2024-07-06 - ARIA labels for nested standard HTML input equivalents in MUI
 **Learning:** MUI components that wrap standard inputs, such as `Switch` and `Radio`, or decorative wrappers like `Chip`, often fail to expose their action context to screen readers despite their clear visual function. The label is only visual, not functional metadata for accessibility.
 **Action:** When using MUI `Switch`, `Radio`, or interactive `Chip`s, always explicitly provide `inputProps={{ 'aria-label': 'Action description' }}` (or `aria-label` directly on the `Chip`) to define their purpose to screen readers.
+## 2026-07-06 - ARIA labels for non-interactive decorative elements
+**Learning:** MUI `Chip` components used merely for displaying tags in a list lack accessibility context when read by screen readers. A screen reader will just read out the tag name without any context that it's a category or label.
+**Action:** Always include an `aria-label` (e.g. `aria-label={\`Label ${label}\`}`) directly on the `Chip` to clearly describe its purpose as a metadata label rather than just arbitrary text on the page.
