@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { MenuItem, Paper, Select, Typography, type SelectChangeEvent } from '@mui/material'
 import { api } from '../api/client'
-import type { DocumentDetail, LLMModel } from '../api/types'
+import { useModels } from '../api/useModels'
+import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
 
 interface ModelSelectorProps {
@@ -12,16 +13,9 @@ interface ModelSelectorProps {
 // ModelSelector is a fixed lower-left widget that lists the available models and
 // auto-saves the document's choice on change.
 export default function ModelSelector({ doc, onChange }: ModelSelectorProps) {
-  const [models, setModels] = useState<LLMModel[]>([])
+  const models = useModels()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
-
-  useEffect(() => {
-    api
-      .get<LLMModel[]>('/api/models')
-      .then(setModels)
-      .catch(() => setModels([]))
-  }, [])
 
   async function handleChange(e: SelectChangeEvent) {
     const selectedModel = e.target.value

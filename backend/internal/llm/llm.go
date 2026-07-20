@@ -38,11 +38,21 @@ const defaultMaxTokens = 64000
 // vendor library directly; build one with goai.NewTool (see names.go).
 type Tool = goai.Tool
 
-// Model is one selectable model in the fixed list. ID is the provider-native
-// model identifier stored in documents.selected_model; Provider selects which
-// GoAI provider client routes the request.
+// Model is one selectable model in the fixed list.
+//
+// Key is the model's identity: it is what's stored in documents.selected_model
+// and responses.model, what the API serves as "id", and what lookup/Valid/
+// ProviderFor take. ID is the provider-native model name handed to the GoAI
+// provider client. The two differ only for variants — several entries may share
+// one ID while differing in Key, Label and ProviderOptions (e.g. "GLM 5.2" and
+// "GLM 5.2 (max)" both route to z-ai/glm-5.2 with different reasoning effort).
+// Leave Key empty and it defaults to ID, so plain entries declare ID alone and
+// existing stored values keep resolving.
+//
+// Provider selects which GoAI provider client routes the request.
 type Model struct {
-	ID              string         `json:"id"`
+	Key             string         `json:"id"`
+	ID              string         `json:"-"`
 	Label           string         `json:"label"`
 	Provider        string         `json:"provider"`
 	ProviderOptions map[string]any `json:"-"`
@@ -90,9 +100,29 @@ var models = []Model{
 	{ID: "gemini-3.5-flash", Label: "Gemini 3.5 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
 	{ID: "z-ai/glm-5.2", Label: "GLM 5.2", Provider: "openrouter"},
+	{Key: "z-ai/glm-5.2:max", ID: "z-ai/glm-5.2", Label: "GLM 5.2 (max)", Provider: "openrouter",
+		ProviderOptions: map[string]any{"reasoning": map[string]any{"effort": "xhigh"}}},
 	{ID: "x-ai/grok-4.5", Label: "Grok 4.5", Provider: "openrouter"},
 	{ID: "moonshotai/kimi-k3", Label: "Kimi K3", Provider: "openrouter"},
 	{ID: "deepseek-v4-pro", Label: "DeepSeek V4 Pro", Provider: "deepseek"},
+}
+
+// init defaults each entry's Key to its ID and rejects duplicates. Keys must be
+// unique because they are the app's model identity — two entries sharing one
+// would make the second unreachable through lookup and collide in the UI
+// selector. The list is a build-time constant, so panicking here turns that
+// mistake into an immediate startup failure rather than a silent misroute.
+func init() {
+	seen := make(map[string]bool, len(models))
+	for i := range models {
+		if models[i].Key == "" {
+			models[i].Key = models[i].ID
+		}
+		if seen[models[i].Key] {
+			panic(fmt.Sprintf("llm: duplicate model key %q", models[i].Key))
+		}
+		seen[models[i].Key] = true
+	}
 }
 
 // Models returns the fixed model list in display order.
@@ -100,52 +130,54 @@ func Models() []Model {
 	return models
 }
 
-// lookup returns the Model with the given id from the fixed list.
-func lookup(id string) (Model, bool) {
+// lookup returns the Model with the given key from the fixed list.
+func lookup(key string) (Model, bool) {
 	for _, m := range models {
-		if m.ID == id {
+		if m.Key == key {
 			return m, true
 		}
 	}
 	return Model{}, false
 }
 
-// Valid reports whether id is one of the fixed models.
-func Valid(id string) bool {
-	_, ok := lookup(id)
+// Valid reports whether key is one of the fixed models.
+func Valid(key string) bool {
+	_, ok := lookup(key)
 	return ok
 }
 
-// ProviderFor returns the provider name for a model id from the fixed list
-// (e.g. "anthropic"), or "" if the id is unknown.
-func ProviderFor(id string) string {
-	m, ok := lookup(id)
+// ProviderFor returns the provider name for a model key from the fixed list
+// (e.g. "anthropic"), or "" if the key is unknown.
+func ProviderFor(key string) string {
+	m, ok := lookup(key)
 	if !ok {
 		return ""
 	}
 	return m.Provider
 }
 
-// clientFor returns the GoAI provider client for a model id from the fixed list,
-// routing to the provider named in its Model.Provider. Unknown ids error.
-func clientFor(id string) (provider.LanguageModel, error) {
-	m, ok := lookup(id)
+// clientFor returns the GoAI provider client for a model key from the fixed
+// list, routing to the provider named in its Model.Provider. The client is
+// built from the model's provider-native ID, not the key, so variants sharing
+// an ID all reach the same upstream model. Unknown keys error.
+func clientFor(key string) (provider.LanguageModel, error) {
+	m, ok := lookup(key)
 	if !ok {
-		return nil, fmt.Errorf("unknown model %q", id)
+		return nil, fmt.Errorf("unknown model %q", key)
 	}
 	switch m.Provider {
 	case "anthropic":
-		return anthropic.Chat(id), nil
+		return anthropic.Chat(m.ID), nil
 	case "openai":
-		return openai.Chat(id), nil
+		return openai.Chat(m.ID), nil
 	case "google":
-		return google.Chat(id), nil
+		return google.Chat(m.ID), nil
 	case "openrouter":
-		return openrouter.Chat(id), nil
+		return openrouter.Chat(m.ID), nil
 	case "deepseek":
-		return deepseek.Chat(id), nil
+		return deepseek.Chat(m.ID), nil
 	default:
-		return nil, fmt.Errorf("model %q has unsupported provider %q", id, m.Provider)
+		return nil, fmt.Errorf("model %q has unsupported provider %q", key, m.Provider)
 	}
 }
 
@@ -184,6 +216,7 @@ func buildCall(model, system, prompt string, tools []Tool) (provider.LanguageMod
 		u := info.Usage
 		slog.Info("llm generate",
 			"model", model,
+			"provider_model", m.ID,
 			"finish_reason", info.FinishReason,
 			"error", info.Error,
 			"status", info.StatusCode,
