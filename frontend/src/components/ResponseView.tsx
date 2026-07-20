@@ -3,6 +3,7 @@ import { Box, IconButton, TextField, Tooltip, Typography } from '@mui/material'
 import DataObjectIcon from '@mui/icons-material/DataObject'
 import Markdown from './Markdown'
 import type { Response } from '../api/types'
+import { useModels, modelLabel } from '../api/useModels'
 import { parseResponseSegments } from '../lib/responseSegments'
 import { fonts } from '../theme'
 
@@ -45,6 +46,7 @@ export default function ResponseView({
 }: ResponseViewProps) {
   // Re-parse only when the text changes, not on every toggle/render.
   const segments = useMemo(() => parseResponseSegments(response.value), [response.value])
+  const models = useModels()
 
   return (
     <Box
@@ -68,7 +70,7 @@ export default function ResponseView({
           variant="overline"
           sx={{ fontFamily: fonts.mono, color: 'text.secondary', fontSize: '0.7rem' }}
         >
-          {response.model || 'no model'}
+          {modelLabel(models, response.model)}
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
         {editing ? (
