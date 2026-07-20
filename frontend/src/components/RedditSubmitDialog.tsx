@@ -7,7 +7,6 @@ import {
   DialogContent,
   DialogTitle,
   InputAdornment,
-  Link as MuiLink,
   Stack,
   TextField,
   CircularProgress,
@@ -34,7 +33,8 @@ interface RedditSubmitDialogProps {
 // "[WP]" tag, trim, and prefix "[PI] " (WritingPrompts -> Prompt Inspired). Both
 // fields stay editable. Submitting posts to the user's configured subreddit via
 // POST /api/documents/:id/reddit-submit, which saves the resulting permalink on
-// the document and returns the refreshed document.
+// the document and returns the refreshed document; on success the dialog closes
+// (the saved permalink surfaces as a "Posted ↗" link in the document header).
 export default function RedditSubmitDialog({
   open,
   doc,
@@ -45,8 +45,6 @@ export default function RedditSubmitDialog({
   const [body, setBody] = useState('')
   const [titleLoading, setTitleLoading] = useState(false)
   const { busy: submitting, error, setError, run } = useAsyncAction()
-  const [posted, setPosted] = useState(false)
-  const [postedUrl, setPostedUrl] = useState('')
 
   // Seed the fields each time the dialog opens. The story is read directly; the
   // title is fetched from the original prompt and may arrive a moment later.
@@ -55,8 +53,6 @@ export default function RedditSubmitDialog({
     setBody(doc.attributes?.story ?? '')
     setTitle('')
     setError(null)
-    setPosted(false)
-    setPostedUrl('')
 
     if (!doc.url) return
     const url = doc.url
@@ -96,10 +92,8 @@ export default function RedditSubmitDialog({
         title,
         body,
       })
-      const urls = updated.postUrls ?? []
-      setPostedUrl(urls[urls.length - 1] ?? '')
-      setPosted(true)
       onPosted(updated)
+      onClose()
     })
   }
 
@@ -113,56 +107,40 @@ export default function RedditSubmitDialog({
               {error}
             </Alert>
           )}
-          {posted ? (
-            <Alert severity="success" sx={{ mt: 1 }}>
-              Posted to Reddit.
-              {postedUrl && (
-                <>
-                  {' '}
-                  <MuiLink href={postedUrl} target="_blank" rel="noopener noreferrer">
-                    View post ↗
-                  </MuiLink>
-                </>
-              )}
-            </Alert>
-          ) : (
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <TextField
-                label="Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                autoFocus
-                required
-                InputProps={{
-                  endAdornment: titleLoading ? (
-                    <InputAdornment position="end">
-                      <CircularProgress size={18} />
-                    </InputAdornment>
-                  ) : undefined,
-                }}
-              />
-              <TextField
-                label="Body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                multiline
-                minRows={6}
-                // Cap growth (the story can be long) so the field scrolls
-                // internally and the dialog's action buttons stay on screen.
-                maxRows={12}
-              />
-            </Stack>
-          )}
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+              required
+              InputProps={{
+                endAdornment: titleLoading ? (
+                  <InputAdornment position="end">
+                    <CircularProgress size={18} />
+                  </InputAdornment>
+                ) : undefined,
+              }}
+            />
+            <TextField
+              label="Body"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              multiline
+              minRows={6}
+              // Cap growth (the story can be long) so the field scrolls
+              // internally and the dialog's action buttons stay on screen.
+              maxRows={12}
+            />
+          </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
-            {posted ? 'Done' : 'Cancel'}
+            Cancel
           </Button>
-          {!posted && (
-            <SubmitButton busy={submitting} busyLabel="Posting…" disabled={!title.trim()}>
-              Post
-            </SubmitButton>
-          )}
+          <SubmitButton busy={submitting} busyLabel="Posting…" disabled={!title.trim()}>
+            Post
+          </SubmitButton>
         </DialogActions>
       </form>
     </Dialog>
