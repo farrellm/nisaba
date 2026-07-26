@@ -11,6 +11,8 @@ Install golang-migrate before running migrations:
 go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 ```
 
+`README.md` covers prerequisites, first-run setup, and the full env-var reference. The backend reads bare `os.Getenv` with no dotenv loading — a `.env` file does nothing; provider keys must already be exported into the process environment (locally via the gitignored `.envrc`).
+
 ## Core Concept: Modes & Blocks
 
 Nisaba is a tool for **writing with LLMs**. A **document** holds an ordered list of **blocks** plus its own key/value **attributes** (a shared namespace) and a **selected model**.
