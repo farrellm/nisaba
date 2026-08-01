@@ -49,7 +49,8 @@ type Tool = goai.Tool
 // Leave Key empty and it defaults to ID, so plain entries declare ID alone and
 // existing stored values keep resolving.
 //
-// Provider selects which GoAI provider client routes the request.
+// Provider selects which GoAI provider client routes the request. Hidden keeps
+// a model out of the list the UI offers without retiring it.
 type Model struct {
 	Key             string         `json:"id"`
 	ID              string         `json:"-"`
@@ -61,6 +62,10 @@ type Model struct {
 	ToolProviderOptions map[string]any `json:"-"`
 	// MaxTokens overrides the default output-token cap for this model; 0 uses defaultMaxTokens.
 	MaxTokens int `json:"-"`
+	// Hidden drops the model from Models(), so it is no longer offered in the UI
+	// selector. It stays valid, runnable and resolvable by key, so documents and
+	// responses already storing it keep working.
+	Hidden bool `json:"-"`
 }
 
 // Shared Anthropic provider options. anthropicThinking enables adaptive thinking
@@ -86,7 +91,7 @@ var (
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
 	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic",
-		ToolProviderOptions: anthropicCaching},
+		ToolProviderOptions: anthropicCaching, Hidden: true},
 	{ID: "claude-sonnet-5", Label: "Claude Sonnet 5", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
 	{ID: "claude-opus-5", Label: "Claude Opus 5", Provider: "anthropic",
@@ -126,9 +131,17 @@ func init() {
 	}
 }
 
-// Models returns the fixed model list in display order.
+// Models returns the selectable models in display order, omitting Hidden ones.
+// This is the list the API serves and the UI offers; lookup/Valid/ProviderFor
+// still resolve hidden models, so keys already stored keep working.
 func Models() []Model {
-	return models
+	out := make([]Model, 0, len(models))
+	for _, m := range models {
+		if !m.Hidden {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // lookup returns the Model with the given key from the fixed list.

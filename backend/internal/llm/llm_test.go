@@ -8,10 +8,11 @@ import (
 
 // TestModelKeys covers the invariants the init() normalization guarantees: every
 // entry is addressable by a unique, non-empty key and still carries a
-// provider-native ID.
+// provider-native ID. It walks the raw list rather than Models() so hidden
+// entries are checked too.
 func TestModelKeys(t *testing.T) {
 	seen := make(map[string]bool)
-	for _, m := range Models() {
+	for _, m := range models {
 		if m.Key == "" {
 			t.Errorf("model %q has empty key", m.Label)
 		}
@@ -54,6 +55,26 @@ func TestModelVariants(t *testing.T) {
 	}
 	if reasoning["effort"] != "xhigh" {
 		t.Errorf("max reasoning effort = %v, want xhigh", reasoning["effort"])
+	}
+}
+
+// TestHiddenModel pins what Hidden means: gone from the served list, but still
+// fully resolvable so stored keys keep working.
+func TestHiddenModel(t *testing.T) {
+	const key = "claude-haiku-4-5"
+	if !Valid(key) {
+		t.Errorf("Valid(%q) = false, want true", key)
+	}
+	if got := ProviderFor(key); got != "anthropic" {
+		t.Errorf("ProviderFor(%q) = %q, want %q", key, got, "anthropic")
+	}
+	for _, m := range Models() {
+		if m.Hidden {
+			t.Errorf("Models() includes hidden model %q", m.Key)
+		}
+		if m.Key == key {
+			t.Errorf("Models() includes %q, want it hidden", key)
+		}
 	}
 }
 
