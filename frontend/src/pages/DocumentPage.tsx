@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router'
 import { api } from '../api/client'
 import { errorMessage } from '../lib/errors'
 import { EMPTY_ATTRIBUTES, type Block, type DocumentDetail, type Mode } from '../api/types'

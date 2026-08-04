@@ -48,24 +48,26 @@ export default function CollapsibleValueField({
             onExpand()
           }
         }}
-        inputProps={{ tabIndex: 0, 'aria-label': `Expand ${label}` }}
-        InputProps={{
-          readOnly: true,
-          endAdornment: (
-            <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
-              <UnfoldMore fontSize="small" />
-            </InputAdornment>
-          ),
-          sx: {
-            cursor: 'pointer',
-            // Clip overflow beyond maxRows instead of showing a scrollbar.
-            ...(multiline ? { '& textarea': { overflow: 'hidden !important' } } : {}),
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-            '&:focus-within .MuiOutlinedInput-notchedOutline': {
-              borderColor: 'primary.main',
-              borderWidth: 2,
+        slotProps={{
+          input: {
+            readOnly: true,
+            endAdornment: (
+              <InputAdornment position="end" sx={{ color: 'text.secondary' }}>
+                <UnfoldMore fontSize="small" />
+              </InputAdornment>
+            ),
+            sx: {
+              cursor: 'pointer',
+              // Clip overflow beyond maxRows instead of showing a scrollbar.
+              ...(multiline ? { '& textarea': { overflow: 'hidden !important' } } : {}),
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+              '&:focus-within .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'primary.main',
+                borderWidth: 2,
+              },
             },
           },
+          htmlInput: { tabIndex: 0, 'aria-label': `Expand ${label}` },
         }}
       />
     )
@@ -76,9 +78,11 @@ export default function CollapsibleValueField({
       <TextField
         label={label}
         value={value}
-        InputProps={{ readOnly: true }}
         multiline
         minRows={1}
+        slotProps={{
+          input: { readOnly: true },
+        }}
       />
     )
   }

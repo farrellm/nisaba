@@ -70,15 +70,17 @@ export default function SearchPage() {
           fullWidth
           autoFocus
           placeholder="Search stories — press space or enter…"
-          inputProps={{ 'aria-label': 'Search stories' }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchOutlined sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-          }}
           sx={{ mb: 3, '& input': { fontFamily: fonts.mono } }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchOutlined sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+            },
+            htmlInput: { 'aria-label': 'Search stories' },
+          }}
         />
         <Divider sx={{ mb: 1 }} />
 

@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@mui/material'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
@@ -85,7 +85,7 @@ export default function AccountMenu() {
             checked={user?.streamingEnabled ?? false}
             tabIndex={-1}
             disableRipple
-            inputProps={{ 'aria-label': 'Toggle streaming' }}
+            slotProps={{ input: { 'aria-label': 'Toggle streaming' } }}
           />
         </MenuItem>
         <MenuItem onClick={goToSettings}>

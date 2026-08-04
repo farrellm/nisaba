@@ -67,7 +67,9 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
             <FormControlLabel
               key={mode.name}
               value={mode.name}
-              control={<Radio inputProps={{ 'aria-label': `Select mode ${mode.label}` }} />}
+              control={
+                <Radio slotProps={{ input: { 'aria-label': `Select mode ${mode.label}` } }} />
+              }
               sx={{ alignItems: 'flex-start', py: 0.5 }}
               label={
                 <span>

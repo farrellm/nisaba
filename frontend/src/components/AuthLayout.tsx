@@ -51,7 +51,7 @@ export default function AuthLayout({
             Nisaba
           </Typography>
           <Divider sx={{ my: 3, maxWidth: 280 }} />
-          <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 320 }}>
+          <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 320 }}>
             A scribe's table for your documents — write, label, and keep them in order.
           </Typography>
         </Box>

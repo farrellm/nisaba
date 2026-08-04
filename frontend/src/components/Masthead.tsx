@@ -1,5 +1,5 @@
 import { Box, Link as MuiLink, Stack, Typography } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router'
 import { fonts } from '../theme'
 import { navLinkSx } from '../lib/styles'
 import AccountMenu from './AccountMenu'
@@ -46,7 +46,7 @@ export default function Masthead({ active, variant = 'full' }: MastheadProps) {
       {variant === 'wordmark' ? (
         <Typography sx={wordmarkSx}>Nisaba</Typography>
       ) : (
-        <Stack direction="row" spacing={3} alignItems="baseline">
+        <Stack direction="row" spacing={3} sx={{ alignItems: 'baseline' }}>
           <MuiLink component={RouterLink} to="/" underline="none" color="inherit">
             <Typography sx={wordmarkSx}>Nisaba</Typography>
           </MuiLink>

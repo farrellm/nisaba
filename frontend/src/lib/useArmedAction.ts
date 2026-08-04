@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // pending timer is also cleared on unmount.
 export function useArmedAction(onConfirm: () => void, disarmMs = 4000) {
   const [armed, setArmed] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout>>()
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => () => clearTimeout(timer.current), [])
 

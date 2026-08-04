@@ -4,7 +4,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import DeleteIcon from '@mui/icons-material/Delete'
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import Difference from '@mui/icons-material/Difference'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ReplayIcon from '@mui/icons-material/Replay'
@@ -465,7 +465,7 @@ const BlockCard = memo(function BlockCard({
           </StatusLine>
         )}
 
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 2 }}>
           <Tooltip title="Save">
             <span>
               <IconButton
