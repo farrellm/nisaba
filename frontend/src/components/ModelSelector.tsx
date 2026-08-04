@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { MenuItem, Paper, Select, Typography, type SelectChangeEvent } from '@mui/material'
 import { api } from '../api/client'
-import { useModels } from '../api/useModels'
+import { modelLabel, useModels } from '../api/useModels'
 import type { DocumentDetail } from '../api/types'
 import { fonts } from '../theme'
 
@@ -16,6 +16,11 @@ export default function ModelSelector({ doc, onChange }: ModelSelectorProps) {
   const models = useModels()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(false)
+
+  // A document can hold a model the list no longer offers (a hidden model, or a
+  // legacy id from an imported document). Keep it as an item of its own so the
+  // Select shows the current choice instead of coming up blank.
+  const missingSelected = doc.selectedModel && !models.some((m) => m.id === doc.selectedModel)
 
   async function handleChange(e: SelectChangeEvent) {
     const selectedModel = e.target.value
@@ -71,6 +76,9 @@ export default function ModelSelector({ doc, onChange }: ModelSelectorProps) {
         <MenuItem value="" disabled>
           Select a model…
         </MenuItem>
+        {missingSelected && (
+          <MenuItem value={doc.selectedModel}>{modelLabel(models, doc.selectedModel)}</MenuItem>
+        )}
         {models.map((m) => (
           <MenuItem key={m.id} value={m.id}>
             {m.label}

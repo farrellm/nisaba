@@ -20,7 +20,8 @@ var availableLabelsTmpl string
 // internal/llm. It must be an id from the fixed models list (routed by clientFor).
 // const suggestLabelsModel = "gemini-3.5-flash-lite"
 // const suggestLabelsModel = "gemini-3.6-flash"
-const suggestLabelsModel = "deepseek-v4-pro"
+// const suggestLabelsModel = "deepseek-v4-pro"
+const suggestLabelsModel = "gpt-5.6-luna"
 
 // labelRe matches the inner text of each <label>…</label> tag. The model emits
 // labels nested inside a <suggestion> block, so parseTopLevelTags (which only
