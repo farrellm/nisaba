@@ -114,12 +114,14 @@ export default function RedditSubmitDialog({
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
               required
-              InputProps={{
-                endAdornment: titleLoading ? (
-                  <InputAdornment position="end">
-                    <CircularProgress size={18} />
-                  </InputAdornment>
-                ) : undefined,
+              slotProps={{
+                input: {
+                  endAdornment: titleLoading ? (
+                    <InputAdornment position="end">
+                      <CircularProgress size={18} />
+                    </InputAdornment>
+                  ) : undefined,
+                },
               }}
             />
             <TextField

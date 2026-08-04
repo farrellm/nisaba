@@ -211,7 +211,7 @@ export default function DocumentList({
                     size="small"
                     checked={showArchivedDocs}
                     onChange={(e) => setShowArchivedDocs(e.target.checked)}
-                    inputProps={{ 'aria-label': 'Toggle show archived' }}
+                    slotProps={{ input: { 'aria-label': 'Toggle show archived' } }}
                   />
                 }
                 label={

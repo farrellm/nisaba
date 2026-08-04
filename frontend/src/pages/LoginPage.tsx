@@ -37,7 +37,13 @@ export default function LoginPage() {
         <Typography variant="h4" sx={{ mb: 0.5 }}>
           Welcome back
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 3,
+          }}
+        >
           Sign in to reach your documents.
         </Typography>
 
@@ -69,7 +75,13 @@ export default function LoginPage() {
           </Button>
         </Stack>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mt: 3,
+          }}
+        >
           New here?{' '}
           <MuiLink component={RouterLink} to="/signup" underline="hover" sx={{ fontWeight: 600 }}>
             Create an account

@@ -107,9 +107,9 @@ export default function ResponseView({
           value={editing.value}
           onChange={(e) => editing.onChange(e.target.value)}
           autoFocus
-          inputProps={{ 'aria-label': 'Edit response value' }}
-          InputProps={{
-            sx: { fontFamily: fonts.mono, fontSize: '0.85rem' },
+          slotProps={{
+            input: { sx: { fontFamily: fonts.mono, fontSize: '0.85rem' } },
+            htmlInput: { 'aria-label': 'Edit response value' },
           }}
         />
       ) : structured ? (

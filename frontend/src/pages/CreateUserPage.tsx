@@ -48,7 +48,13 @@ export default function CreateUserPage() {
         <Typography variant="h4" sx={{ mb: 0.5 }}>
           Claim your table
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mb: 3,
+          }}
+        >
           Pick a username and a password to get started.
         </Typography>
 
@@ -89,7 +95,13 @@ export default function CreateUserPage() {
           </Button>
         </Stack>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: 'text.secondary',
+            mt: 3,
+          }}
+        >
           Already have an account?{' '}
           <MuiLink component={RouterLink} to="/login" underline="hover" sx={{ fontWeight: 600 }}>
             Sign in

@@ -465,7 +465,7 @@ const BlockCard = memo(function BlockCard({
           </StatusLine>
         )}
 
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 2 }}>
           <Tooltip title="Save">
             <span>
               <IconButton
