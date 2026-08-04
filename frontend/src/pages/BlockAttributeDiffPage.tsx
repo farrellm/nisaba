@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Divider, Typography } from '@mui/material'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 import { api } from '../api/client'
 import type { DocumentDetail } from '../api/types'
 import StatusLine from '../components/StatusLine'

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box } from '@mui/material'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 import { api } from '../api/client'
 import type { AttributeValue } from '../api/types'
 import Markdown from '../components/Markdown'

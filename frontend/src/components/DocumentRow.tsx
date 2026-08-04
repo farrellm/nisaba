@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Box, Chip, Divider, Link as MuiLink, Typography } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router'
 import { timeAgo } from '../lib/relativeTime'
 import { fonts } from '../theme'
 import { leaderSx } from '../lib/styles'

@@ -1,5 +1,5 @@
 import { Box, CircularProgress } from '@mui/material'
-import { Navigate } from 'react-router-dom'
+import { Navigate } from 'react-router'
 import type { ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 

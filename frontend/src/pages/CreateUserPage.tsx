@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Alert, Box, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material'
-import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom'
+import { Link as RouterLink, Navigate, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { errorMessage } from '../lib/errors'
 import AuthLayout from '../components/AuthLayout'

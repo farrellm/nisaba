@@ -1,5 +1,5 @@
 import { Box, Link as MuiLink, Stack, Typography } from '@mui/material'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router'
 import { fonts } from '../theme'
 import { navLinkSx } from '../lib/styles'
 import AccountMenu from './AccountMenu'

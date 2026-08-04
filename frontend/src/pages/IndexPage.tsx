@@ -8,7 +8,7 @@ import AutoAwesomeOutlined from '@mui/icons-material/AutoAwesomeOutlined'
 import AutoStoriesOutlined from '@mui/icons-material/AutoStoriesOutlined'
 import HistoryEduOutlined from '@mui/icons-material/HistoryEduOutlined'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import { Link as RouterLink } from 'react-router-dom'
+import { Link as RouterLink } from 'react-router'
 import Masthead from '../components/Masthead'
 import { usePageTitle } from '../lib/usePageTitle'
 
