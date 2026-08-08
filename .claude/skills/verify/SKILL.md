@@ -16,7 +16,7 @@ description: Build, launch, and drive Nisaba locally to verify a change end-to-e
 
 Cookie-jar curl against 8080 works for the whole flow:
 
-1. `POST /api/auth/register` (or `/login`) with `-c jar` — a fresh user has `streamingEnabled:false`.
+1. `POST /api/auth/login` with `-c jar`. There is no register endpoint — accounts come from the binary itself: `<scratch>/server -list-users` shows the existing ones, `echo 'testpassword' | <scratch>/server -create-user verifyuser` makes a new one (`-delete-user <name> -force` cleans it up). Don't assume `streamingEnabled` — read it off `GET /api/auth/me`.
 2. `POST /api/documents` → id; `PUT /api/documents/{id}` `{"selectedModel":"claude-haiku-4-5"}`. Always verify with `claude-haiku-4-5` (cheapest/fastest) unless the change under test is model-specific. **Never test with Fable.** If Haiku is not in `GET /api/models` (models get dropped from the list via `Model.Hidden`), fall back to `deepseek-v4-pro`.
 3. `POST /api/documents/{id}/blocks` `{"mode":"brainstorm-tools-1"}` — the tools modes attach `generate_name`.
 4. `curl -N -b jar -X POST .../blocks/{bid}/run/stream` with `{"attributes":{"prompt":"..."}}` streams NDJSON; add "Keep all prose extremely brief" to the prompt to shorten runs (~40s vs ~60s+).
