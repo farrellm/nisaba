@@ -36,7 +36,20 @@ make frontend-install
 make frontend
 ```
 
-Open http://localhost:5173. You should see two green status chips confirming the API and database are reachable.
+Open http://localhost:5173. You should see two green status chips confirming the API and database are reachable. To log in you need an account — see below.
+
+## Managing Users
+
+There is no sign-up page. Accounts exist only where the server binary puts them:
+
+```sh
+cd backend
+go run ./cmd/server -create-user alice   # prompts for the password twice, echo off
+go run ./cmd/server -list-users
+go run ./cmd/server -delete-user alice   # confirms first; -force skips the prompt
+```
+
+Each flag performs its action against `DATABASE_URL` and exits; with no flags the binary serves HTTP as usual. Passwords must be at least 8 characters, and are read from stdin when it isn't a terminal (`echo 's3cretpw' | ./bin/server -create-user alice`), so the password never lands in shell history. Deleting a user cascades to all of their documents and labels.
 
 ## Make Targets
 
@@ -124,7 +137,7 @@ location /api/ {
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/healthz` | Returns API and database status |
-| POST | `/api/auth/{register,login,logout}` | Session auth |
+| POST | `/api/auth/{login,logout}` | Session auth (accounts are created from the CLI, not over HTTP) |
 | GET | `/api/auth/me` | Current user |
 | GET | `/api/modes` | The fixed set of writing modes (name, keys, output) |
 | GET | `/api/models` | The fixed, cross-provider list of selectable models |

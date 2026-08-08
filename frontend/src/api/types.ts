@@ -1,5 +1,5 @@
 // User mirrors the backend's authenticated-user shape returned by
-// /api/auth/{me,login,register}.
+// /api/auth/{me,login}.
 export interface User {
   id: number
   username: string

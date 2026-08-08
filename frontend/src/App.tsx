@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router'
 import RequireAuth from './auth/RequireAuth'
 import IndexPage from './pages/IndexPage'
 import LoginPage from './pages/LoginPage'
-import CreateUserPage from './pages/CreateUserPage'
 import DocumentsPage from './pages/DocumentsPage'
 import SearchPage from './pages/SearchPage'
 import LabelsPage from './pages/LabelsPage'
@@ -21,7 +20,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<CreateUserPage />} />
       <Route
         path="/"
         element={
