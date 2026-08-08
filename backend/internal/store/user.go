@@ -32,6 +32,29 @@ func (s *Store) CreateUser(ctx context.Context, username, passwordHash string) (
 	return u, nil
 }
 
+// ListUsers returns every user, oldest first.
+func (s *Store) ListUsers(ctx context.Context) ([]model.User, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, username, created_at, subreddit, streaming_enabled FROM users ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	users := []model.User{}
+	for rows.Next() {
+		var u model.User
+		if err := rows.Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit, &u.StreamingEnabled); err != nil {
+			return nil, fmt.Errorf("list users: %w", err)
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	return users, nil
+}
+
 // GetUser returns the user with the given id, or ErrNotFound.
 func (s *Store) GetUser(ctx context.Context, id int64) (model.User, error) {
 	var u model.User
@@ -43,6 +66,23 @@ func (s *Store) GetUser(ctx context.Context, id int64) (model.User, error) {
 	}
 	if err != nil {
 		return u, fmt.Errorf("get user %d: %w", id, err)
+	}
+	return u, nil
+}
+
+// GetUserByUsername returns the user with the given username, or ErrNotFound.
+// Unlike GetCredentialsByUsername it never touches the password hash, so it is
+// the right lookup for anything that isn't authentication.
+func (s *Store) GetUserByUsername(ctx context.Context, username string) (model.User, error) {
+	var u model.User
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, username, created_at, subreddit, streaming_enabled FROM users WHERE username = $1`, username,
+	).Scan(&u.ID, &u.Username, &u.CreatedAt, &u.Subreddit, &u.StreamingEnabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return u, ErrNotFound
+	}
+	if err != nil {
+		return u, fmt.Errorf("get user %q: %w", username, err)
 	}
 	return u, nil
 }
