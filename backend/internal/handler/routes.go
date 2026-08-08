@@ -45,8 +45,9 @@ func Routes(d Deps) http.Handler {
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/healthz", Health(d.DB))
 
+		// No registration endpoint: accounts are created with the server
+		// binary's -create-user flag.
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", Register(st, sess))
 			r.Post("/login", Login(st, sess))
 			r.Post("/logout", Logout(sess))
 			r.Get("/me", Me(st, sess))
