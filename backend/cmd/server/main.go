@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -21,7 +22,39 @@ import (
 	"github.com/farrellm/nisaba/internal/store"
 )
 
+// User management lives on this binary rather than the web UI: accounts can
+// only be created from the command line. Any one of these flags performs that
+// action and exits instead of serving HTTP (see users.go).
+var (
+	createUser = flag.String("create-user", "", "create a user with this username, then exit")
+	listUsers  = flag.Bool("list-users", false, "list all users, then exit")
+	deleteUser = flag.String("delete-user", "", "delete this user and all their data, then exit")
+	force      = flag.Bool("force", false, "with -delete-user, skip the confirmation prompt")
+)
+
 func main() {
+	flag.Parse()
+
+	actions := 0
+	for _, set := range []bool{*createUser != "", *listUsers, *deleteUser != ""} {
+		if set {
+			actions++
+		}
+	}
+	if actions > 1 {
+		fmt.Fprintln(os.Stderr, "specify at most one of -create-user, -list-users, -delete-user")
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	if actions == 1 {
+		if err := runUserCommand(context.Background()); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(context.Background()); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)

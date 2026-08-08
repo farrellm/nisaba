@@ -6,10 +6,12 @@ require (
 	github.com/cbroglie/mustache v1.4.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/gorilla/sessions v1.4.0
+	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/rs/cors v1.11.1
 	github.com/zendev-sh/goai v0.8.5
 	golang.org/x/crypto v0.53.0
+	golang.org/x/term v0.44.0
 	modernc.org/sqlite v1.53.0
 )
 
@@ -17,7 +19,6 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
-	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
