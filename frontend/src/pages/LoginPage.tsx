@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { Alert, Box, Button, Link as MuiLink, Stack, TextField, Typography } from '@mui/material'
-import { Link as RouterLink, Navigate, useNavigate } from 'react-router'
+import { Alert, Box, Button, Stack, TextField, Typography } from '@mui/material'
+import { Navigate, useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
 import { errorMessage } from '../lib/errors'
 import AuthLayout from '../components/AuthLayout'
@@ -74,19 +74,6 @@ export default function LoginPage() {
             {submitting ? 'Signing in…' : 'Sign in'}
           </Button>
         </Stack>
-
-        <Typography
-          variant="body2"
-          sx={{
-            color: 'text.secondary',
-            mt: 3,
-          }}
-        >
-          New here?{' '}
-          <MuiLink component={RouterLink} to="/signup" underline="hover" sx={{ fontWeight: 600 }}>
-            Create an account
-          </MuiLink>
-        </Typography>
       </Box>
     </AuthLayout>
   )

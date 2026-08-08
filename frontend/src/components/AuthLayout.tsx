@@ -2,7 +2,7 @@ import { Box, Divider, Typography } from '@mui/material'
 import type { ReactNode } from 'react'
 import { fonts } from '../theme'
 
-// Editorial masthead split used by the login and create-account pages. On wide
+// Editorial masthead split used by the login page. On wide
 // screens the identity sits left of a hairline rule with the form on the right;
 // it stacks on mobile.
 export default function AuthLayout({
