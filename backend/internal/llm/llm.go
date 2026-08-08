@@ -112,6 +112,7 @@ var models = []Model{
 		ProviderOptions: map[string]any{"reasoning": map[string]any{"effort": "xhigh"}}},
 	{ID: "x-ai/grok-4.5", Label: "Grok 4.5", Provider: "openrouter"},
 	{ID: "moonshotai/kimi-k3", Label: "Kimi K3", Provider: "openrouter"},
+	{ID: "deepseek-v4-flash", Label: "DeepSeek V4 Flash", Provider: "deepseek", Hidden: true},
 	{ID: "deepseek-v4-pro", Label: "DeepSeek V4 Pro", Provider: "deepseek"},
 }
 
