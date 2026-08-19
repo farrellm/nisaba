@@ -60,6 +60,9 @@ var reviseOutline1Tmpl string
 //go:embed templates/revise-outline-2.mustache
 var reviseOutline2Tmpl string
 
+//go:embed templates/revise-outline-3.mustache
+var reviseOutline3Tmpl string
+
 //go:embed templates/scp-outline.mustache
 var scpOutlineTmpl string
 
@@ -88,6 +91,7 @@ var modes = []Mode{
 	{Name: "brainstorm-tools-3", Label: "Brainstorm (tools, three-act)", Keys: []string{"prompt"}, Template: brainstormTools3Tmpl, Tools: []llm.Tool{llm.GenerateNameTool}},
 	{Name: "revise-outline-1", Label: "Revise outline (one-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline1Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
 	{Name: "revise-outline-2", Label: "Revise outline (two-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline2Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
+	{Name: "revise-outline-3", Label: "Revise outline (three-act)", Keys: []string{"prompt", "characters", "outline"}, Template: reviseOutline3Tmpl, Renames: map[string]string{"revised_outline": "outline"}},
 	{Name: "authors", Label: "Suggest authors", Keys: []string{"outline", "characters"}, Template: authorsTmpl},
 	{Name: "story", Label: "Story", Keys: []string{"characters", "author", "outline"}, Template: storyTmpl},
 	{Name: "story-sequel", Label: "Sequel", Keys: []string{"story", "characters", "author", "style_analysis", "sequel_outline"}, Template: storySequelTmpl},
