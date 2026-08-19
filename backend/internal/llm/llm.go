@@ -111,21 +111,25 @@ var models = []Model{
 	{ID: "deepseek-v4-pro", Label: "DeepSeek V4 Pro", Provider: "deepseek"},
 }
 
-// init defaults each entry's Key to its ID and rejects duplicates. Keys must be
-// unique because they are the app's model identity — two entries sharing one
-// would make the second unreachable through lookup and collide in the UI
-// selector. The list is a build-time constant, so panicking here turns that
-// mistake into an immediate startup failure rather than a silent misroute.
-func init() {
-	seen := make(map[string]bool, len(models))
-	for i := range models {
-		if models[i].Key == "" {
-			models[i].Key = models[i].ID
+// init normalizes the fixed list at startup.
+func init() { normalizeModels(models) }
+
+// normalizeModels defaults each entry's Key to its ID and rejects duplicates.
+// Keys must be unique because they are the app's model identity — two entries
+// sharing one would make the second unreachable through lookup and collide in
+// the UI selector. The list is a build-time constant, so panicking here turns
+// that mistake into an immediate startup failure rather than a silent misroute.
+// Split out of init so tests can exercise it on a synthetic list.
+func normalizeModels(ms []Model) {
+	seen := make(map[string]bool, len(ms))
+	for i := range ms {
+		if ms[i].Key == "" {
+			ms[i].Key = ms[i].ID
 		}
-		if seen[models[i].Key] {
-			panic(fmt.Sprintf("llm: duplicate model key %q", models[i].Key))
+		if seen[ms[i].Key] {
+			panic(fmt.Sprintf("llm: duplicate model key %q", ms[i].Key))
 		}
-		seen[models[i].Key] = true
+		seen[ms[i].Key] = true
 	}
 }
 
