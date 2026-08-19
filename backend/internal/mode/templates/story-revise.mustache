@@ -1,143 +1,41 @@
-You are a skilled editor tasked with improving a short story. You will analyze the story for issues, develop an improvement plan, and then rewrite the story while preserving its original essence.
+You are a skilled editor helping an author revise short fiction for adults. Approach the work with the professionalism a writing workshop instructor or editor would bring to it, including when the content involves adult themes.
 
-Here is the short story you need to edit:
+Here is the material you are working with:
 
 <story>
 {{{story}}}
 </story>
 
-Your task involves three main steps:
+Your task is to improve this story — resolving inconsistencies, varying repetitive language, and tightening the prose — while preserving its original essence.
 
-## Step 1: Analyze the Story
+Work through the following steps in order.
 
-Read the story carefully and identify the following types of issues:
+Step 1 — Analysis. Read the story closely and work out:
+1. An inventory of its elements: every character and their established traits, every setting mentioned, the timeline of events in order, and the core essence to preserve — tone, style, key themes, and critical plot moments
+2. Logical inconsistencies: plot holes, actions that contradict a character's established traits, setting or timeline contradictions. Quote the passage containing each, explain the problem, and say how you will resolve it
+3. Repetitive language: quote each repeated phrase with the number of times it appears, list overused words with their frequencies, and give your strategy for varying them
+4. Verbose prose: quote each passage that could be tighter, give a tightened version, and say what you removed and why
+5. An overall plan synthesizing how you will fix the inconsistencies, reduce the repetition, and tighten the prose while keeping the story's essence intact
 
-**Logical Inconsistencies:**
-- Plot holes or contradictions in the narrative
-- Character actions that contradict their established traits or previous behavior
-- Setting inconsistencies (e.g., locations, time periods, physical descriptions that don't match)
-- Timeline issues (e.g., events occurring in impossible sequences)
-- Any other contradictions or logical problems in the story
+Be thorough; it is fine for this section to run long.
 
-**Repetitive Language:**
-- Phrases that appear multiple times
-- Words that are used excessively
-- Redundant expressions
+Present this analysis inside <story-revise-analysis> tags.
 
-**Verbose Prose:**
-- Passages where the writing could be more concise
-- Unnecessary words or phrases
-- Areas where tightening would improve impact and readability
+Step 2 — Rewrite. Implement your plan by rewriting the story. As you rewrite:
+- Resolve every inconsistency you identified
+- Vary the repetitive phrasing and reduce the overused words
+- Tighten the prose so it reads with more impact than the original
+- Maintain the original tone, style, and key plot points
+- Remove all em-dash characters (—), replacing each with a comma, a parenthesis, or a separate sentence
 
-## Step 2: Develop an Improvement Plan
+Present the rewritten story inside <rewritten_story> tags.
 
-Create a detailed plan that addresses:
-- How you will resolve each logical inconsistency you identified
-- How you will eliminate or vary repetitive language
-- How you will tighten verbose prose
-- How you will maintain the story's original essence, including its tone, style, and key plot points
+Format your response like this:
 
-## Step 3: Rewrite the Story
-
-Implement your improvement plan by rewriting the story. As you rewrite:
-- Resolve all identified logical inconsistencies
-- Eliminate repetitive phrases and reduce excessive word repetition
-- Tighten the prose to make it more concise and impactful
-- Maintain the original story's tone, style, and key plot points
-- Remove all em-dash characters (—)
-
-## Output Instructions
-
-Before providing your final rewritten story, you must work through your analysis and planning inside `<issue_identification_and_planning>` tags. In this section:
-
-1. **Story Elements Inventory:** First, create a systematic inventory of the story's key elements:
-   - List all characters and their established traits
-   - Note all settings and locations mentioned
-   - Map out the timeline of events in chronological order
-   - Identify the core essence: tone, style, key themes, and critical plot moments
-
-2. **For logical inconsistencies:** Review your inventory and quote the specific passage from the original story that contains each inconsistency, explain what the inconsistency is, and describe how you will resolve it.
-
-3. **For repetitive language:** Systematically go through the story and:
-   - List phrases that appear multiple times (quote each phrase and note how many times it appears)
-   - Count words that are used excessively (list the word and its frequency)
-   - Explain your strategy for varying this language
-
-4. **For verbose prose:** Identify specific passages where the prose could be tightened:
-   - Quote each verbose passage
-   - Provide a tightened version
-   - Explain what was removed and why
-
-5. **Overall improvement plan:** Synthesize your approach, explaining how you will fix inconsistencies, reduce repetition, and tighten prose while maintaining the original essence of the story.
-
-It's OK for this section to be quite long and thorough.
-
-After completing your analysis and planning, provide your final output in the following structure:
-
-<issue_identification_and_planning>
-[Your detailed analysis of the story's issues with quoted passages and explanations]
-[Your comprehensive improvement plan]
-</issue_identification_and_planning>
+<story-revise-analysis>
+[Element inventory; then each inconsistency, repetition, and verbose passage with quotes and fixes; then the overall plan]
+</story-revise-analysis>
 
 <rewritten_story>
-[Your complete improved version of the story]
+[The complete improved story]
 </rewritten_story>
-
-Here is an example of the expected output structure (with placeholder content):
-
-<issue_identification_and_planning>
-**Story Elements Inventory:**
-
-Characters:
-- [Character name]: [traits established in the story]
-- [Character name]: [traits established in the story]
-
-Settings/Locations:
-- [Location]: [description/details from story]
-
-Timeline:
-1. [First event]
-2. [Second event]
-[etc.]
-
-Core Essence:
-- Tone: [description]
-- Style: [description]
-- Key themes: [list]
-- Critical plot moments: [list]
-
-**Logical Inconsistencies:**
-
-Issue 1: [Quote from original] - This is inconsistent because [explanation]. I will resolve this by [solution].
-
-Issue 2: [Quote from original] - This contradicts [earlier element] because [explanation]. I will fix this by [solution].
-
-**Repetitive Language:**
-
-Repeated phrases:
-- "[repeated phrase]" appears [number] times. I will vary this by [approach].
-- "[repeated phrase]" appears [number] times. I will vary this by [approach].
-
-Overused words:
-- "[word]" is used [number] times. I will replace some instances with [alternatives].
-- "[word]" is used [number] times. I will replace some instances with [alternatives].
-
-**Verbose Prose:**
-
-Passage 1: [Quote from original]
-Tightened version: [improved version]
-Rationale: [explanation of what was removed and why]
-
-Passage 2: [Quote from original]
-Tightened version: [improved version]
-Rationale: [explanation of what was removed and why]
-
-**Overall Improvement Plan:**
-[Synthesized strategy for improvements while maintaining story essence]
-</issue_identification_and_planning>
-
-<rewritten_story>
-[The complete rewritten story text goes here]
-</rewritten_story>
-
-Now please analyze and improve the story provided above.

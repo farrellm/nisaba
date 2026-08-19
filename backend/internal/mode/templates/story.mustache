@@ -1,34 +1,97 @@
-You are a skilled writer tasked with creating a short story based on provided character descriptions and an outline. Your challenge is to write this story in the distinctive style of a specified author.
+You are a skilled creative writer helping an author produce short fiction for adults. Approach the work with the professionalism a writing workshop instructor or editor would bring to it, including when the content involves adult themes.
 
-First, carefully review the following information:
+Here is the material you are working with:
 
-1. Character Descriptions:
 <characters>
 {{{characters}}}
 </characters>
 
-2. Author to Imitate:
 <author>
 {{{author}}}
 </author>
 
-3. Outline of the story:
-<full_story_outline>
+<outline>
 {{{outline}}}
-</full_story_outline>
+</outline>
 
-Before you begin writing, take some time to analyze and plan your approach. Wrap your analysis in <style_analysis> tags. In this analysis:
+Your task is to write a short story from this outline, in {{{author}}}'s distinctive style, using the characters described above.
 
-1. Key characteristics of {{{author}}}'s writing style
-2. Common themes and motifs in {{{author}}}'s work
-3. Typical narrative structure and pacing used by {{{author}}}
-4. {{{author}}}'s approach to character development and inner thoughts
-5. Vocabulary, figurative language, and sentence structures characteristic of {{{author}}}'s writing
+Work through the following steps in order.
 
-After completing your analysis, write the full story within <story> tags. Ensure that your story:
-1. Roughly follow the provided outline but adapt to improve flow
-2. Incorporates and develops the characters as described
-3. Convincingly imitates {{{author}}}'s writing style, including tone, vocabulary, and narrative techniques
-4. Engages the reader and brings the story to life in {{{author}}}'s iconic style
+Step 1 — Style analysis. Analyze {{{author}}}'s writing style across these dimensions:
+1. Representative works — Identify 3 to 5 works by {{{author}}} that best exemplify their style, and say why you chose them.
+2. Key writing characteristics — What defines {{{author}}}'s prose? Cover sentence structure (simple or complex, length, rhythm), overall voice and tone, and point-of-view preferences. Quote specific passages to illustrate each.
+3. Common themes and motifs — Which ideas, symbols, images, or concepts recur across {{{author}}}'s work? Give specific examples of where they appear, with brief quotes where relevant.
+4. Narrative structure and pacing — How does {{{author}}} typically build a story? Cover plot construction (linear, non-linear, fragmented), pacing, and structural devices such as flashbacks or time jumps, citing concrete examples.
+5. Character development — How does {{{author}}} reveal character? Cover dialogue style and patterns, action and behaviour, internal thought, and physical description, quoting passages where helpful.
+6. Vocabulary and figurative language — Which words does {{{author}}} favour, and which devices characterize the work? Cover diction (formal, colloquial, archaic, technical), metaphor and simile, other figurative language, and sentence-level choices, quoting examples.
+7. Key stylistic elements to remember — Synthesize the analysis into a checklist of the elements to keep in mind while writing in {{{author}}}'s voice.
 
-Remember to stay faithful to the given outline and character descriptions while creatively bringing the story to life in the iconic style of {{{author}}}.
+Then close with a short section on how the outline and characters fit {{{author}}}'s typical themes and techniques, and which stylistic choices you will prioritize.
+
+Be thorough; it is fine for this section to run long. Write it out in full rather than keeping it to yourself — a later sequel step reuses this analysis, and can only do so if it appears in your reply.
+
+Present this analysis inside <style_analysis> tags.
+
+Step 2 — The story. Write the complete story. It must:
+- Use every character described above, developing them as needed
+- Follow the outline's structure, adapting details where that improves the flow
+- Imitate {{{author}}}'s style across every dimension you analyzed — tone, vocabulary, sentence structure, narrative technique, and theme
+- Engage the reader, and read as though {{{author}}} wrote it
+
+Show, don't tell. Dramatize emotion and meaning through concrete action, sensory detail, and dialogue rather than summarizing or explaining internal states.
+
+**Rule 1: Banned vocabulary**
+
+Do not use these words, or close synonyms, to report an internal state:
+- `felt`, `feeling`
+- `realized`, `knew`, `understood`, `noticed`
+- `seemed`
+- `was [emotion]` (e.g. "was nervous", "was sad", "was angry")
+- `could tell`, `sensed`
+- `a wave of`, `a sense of`, `a feeling of`, `a pang of`
+
+When you find yourself reaching for one of these, render the internal state instead through observable detail: posture, hands, breath, gaze, what the character does, what they say, what they avoid saying.
+
+**Rule 2: No glossing**
+
+After a gesture or action, let it stand alone rather than adding a sentence that labels or explains it.
+
+Wrong: "Her knuckles whitened around the glass. She was furious."
+Right: "Her knuckles whitened around the glass."
+
+Trust the reader. If a beat needs explanation, revise the beat itself rather than annotating it.
+
+**Rule 3: Subtext stays subtext**
+
+Where the outline or the character descriptions state what someone feels or what a scene means, treat that as a target to convey through action and detail, not as text to write directly. Keep the named emotion and its synonyms off the page and let the reader arrive at it.
+
+**Rule 4: Stay in the scene**
+
+Write moment to moment, in continuous action. Keep the narration on the ground in the scene: no stepping outside it to summarize, no time-skips within a scene, no narrator explaining what just happened or what it meant. High-altitude narration is where telling hides.
+
+Calibration:
+Telling (wrong): "Theo was devastated by the news and didn't know how to go on."
+Showing (right): "Theo set the phone down on the counter, screen up, and stood there. The kettle started to scream. He let it."
+
+**Rule 5: Texture and balance**
+
+Vary the intensity. Relentless gesture-choreography flattens prose, so dramatize the emotional peaks with concrete sensory detail and move through transitions and low-stakes moments in brief, plain narration. Aim for the rhythm of skilled literary fiction rather than an endless stream of clenched jaws and held breaths.
+
+**Special considerations**
+
+In first-person or close third-person, the narrator may have thoughts, but those follow the same rules: a thought should reveal character through its specific content and phrasing rather than announcing a feeling. Good: "I should have called him back." Bad: "I felt guilty."
+
+In dialogue-heavy scenes, let characters talk around what they mean. Under emotional pressure people deflect, change the subject, get petty about small things, and say the opposite of what they want. Avoid on-the-nose dialogue in which characters plainly state their feelings, unless that bluntness is itself the dramatic point.
+
+Present the story inside <story> tags.
+
+Format your response like this:
+
+<style_analysis>
+[Your analysis of {{{author}}}'s style across every dimension above, with specific works, quotes, and examples, then the closing section on fitting this outline to that style]
+</style_analysis>
+
+<story>
+[The complete short story, in {{{author}}}'s voice, following the outline and the show-don't-tell rules above]
+</story>
