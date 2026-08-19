@@ -29,16 +29,45 @@ func TestModelKeys(t *testing.T) {
 	}
 }
 
+// swapModels replaces the fixed model list for the duration of one test,
+// normalizing the replacement the way init does, and restores the real list
+// afterwards. No test here runs in parallel, so the swap is safe.
+func swapModels(t *testing.T, ms []Model) {
+	t.Helper()
+	orig := models
+	t.Cleanup(func() { models = orig })
+	normalizeModels(ms)
+	models = ms
+}
+
 // TestModelVariants pins the behavior this indirection exists for: two entries
 // sharing one provider-native ID resolve separately and keep their own options.
+// It runs against a synthetic list rather than the shipping one — the fixed list
+// is product data that turns over as models are added and retired, so pinning
+// the mechanism to whichever variant happens to ship today makes the test fail
+// on the next model refresh instead of on a real regression.
 func TestModelVariants(t *testing.T) {
-	base, ok := lookup("z-ai/glm-5.2")
+	const id = "vendor/model-1"
+	swapModels(t, []Model{
+		{ID: id, Label: "Model 1", Provider: "openrouter"},
+		{Key: id + ":max", ID: id, Label: "Model 1 (max)", Provider: "openrouter",
+			ProviderOptions: map[string]any{
+				"reasoning": map[string]any{"effort": "xhigh"},
+			}},
+	})
+
+	base, ok := lookup(id)
 	if !ok {
-		t.Fatal(`lookup("z-ai/glm-5.2") not found`)
+		t.Fatalf("lookup(%q) not found", id)
 	}
-	max, ok := lookup("z-ai/glm-5.2:max")
+	max, ok := lookup(id + ":max")
 	if !ok {
-		t.Fatal(`lookup("z-ai/glm-5.2:max") not found`)
+		t.Fatalf("lookup(%q) not found", id+":max")
+	}
+	// The plain entry declares no Key, so normalization defaults it to the ID;
+	// the variant keeps the Key it declared.
+	if base.Key != id {
+		t.Errorf("base key = %q, want %q", base.Key, id)
 	}
 	if base.ID != max.ID {
 		t.Errorf("variants route to different provider ids: %q vs %q", base.ID, max.ID)
@@ -56,6 +85,33 @@ func TestModelVariants(t *testing.T) {
 	if reasoning["effort"] != "xhigh" {
 		t.Errorf("max reasoning effort = %v, want xhigh", reasoning["effort"])
 	}
+	// Both variants stay independently addressable everywhere a key is taken.
+	for _, key := range []string{id, id + ":max"} {
+		if !Valid(key) {
+			t.Errorf("Valid(%q) = false, want true", key)
+		}
+		if got := ProviderFor(key); got != "openrouter" {
+			t.Errorf("ProviderFor(%q) = %q, want %q", key, got, "openrouter")
+		}
+	}
+	if got := len(Models()); got != 2 {
+		t.Errorf("Models() returned %d entries, want both variants", got)
+	}
+}
+
+// TestDuplicateModelKeysPanic pins the other half of normalization: a repeated
+// key is a build-time mistake that must fail loudly at startup rather than
+// leave the second entry unreachable.
+func TestDuplicateModelKeysPanic(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Error("normalizeModels did not panic on a duplicate key")
+		}
+	}()
+	normalizeModels([]Model{
+		{ID: "vendor/model-1", Label: "Model 1", Provider: "openrouter"},
+		{ID: "vendor/model-1", Label: "Model 1 again", Provider: "openrouter"},
+	})
 }
 
 // TestHiddenModel pins what Hidden means: gone from the served list, but still

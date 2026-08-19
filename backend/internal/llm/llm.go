@@ -57,9 +57,10 @@ type Model struct {
 	Label           string         `json:"label"`
 	Provider        string         `json:"provider"`
 	ProviderOptions map[string]any `json:"-"`
-	// ToolProviderOptions are provider options applied only when the call carries
-	// tools (merged over ProviderOptions).
-	ToolProviderOptions map[string]any `json:"-"`
+	// ToolCaching enables ephemeral prompt caching on tool-bearing calls, so the
+	// agentic loop doesn't re-send the system and user prompt uncached on every
+	// step. Anthropic-only: GoAI warns on stderr if it reaches another provider.
+	ToolCaching bool `json:"-"`
 	// MaxTokens overrides the default output-token cap for this model; 0 uses defaultMaxTokens.
 	MaxTokens int `json:"-"`
 	// Hidden drops the model from Models(), so it is no longer offered in the UI
@@ -68,9 +69,8 @@ type Model struct {
 	Hidden bool `json:"-"`
 }
 
-// Shared Anthropic provider options. anthropicThinking enables adaptive thinking
-// with summarized output; anthropicCaching sets ephemeral cache_control on
-// tool-bearing calls. Treated as read-only (generate copies them out, never
+// Shared provider options. anthropicThinking enables adaptive thinking with
+// summarized output. Treated as read-only (buildCall copies them out, never
 // mutates), so the same map may back multiple models.
 var (
 	anthropicThinking = map[string]any{
@@ -78,9 +78,6 @@ var (
 			"type":    "adaptive",
 			"display": "summarized",
 		},
-	}
-	anthropicCaching = map[string]any{
-		"cache_control": map[string]any{"type": "ephemeral"},
 	}
 	openaiReasoning = map[string]any{
 		"reasoning_summary": "auto",
@@ -91,13 +88,13 @@ var (
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
 	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic",
-		ToolProviderOptions: anthropicCaching, Hidden: true},
+		ToolCaching: true, Hidden: true},
 	{ID: "claude-sonnet-5", Label: "Claude Sonnet 5", Provider: "anthropic",
-		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
+		ProviderOptions: anthropicThinking, ToolCaching: true},
 	{ID: "claude-opus-5", Label: "Claude Opus 5", Provider: "anthropic",
-		ProviderOptions: anthropicThinking, ToolProviderOptions: anthropicCaching},
+		ProviderOptions: anthropicThinking, ToolCaching: true},
 	{ID: "claude-fable-5", Label: "Claude Fable 5", Provider: "anthropic",
-		ToolProviderOptions: anthropicCaching},
+		ToolCaching: true},
 	{ID: "gpt-5.6-luna", Label: "GPT-5.6 Luna", Provider: "openai",
 		ProviderOptions: map[string]any{"reasoning_effort": "low"}, Hidden: true},
 	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Provider: "openai",
@@ -105,32 +102,34 @@ var models = []Model{
 	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Provider: "openai",
 		ProviderOptions: openaiReasoning},
 	{ID: "gemini-3.5-flash-lite", Label: "Gemini 3.5 Flash Lite", Provider: "google", Hidden: true},
-	{ID: "gemini-3.6-flash", Label: "Gemini 3.6 Flash", Provider: "google"},
+	{ID: "gemini-3.7-flash", Label: "Gemini 3.7 Flash", Provider: "google"},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google"},
-	{ID: "z-ai/glm-5.2", Label: "GLM 5.2", Provider: "openrouter", Hidden: true},
-	{Key: "z-ai/glm-5.2:max", ID: "z-ai/glm-5.2", Label: "GLM 5.2 (max)", Provider: "openrouter",
-		ProviderOptions: map[string]any{"reasoning": map[string]any{"effort": "xhigh"}}},
+	{ID: "z-ai/glm-5.3", Label: "GLM 5.3", Provider: "openrouter"},
 	{ID: "x-ai/grok-4.5", Label: "Grok 4.5", Provider: "openrouter"},
 	{ID: "moonshotai/kimi-k3", Label: "Kimi K3", Provider: "openrouter"},
 	{ID: "deepseek-v4-flash", Label: "DeepSeek V4 Flash", Provider: "deepseek", Hidden: true},
 	{ID: "deepseek-v4-pro", Label: "DeepSeek V4 Pro", Provider: "deepseek"},
 }
 
-// init defaults each entry's Key to its ID and rejects duplicates. Keys must be
-// unique because they are the app's model identity — two entries sharing one
-// would make the second unreachable through lookup and collide in the UI
-// selector. The list is a build-time constant, so panicking here turns that
-// mistake into an immediate startup failure rather than a silent misroute.
-func init() {
-	seen := make(map[string]bool, len(models))
-	for i := range models {
-		if models[i].Key == "" {
-			models[i].Key = models[i].ID
+// init normalizes the fixed list at startup.
+func init() { normalizeModels(models) }
+
+// normalizeModels defaults each entry's Key to its ID and rejects duplicates.
+// Keys must be unique because they are the app's model identity — two entries
+// sharing one would make the second unreachable through lookup and collide in
+// the UI selector. The list is a build-time constant, so panicking here turns
+// that mistake into an immediate startup failure rather than a silent misroute.
+// Split out of init so tests can exercise it on a synthetic list.
+func normalizeModels(ms []Model) {
+	seen := make(map[string]bool, len(ms))
+	for i := range ms {
+		if ms[i].Key == "" {
+			ms[i].Key = ms[i].ID
 		}
-		if seen[models[i].Key] {
-			panic(fmt.Sprintf("llm: duplicate model key %q", models[i].Key))
+		if seen[ms[i].Key] {
+			panic(fmt.Sprintf("llm: duplicate model key %q", ms[i].Key))
 		}
-		seen[models[i].Key] = true
+		seen[ms[i].Key] = true
 	}
 }
 
@@ -206,14 +205,13 @@ func clientFor(key string) (provider.LanguageModel, error) {
 // When tools is non-empty, each tool is attached and the request runs through
 // GoAI's agentic loop (MaxSteps): the model may invoke tools, whose results are
 // fed back, until it returns a final text reply or maxToolIterations is reached.
-// That path also merges the model's ToolProviderOptions over its ProviderOptions,
-// which is how cache control (Anthropic cache_control) is enabled per-model so the
-// multi-step loop doesn't pay to re-send the prompt each step. With no tools it
-// does a single generation.
+// That path also turns on ephemeral prompt caching for models declaring
+// ToolCaching, so the multi-step loop doesn't pay to re-send the prompt each
+// step. With no tools it does a single generation.
 // buildCall resolves the provider client and assembles the GoAI options shared
 // by the buffered (generate) and streaming (GenerateStream) paths: system +
 // prompt, plus the model's provider options, plus the tool loop (tools,
-// max-steps, tool-only provider options) when tools are attached.
+// max-steps, prompt caching) when tools are attached.
 func buildCall(model, system, prompt string, tools []Tool) (provider.LanguageModel, []goai.Option, error) {
 	client, err := clientFor(model)
 	if err != nil {
@@ -248,25 +246,45 @@ func buildCall(model, system, prompt string, tools []Tool) (provider.LanguageMod
 
 	opts := []goai.Option{
 		goai.WithSystem(system),
-		goai.WithPrompt(prompt),
 		goai.WithMaxOutputTokens(maxTokens),
 		goai.WithOnResponse(logResponse),
 	}
 
-	provOpts := map[string]any{}
-	for k, v := range m.ProviderOptions {
-		provOpts[k] = v
-	}
 	if len(tools) > 0 {
 		opts = append(opts,
 			goai.WithTools(tools...),
 			goai.WithMaxSteps(maxToolIterations),
 		)
-		for k, v := range m.ToolProviderOptions {
+	}
+
+	// Two cache breakpoints are needed on a tool-bearing call, and only there:
+	// WithPromptCaching marks the tools+system prefix, but the rendered prompt is
+	// the bulk of what the loop re-sends each step, so it carries its own
+	// part-level marker. That needs an explicit message — WithPrompt only takes a
+	// string — so the uncached path keeps using WithPrompt and stays unchanged.
+	// The TTL is left at Anthropic's 5m default: a tool loop finishes well inside
+	// it, and a 1h marker (goai.WithCacheTTL) costs 2x base to write vs 1.25x.
+	if len(tools) > 0 && m.ToolCaching {
+		opts = append(opts,
+			goai.WithPromptCaching(true),
+			goai.WithMessages(provider.Message{
+				Role: provider.RoleUser,
+				Content: []provider.Part{{
+					Type:         provider.PartText,
+					Text:         prompt,
+					CacheControl: "ephemeral",
+				}},
+			}),
+		)
+	} else {
+		opts = append(opts, goai.WithPrompt(prompt))
+	}
+
+	if len(m.ProviderOptions) > 0 {
+		provOpts := make(map[string]any, len(m.ProviderOptions))
+		for k, v := range m.ProviderOptions {
 			provOpts[k] = v
 		}
-	}
-	if len(provOpts) > 0 {
 		opts = append(opts, goai.WithProviderOptions(provOpts))
 	}
 	return client, opts, nil

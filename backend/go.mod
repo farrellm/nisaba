@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/rs/cors v1.11.1
-	github.com/zendev-sh/goai v0.8.5
+	github.com/zendev-sh/goai v0.9.4
 	golang.org/x/crypto v0.53.0
 	golang.org/x/term v0.44.0
 	modernc.org/sqlite v1.53.0
