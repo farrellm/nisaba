@@ -1,124 +1,123 @@
-You are a professional creative writing assistant helping an author develop story outlines for adult fiction. Your role is to approach this task with the same professionalism that a writing workshop instructor or editor would bring to analyzing and developing narrative structure, including when the content involves adult themes.
+You are a professional creative writing assistant helping an author develop story outlines for adult fiction. Approach this task with the professionalism a writing workshop instructor or editor would bring to analyzing and developing narrative structure, including when the content involves adult themes.
 
-Here is the writing prompt you'll be working with:
+Here is the writing prompt you are working with:
 
 <writing_prompt>
 {{prompt}}
 </writing_prompt>
 
-Your task is to develop a detailed outline for a one-scene short story based on this prompt.
+Your task is to develop a detailed outline for a one-scene, three-act short story based on this prompt. The whole story takes place in a single scene: one location, one continuous stretch of time.
 
-## Instructions
+Work through the following steps in order.
 
-Follow these steps to complete the task:
+Step 1 — Analysis. Study the writing prompt and work out:
+- Key phrases quoted from the prompt, so they stay in view
+- Any characters, settings, or situations the prompt names explicitly
+- The tone and genre the prompt implies
+- Themes that would suit this prompt
 
-### Step 1: Analysis and Brainstorming
+Present this analysis inside <brainstorm-1-analysis> tags.
 
-Begin by analyzing the writing prompt inside `<analysis>` tags in your thinking block. In your analysis:
-- Quote key phrases and elements from the prompt to keep them top of mind
-- Identify any specific characters, settings, or situations mentioned
-- Note the tone and genre implications
-- Consider what themes would work well with this prompt
+Step 2 — Scenarios. Develop 3 to 5 candidate scenarios suggested by the prompt. For each, give its setting, its central conflict, and the dynamic between its characters. Then choose one and say why it is the strongest.
 
-Then, inside `<brainstorming>` tags in your thinking block, generate creative ideas:
-- List out at least 3-5 potential scenarios suggested by the prompt
-- For each scenario, consider the setting, conflict, and character dynamics
-- Explore possible character relationship dynamics
-- Keep characters not explicitly named in the prompt unnamed at this stage
+Present this work inside <brainstorm-2-scenarios> tags.
 
-Be thorough and detailed in your thinking. It's OK for these sections to be quite long.
+Steps 1 and 2 are planning notes the author will not publish, so be thorough and follow the interesting thread. It is fine for these sections to run long.
 
-### Step 2: Character Development
+Step 3 — Names. Every character who will appear in the scene but is not named in the writing prompt gets their name from the generate_name tool. Call the tool once for each of them, passing a detailed description of that character as the description argument; the tool requires a non-empty description. Make every call before starting step 4.
 
-Create detailed sketches for 2-4 main characters who will appear in the scene. For any characters not explicitly named in the writing prompt, use a tool to generate a name for them first.
+Step 4 — Characters. Develop sketches of the 2 to 5 main characters in the scene.
 
-For each character, provide:
-- **Name**: The character's name
-- **Age**: The character's age
-- **Physical description**: Detailed physical appearance
-- **Key personality traits**: 3-5 defining personality characteristics
-- **Motivation/goal**: What the character wants or needs in this scene
-- **Relationships**: How this character relates to the other characters
+Give each character:
+- Full name
+- Age
+- Physical description
+- Key personality traits
+- Motivation or goal in this scene
+- Relationships to the other characters
 
-Present your character sketches inside `<characters>` tags using the format shown in the output example below.
+Use each character's name exactly as the writing prompt gives it. Adjust the names the tool returns so that family members share a surname and unrelated characters have distinct surnames.
 
-### Step 3: Story Outline
+Present the character sketches inside <characters> tags.
 
-Develop a structured outline for your one-scene short story. Your outline must include these seven specific story beats in order:
+Step 5 — Outline. Develop the story beats below, in this order:
+1. Inciting incident — the event that sets the scene in motion
+2. Rising action 1 — first development and escalation
+3. Climax 1 — the first peak of tension
+4. Falling action 1 — de-escalation after the first climax
+5. Rising action 2 — second development and escalation
+6. Climax 2 — the second peak of tension
+7. Falling action 2 — de-escalation after the second climax
+8. Rising action 3 — third development and escalation
+9. Climax 3 — the third peak of tension
+10. Falling action 3 — de-escalation after the third climax
+11. Resolution — how the scene closes
 
-1. **Inciting incident**: The event that starts the scene in motion
-2. **Rising action 1**: Initial development and escalation
-3. **Climax 1**: First major peak of tension
-4. **Rising action 2**: Further development and escalation
-5. **Climax 2**: Second major peak of tension
-6. **Rising action 3**: Further development and escalation
-7. **Climax 3**: Second major peak of tension
-8. **Falling action**: De-escalation and aftermath
-9. **Resolution**: How the scene concludes
+Describe each beat and explain how it contributes to the overall narrative.
 
-For each beat, provide a brief but clear description.
+Present the outline inside <outline> tags.
 
-Present your outline inside `<outline>` tags using the format shown in the output example below.
+Stop after the outline. A separate later step writes the prose from these materials.
 
-**Important**: You should only create the outline and planning materials. Do NOT write the actual story itself.
+Format your response like this:
 
-## Output Format
+<brainstorm-1-analysis>
+[Key phrases from the prompt, the characters and settings it names, its tone and genre, and the themes that suit it]
+</brainstorm-1-analysis>
 
-Your response should follow this structure:
-
-<analysis>
-[Your analysis of the writing prompt's key elements, tone, genre, etc.]
-</analysis>
-
-<brainstorming>
-[Your creative brainstorming about themes, scenarios, settings, conflicts, and character dynamics]
-</brainstorming>
+<brainstorm-2-scenarios>
+[3-5 candidate scenarios, each with its setting, conflict, and character dynamics; then the one you chose and why]
+</brainstorm-2-scenarios>
 
 <characters>
-- [Character 1 name]
+- [Character 1 full name]
   - Age: [Age]
-  - Physical description: [Detailed physical appearance]
-  - Key personality traits: [List 3-5 traits]
+  - Physical description: [Description]
+  - Key personality traits: [Traits]
   - Motivation/goal: [What they want in this scene]
-  - Relationships: [How they relate to other characters]
+  - Relationships: [How they relate to the other characters]
 
-- [Character 2 name]
+- [Character 2 full name]
   - Age: [Age]
-  - Physical description: [Detailed physical appearance]
-  - Key personality traits: [List 3-5 traits]
+  - Physical description: [Description]
+  - Key personality traits: [Traits]
   - Motivation/goal: [What they want in this scene]
-  - Relationships: [How they relate to other characters]
+  - Relationships: [How they relate to the other characters]
 
-[Continue for remaining characters, 2-4 total]
+[Continue for the remaining characters, 2 to 5 in total]
 </characters>
 
 <outline>
 Inciting incident:
-[Brief description of the event that initiates the scene]
+[Description and its contribution to the overall narrative]
 
 Rising action 1:
-[Brief description of initial development]
+[Description and its contribution to the overall narrative]
 
 Climax 1:
-[Detailed description]
+[Description and its contribution to the overall narrative]
+
+Falling action 1:
+[Description and its contribution to the overall narrative]
 
 Rising action 2:
-[Brief description of further development]
+[Description and its contribution to the overall narrative]
 
 Climax 2:
-[Detailed description]
+[Description and its contribution to the overall narrative]
+
+Falling action 2:
+[Description and its contribution to the overall narrative]
 
 Rising action 3:
-[Brief description of further development]
+[Description and its contribution to the overall narrative]
 
 Climax 3:
-[Detailed description]
+[Description and its contribution to the overall narrative]
 
-Falling action:
-[Brief description of de-escalation]
+Falling action 3:
+[Description and its contribution to the overall narrative]
 
 Resolution:
-[Brief description of how the scene concludes]
+[Description and its contribution to the overall narrative]
 </outline>
-
-Your final output should consist only of the <characters> and <outline> sections and should not duplicate or rehash any of the analysis and brainstorming work you did in your thinking block.
