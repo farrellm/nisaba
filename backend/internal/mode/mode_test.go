@@ -3,7 +3,10 @@ package mode
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/cbroglie/mustache"
 )
 
 // TestSystemPromptResolution exercises the provider → per-user → embedded
@@ -58,4 +61,36 @@ func TestSystemPromptResolution(t *testing.T) {
 	// A non-safe username never resolves an override.
 	tmpl, source = templates.SystemPrompt("../evil", "anthropic")
 	check("unsafe username", tmpl, source, systemTmpl, "default")
+}
+
+// TestTemplatesDoNotEscapeAttributes guards against mustache's HTML escaping
+// mangling attribute text. A "{{key}}" interpolation runs template.HTMLEscape,
+// which turns an apostrophe into "&#39;" and a quote into "&#34;"; the raw
+// "{{{key}}}" form does not. Nothing here ever renders HTML — the rendered
+// prompt goes straight to an LLM — so every slot must use the raw form, or
+// character descriptions and outlines reach the model full of entities.
+func TestTemplatesDoNotEscapeAttributes(t *testing.T) {
+	// Each key gets its own sentinel so one raw slot can't mask an escaped
+	// sibling; every character here is one HTMLEscape rewrites.
+	sentinel := func(key string) string {
+		return `Flannery O'Connor & "` + key + `" <tag> 5 > 3`
+	}
+
+	for _, m := range All() {
+		attrs := map[string]string{}
+		for _, k := range m.Keys {
+			attrs[k] = sentinel(k)
+		}
+		out, err := mustache.Render(m.Template, attrs)
+		if err != nil {
+			t.Errorf("%s: render: %v", m.Name, err)
+			continue
+		}
+		for _, k := range m.Keys {
+			if !strings.Contains(out, sentinel(k)) {
+				t.Errorf("%s: key %q was escaped — use {{{%s}}} rather than {{%s}}",
+					m.Name, k, k, k)
+			}
+		}
+	}
 }

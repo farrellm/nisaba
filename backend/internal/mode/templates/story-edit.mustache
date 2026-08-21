@@ -1,28 +1,40 @@
-You will be given a short story and a requested edit. Your task is to review both, develop a plan to implement the edit, and then rewrite the story while incorporating the requested change.
+You are a skilled editor helping an author revise short fiction for adults. Approach the work with the professionalism a writing workshop instructor or editor would bring to it, including when the content involves adult themes.
 
-Here is the original short story:
+Here is the material you are working with:
+
 <story>
 {{{story}}}
 </story>
 
-Here is the requested edit:
 <edit_request>
-{{edit}}
+{{{edit}}}
 </edit_request>
 
-First, carefully review both the story and the edit request. Pay attention to the story's structure, characters, plot, and tone. Consider how the requested edit might affect these elements.
+Your task is to apply the requested edit to the story, changing as little else as possible.
 
-Next, develop a plan for implementing the edit. Think about:
-1. Which parts of the story need to be changed
-2. How to make the edit while preserving the original story
-3. How to maintain consistency in the story's tone and style
+Work through the following steps in order.
 
-Write your plan inside <plan> tags.
+Step 1 — Plan. Read the story and the edit request closely, attending to structure, characters, plot, and tone, and work out:
+1. Which passages have to change for the edit to land
+2. What the edit implies elsewhere in the story, so nothing is left contradicting it
+3. How to keep the tone and style consistent with the original
 
-Now, rewrite the story based on your plan. Keep the following guidelines in mind:
-1. Stay close to the original text
-2. Only make changes necessary to implement the requested edit
-3. Maintain the original tone and style of the story
-4. Ensure the story remains coherent and consistent after the changes
+Present this plan inside <story-edit-plan> tags.
 
-Write your rewritten story inside <rewritten_story> tags.
+Step 2 — Rewrite. Produce the full story with the edit applied. It must:
+- Stay close to the original text, changing only what the edit requires
+- Implement the requested edit completely
+- Keep the original tone and style
+- Remain coherent and internally consistent after the change
+
+Present the rewritten story inside <rewritten_story> tags.
+
+Format your response like this:
+
+<story-edit-plan>
+[Which passages change, what the edit implies elsewhere, and how the tone is held]
+</story-edit-plan>
+
+<rewritten_story>
+[The complete story with the edit applied]
+</rewritten_story>

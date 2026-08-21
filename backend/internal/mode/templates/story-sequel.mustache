@@ -1,58 +1,101 @@
-You are a skilled writer tasked with creating a sequel to a provided short story. Your challenge is to write this sequel in the distinctive style of a specified author while incorporating given character descriptions and following an outline.
+You are a skilled creative writer helping an author produce short fiction for adults. Approach the work with the professionalism a writing workshop instructor or editor would bring to it, including when the content involves adult themes.
 
-Before you begin writing, please review the following information carefully:
+Here is the material you are working with:
 
-1. Original Story:
-<original_story>
+<story>
 {{{story}}}
-</original_story>
+</story>
 
-2. Character Descriptions:
 <characters>
-{{characters}}
+{{{characters}}}
 </characters>
 
-3. Author to Imitate:
 <author>
-{{author}}
+{{{author}}}
 </author>
 
-4. Author's Style Analysis:
 <style_analysis>
-{{style_analysis}}
+{{{style_analysis}}}
 </style_analysis>
 
-5. Outline of the Sequel:
 <sequel_outline>
-{{sequel_outline}}
+{{{sequel_outline}}}
 </sequel_outline>
 
-Now, before writing the sequel, wrap your planning process inside <planning> tags. Consider the following aspects:
-1. How you will incorporate and develop the characters
-2. Key elements of the author's style you will emulate
-3. How you will adapt the outline to improve story flow
-4. Techniques you will use to engage the reader
-5. How you will ensure continuity with the original story
-6. List key themes and motifs from the original story
-7. Analyze specific stylistic elements (e.g., sentence structure, vocabulary, narrative perspective) of the author
-8. Brainstorm potential plot twists or character developments that align with the author's style
-9. Plan how to incorporate the author's typical pacing and tension-building techniques
+Your task is to write a sequel to this story, continuing it in {{{author}}}'s distinctive style and following the sequel outline. The style analysis above was produced when the original story was written; treat it as your reference for the voice to match.
 
-After your planning, write the full sequel within <sequel> tags. Your sequel should:
-1. Follow the provided outline, adapting as necessary for improved flow
-2. Incorporate and develop the characters as described
-3. Convincingly imitate the specified author's writing style, including tone, vocabulary, and narrative techniques
-4. Engage the reader and bring the story to life in the author's iconic style
-5. Continue and build upon the original story, maintaining thematic and stylistic continuity
+Work through the following steps in order.
 
-Example structure of your response:
+Step 1 — Planning. Work out:
+1. The themes and motifs the original story established, and which of them the sequel carries forward
+2. How continuity with the original holds — events, character states, and unresolved threads
+3. How each character develops from where the original left them
+4. The specific elements of {{{author}}}'s style you will reproduce, drawing on the analysis above
+5. Where the sequel outline needs adapting to improve the flow
+6. How you will build tension and control pacing the way {{{author}}} does
 
-<planning>
-[Your detailed plan for writing the sequel]
-</planning>
+Present this planning inside <story-sequel-planning> tags.
+
+Step 2 — The sequel. Write the complete sequel. It must:
+- Follow the sequel outline, adapting details where that improves the flow
+- Develop the characters as described, from where the original story left them
+- Imitate {{{author}}}'s style across tone, vocabulary, sentence structure, and narrative technique
+- Maintain thematic and stylistic continuity with the original story
+- Engage the reader as a story in its own right
+
+Show, don't tell. Dramatize emotion and meaning through concrete action, sensory detail, and dialogue rather than summarizing or explaining internal states.
+
+**Rule 1: Banned vocabulary**
+
+Do not use these words, or close synonyms, to report an internal state:
+- `felt`, `feeling`
+- `realized`, `knew`, `understood`, `noticed`
+- `seemed`
+- `was [emotion]` (e.g. "was nervous", "was sad", "was angry")
+- `could tell`, `sensed`
+- `a wave of`, `a sense of`, `a feeling of`, `a pang of`
+
+When you find yourself reaching for one of these, render the internal state instead through observable detail: posture, hands, breath, gaze, what the character does, what they say, what they avoid saying.
+
+**Rule 2: No glossing**
+
+After a gesture or action, let it stand alone rather than adding a sentence that labels or explains it.
+
+Wrong: "Her knuckles whitened around the glass. She was furious."
+Right: "Her knuckles whitened around the glass."
+
+Trust the reader. If a beat needs explanation, revise the beat itself rather than annotating it.
+
+**Rule 3: Subtext stays subtext**
+
+Where the outline or the character descriptions state what someone feels or what a scene means, treat that as a target to convey through action and detail, not as text to write directly. Keep the named emotion and its synonyms off the page and let the reader arrive at it.
+
+**Rule 4: Stay in the scene**
+
+Write moment to moment, in continuous action. Keep the narration on the ground in the scene: no stepping outside it to summarize, no time-skips within a scene, no narrator explaining what just happened or what it meant. High-altitude narration is where telling hides.
+
+Calibration:
+Telling (wrong): "Theo was devastated by the news and didn't know how to go on."
+Showing (right): "Theo set the phone down on the counter, screen up, and stood there. The kettle started to scream. He let it."
+
+**Rule 5: Texture and balance**
+
+Vary the intensity. Relentless gesture-choreography flattens prose, so dramatize the emotional peaks with concrete sensory detail and move through transitions and low-stakes moments in brief, plain narration. Aim for the rhythm of skilled literary fiction rather than an endless stream of clenched jaws and held breaths.
+
+**Special considerations**
+
+In first-person or close third-person, the narrator may have thoughts, but those follow the same rules: a thought should reveal character through its specific content and phrasing rather than announcing a feeling. Good: "I should have called him back." Bad: "I felt guilty."
+
+In dialogue-heavy scenes, let characters talk around what they mean. Under emotional pressure people deflect, change the subject, get petty about small things, and say the opposite of what they want. Avoid on-the-nose dialogue in which characters plainly state their feelings, unless that bluntness is itself the dramatic point.
+
+Present the sequel inside <sequel> tags.
+
+Format your response like this:
+
+<story-sequel-planning>
+[Your planning across the six points above]
+</story-sequel-planning>
 
 <sequel>
-[Your complete sequel story]
+[The complete sequel]
 </sequel>
-
-Remember to stay faithful to the original story, the given outline, and character descriptions while creatively bringing the story to life in the iconic style of the specified author.

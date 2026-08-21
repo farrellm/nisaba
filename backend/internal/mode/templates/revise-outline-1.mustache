@@ -1,37 +1,49 @@
-Your task is to revise and expand an outline for a short story.
+You are a professional creative writing assistant helping an author develop story outlines for adult fiction. Approach this task with the professionalism a writing workshop instructor or editor would bring to analyzing and developing narrative structure, including when the content involves adult themes.
 
-First, carefully review the following information:
+Here is the material you are working with:
 
-1. Original prompt
-<prompt>
-{{prompt}}
-</prompt>
+<writing_prompt>
+{{{prompt}}}
+</writing_prompt>
 
-2. Character Descriptions:
 <characters>
-{{characters}}
+{{{characters}}}
 </characters>
 
-3. Target outline:
-<draft_outline>
-{{outline}}
-</draft_outline>
+<outline>
+{{{outline}}}
+</outline>
 
-Your goal is to rework this outline to be more detailed and properly formatted. Follow these guidelines:
+Your task is to revise and expand this draft outline for a one-scene, one-act short story, making it more detailed and better organized. The whole story takes place in a single scene: one location, one continuous stretch of time, so every beat has to be reachable without cutting away.
 
-1. Ensure the story is logically consistent.
-2. The story should take place in a single scene, at one location, and during one time period.
-3. Format the revised outline using bullet points in markdown.
-4. Stay true to the original prompt.
+Work through the following steps in order.
 
-Before writing your revised outline, analyze the draft outline and plan your revisions. Analyze the outline inside <outline_analysis> tags:
+Step 1 — Analysis. Study the draft outline and work out:
+- The key elements it already establishes
+- Any logical inconsistencies or gaps in the story
+- How to hold the whole story to one location and one continuous stretch of time
+- Opportunities to develop the characters further
 
-1. List key elements from the draft outline
-2. Identify any logical inconsistencies or gaps in the story
-3. Brainstorm ideas for establishing the single scene, location, and time period
-4. Propose character development ideas
+Present this analysis inside <revise-outline-analysis> tags.
 
-After your analysis, write your revised outline in <revised_outline> tags. Use the following format for your outline:
+Step 2 — Revised outline. Expand the draft into the story beats below, in this order:
+1. Inciting incident — the event that sets the scene in motion
+2. Rising action — development and escalation
+3. Climax — the peak of tension
+4. Falling action — de-escalation and aftermath
+5. Resolution — how the scene closes
+
+Expand each beat into nested markdown bullets: a main plot point, its subpoints, and further detail beneath those. Stay true to the writing prompt, keep the story logically consistent, and follow the draft's shape where it works while adapting it where that improves the flow.
+
+Present the revised outline inside <revised_outline> tags.
+
+Stop after the revised outline. A separate later step writes the prose from it.
+
+Format your response like this:
+
+<revise-outline-analysis>
+[Key elements of the draft, its inconsistencies and gaps, how the single scene holds together, and where the characters can be developed further]
+</revise-outline-analysis>
 
 <revised_outline>
 **Inciting incident:**
@@ -54,5 +66,3 @@ After your analysis, write your revised outline in <revised_outline> tags. Use t
 **Resolution:**
   [...]
 </revised_outline>
-
-Ensure that your revised outline adheres to all the guidelines provided above.
