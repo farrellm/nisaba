@@ -112,6 +112,38 @@ location /api/ {
 
 `proxy_buffering off` is the critical line. The backend itself sets no request deadline, and a completed run is now saved even if the client disconnects mid-stream, but live streaming still requires the proxy to stay out of the way.
 
+### Tailnet access (Tailscale)
+
+The same nginx vhost is also published to the tailnet, so the production build is reachable from
+any device on it at `https://<node>.<tailnet>.ts.net:8444/` — `tailscale status` prints the
+node's name — with a real cert terminated by `tailscaled`. It takes one extra `listen` on the
+vhost:
+
+```nginx
+server {
+    server_name farrellm.duckdns.org;
+    listen 127.0.0.1:8081;   # plain HTTP, loopback only — fronted by `tailscale serve`
+    listen 443 ssl;          # managed by Certbot
+    # ... same /api/ and / locations ...
+}
+```
+
+```sh
+sudo tailscale serve --bg --https=8444 http://127.0.0.1:8081
+```
+
+- **Port 8444, not 443.** nginx's wildcard `0.0.0.0:443` bind also claims the node's tailnet IPv4
+  address and beats `tailscaled` to it, so `--https=443` would answer over IPv6 only. A non-443
+  HTTPS origin is still a real cert and a secure context.
+- **The tailnet origin must serve `/` *and* `/api`.** The frontend only ever fetches relative
+  `/api/...` paths and the session cookie is host-only `SameSite=Lax`, so pointing
+  `tailscale serve` straight at the backend — or at a bare `frontend/dist/`, which has no SPA
+  fallback — does not work.
+- Deploying is still just `make frontend-build`: nginx serves `frontend/dist/` through the
+  `/var/www/nisaba` symlink, so both origins pick up the new build together.
+- The cookie is host-only, so the tailnet origin and `farrellm.duckdns.org` each need their own
+  login.
+
 ## Project Structure
 
 ```
