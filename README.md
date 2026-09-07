@@ -66,6 +66,7 @@ make backend-test   Run Go tests
 make frontend-install  Install npm dependencies
 make frontend       Start Vite dev server
 make frontend-build Build frontend for production
+make deploy         Build both and restart the deployed systemd unit
 ```
 
 ## Configuration
@@ -77,6 +78,12 @@ The backend reads configuration from environment variables with development defa
 | `ADDR` | `:8080` | HTTP listen address |
 | `DATABASE_URL` | `postgres://nisaba:nisaba@localhost:5432/nisaba?sslmode=disable` | Postgres connection string |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
+| `WEB_DIR` | *(empty)* | Directory of the built frontend to serve at `/` with an SPA fallback. Empty disables static serving — what local dev wants, since Vite serves the app and proxies `/api` here |
+| `SESSION_SECRET` | `dev-insecure-session-secret-change-me` | Signs the session cookie. **Production must override this** with a long random value (`openssl rand -base64 48`) |
+| `SESSION_SECURE` | `false` | `true` marks the session cookie `Secure` (HTTPS only) |
+| `MODE_TEMPLATES_DIR` | `internal/mode/templates` | Base mode-template dir; per-user overrides are read from the sibling `<dir>-<username>/`. Relative to the working directory |
+| `REFLEX_DB_PATH` | `../reflex.db` | Legacy SQLite file browsed read-only by the Anansi pages. Relative to the working directory, and **a missing file fails startup** |
+| `CHARLOTTE_CLI` | `charlotte-cli` | Executable behind the Charlotte pages; resolved on `PATH`. A missing binary does *not* fail startup |
 
 ### LLM provider
 
@@ -90,59 +97,58 @@ export GEMINI_API_KEY=...      # Gemini models (or GOOGLE_GENERATIVE_AI_API_KEY)
 
 GoAI reads each key from the environment automatically; you only need the keys for the providers whose models you actually run.
 
-### Reverse proxy (production/remote)
+## Deployment
 
-Running a block streams the model's reply back over a single long-lived NDJSON connection, kept warm by a keepalive `ping` every 10s. A slow, thinking-heavy model (e.g. Claude Opus) can run for minutes, so **any proxy in front of the app must disable response buffering and raise its read timeout** — otherwise the default 60s cutoff drops the connection mid-run and the request fails with `context canceled`.
-
-For nginx, on the API location:
-
-```nginx
-location /api/ {
-    proxy_pass http://127.0.0.1:5173;   # or :8080 to skip the Vite dev proxy
-    proxy_http_version 1.1;
-    proxy_set_header Connection "";
-    proxy_set_header Host $host;
-
-    proxy_buffering off;        # flush keepalive pings + deltas immediately
-    proxy_cache off;
-    proxy_read_timeout 3600s;   # default is 60s — too short for long runs
-    proxy_send_timeout 3600s;
-}
-```
-
-`proxy_buffering off` is the critical line. The backend itself sets no request deadline, and a completed run is now saved even if the client disconnects mid-stream, but live streaming still requires the proxy to stay out of the way.
-
-### Tailnet access (Tailscale)
-
-The same nginx vhost is also published to the tailnet, so the production build is reachable from
-any device on it at `https://<node>.<tailnet>.ts.net:8444/` — `tailscale status` prints the
-node's name — with a real cert terminated by `tailscaled`. It takes one extra `listen` on the
-vhost:
-
-```nginx
-server {
-    server_name farrellm.duckdns.org;
-    listen 127.0.0.1:8081;   # plain HTTP, loopback only — fronted by `tailscale serve`
-    listen 443 ssl;          # managed by Certbot
-    # ... same /api/ and / locations ...
-}
-```
+The deployed instance is a **systemd user unit**, `~/.config/systemd/user/nisaba.service`,
+bound to `127.0.0.1:8092` — loopback only, because the sole way in is the Tailscale proxy
+below. `tailscale funnel` publishes it on **port 443**, so it is reachable both on the
+tailnet and from the public internet at `https://<node>.<tailnet>.ts.net/` (`tailscale
+status` prints the node's name), with a real cert terminated by `tailscaled`.
 
 ```sh
-sudo tailscale serve --bg --https=8444 http://127.0.0.1:8081
+make deploy                     # build backend + frontend, restart the unit
+journalctl --user -u nisaba -f  # logs
+tailscale funnel status         # confirm the mapping is public
 ```
 
-- **Port 8444, not 443.** nginx's wildcard `0.0.0.0:443` bind also claims the node's tailnet IPv4
-  address and beats `tailscaled` to it, so `--https=443` would answer over IPv6 only. A non-443
-  HTTPS origin is still a real cert and a secure context.
-- **The tailnet origin must serve `/` *and* `/api`.** The frontend only ever fetches relative
-  `/api/...` paths and the session cookie is host-only `SameSite=Lax`, so pointing
-  `tailscale serve` straight at the backend — or at a bare `frontend/dist/`, which has no SPA
-  fallback — does not work.
-- Deploying is still just `make frontend-build`: nginx serves `frontend/dist/` through the
-  `/var/www/nisaba` symlink, so both origins pick up the new build together.
-- The cookie is host-only, so the tailnet origin and `farrellm.duckdns.org` each need their own
-  login.
+**One process serves everything.** The unit sets `WEB_DIR=frontend/dist`, so the Go server
+serves the built SPA at `/` with a `try_files`-style fallback to `index.html` alongside its
+own `/api` routes. That matters because `tailscale serve` proxies a *single* upstream: the
+frontend only ever fetches relative `/api/...` paths and the session cookie is host-only
+`SameSite=Lax`, so splitting the two across origins does not work — and Tailscale's own
+static-file mode has no SPA fallback, which would break deep links like `/documents/5`.
+
+**Streaming needs no proxy tuning here.** Running a block streams the reply over a single
+long-lived NDJSON connection, kept warm by a keepalive `ping` every 10s, and a
+thinking-heavy model can run for minutes — a buffering proxy would drop it mid-run with
+`context canceled`. `tailscale serve` builds a Go `httputil.ReverseProxy`, which flushes
+immediately whenever the response has no `Content-Length`, as this one does. Nothing to
+configure. (An nginx or Traefik front end *would* need `proxy_buffering off` and a raised
+`proxy_read_timeout`; this host used to run one and no longer does.)
+
+### Deployment notes
+
+- **Funnel must be enabled for the tailnet** before `tailscale funnel` will do anything.
+  The CLI prints a `login.tailscale.com/f/funnel?node=…` enrollment link on first use;
+  alternatively add `"nodeAttrs": [{"target": ["autogroup:member"], "attr": ["funnel"]}]`
+  to the tailnet policy file. Funnel accepts only ports **443, 8443, and 10000**.
+- The unit's `ExecStartPost` owns the funnel mapping, so the unit stays the single source of
+  truth for how nisaba is exposed even though `tailscaled` persists it separately. It is
+  bounded by `timeout` and failure-tolerant: if Funnel is not enabled the CLI blocks on that
+  enrollment link, which would otherwise tear down a perfectly healthy server.
+- The backend does no dotenv loading, and systemd's `EnvironmentFile=` cannot parse
+  `.envrc`'s `export VAR=…` lines, so `ExecStart` sources `.envrc` directly. It stays the
+  single source of truth for the provider keys and `SESSION_SECRET` — rotating one is an
+  edit plus `systemctl --user restart nisaba`.
+- `ExecStartPre` waits on the Postgres container's healthcheck and runs `migrate … up`, so a
+  deploy carrying a schema change cannot start against the old schema.
+- Port **8092**, not the `:8080` default, so `make backend-watch` keeps 8080 for local dev
+  and the two can run side by side.
+- **nisaba is now on the public internet.** `GET /api/public/documents/{id}/attributes/{key}`
+  is deliberately unauthenticated and readable by guessable sequential id (it returns an
+  empty value rather than 404, so it cannot be used to probe which documents exist) — that
+  is now world-reachable. Login is rate-limited per IP; note that Funnel requests can share
+  an ingress source address, so the limit throttles brute force in aggregate.
 
 ## Project Structure
 
