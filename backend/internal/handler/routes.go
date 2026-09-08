@@ -2,9 +2,11 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 	"github.com/rs/cors"
 
 	"github.com/farrellm/nisaba/internal/auth"
@@ -25,6 +27,10 @@ type Deps struct {
 	Reddit    *reddit.Client
 	Runner    *blockrun.Service
 	CORS      []string
+	// WebDir is the built frontend served at "/" with an SPA fallback. Empty
+	// (the local-dev default) leaves the tree API-only, since Vite serves the
+	// app itself and proxies /api here.
+	WebDir string
 }
 
 // Routes builds the full /api handler tree with its middleware stack.
@@ -33,6 +39,10 @@ func Routes(d Deps) http.Handler {
 	sess := d.Sessions
 
 	r := chi.NewRouter()
+	// The deployed process binds loopback only and is reached solely through
+	// `tailscale serve`, which sets X-Forwarded-For, so trusting it here is safe
+	// and gives the login limiter below a real client address.
+	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(cors.New(cors.Options{
@@ -43,12 +53,23 @@ func Routes(d Deps) http.Handler {
 	}).Handler)
 
 	r.Route("/api", func(r chi.Router) {
+		// Its own 404, so an unknown /api path can never fall through to the
+		// SPA handler below and answer a fetch with index.html.
+		r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
+			writeError(w, http.StatusNotFound, "Not found")
+		})
+
 		r.Get("/healthz", Health(d.DB))
 
 		// No registration endpoint: accounts are created with the server
 		// binary's -create-user flag.
 		r.Route("/auth", func(r chi.Router) {
-			r.Post("/login", Login(st, sess))
+			// Login is the one route reachable unauthenticated from the public
+			// internet, so it gets a limiter. Funnel requests can share an
+			// ingress source address, so this throttles brute force in
+			// aggregate rather than strictly per-client; bcrypt (cost 10)
+			// remains the per-guess cost.
+			r.With(httprate.LimitByIP(10, time.Minute)).Post("/login", Login(st, sess))
 			r.Post("/logout", Logout(sess))
 			r.Get("/me", Me(st, sess))
 			r.Put("/me", UpdateMe(st, sess))
@@ -110,6 +131,10 @@ func Routes(d Deps) http.Handler {
 			})
 		})
 	})
+
+	if d.WebDir != "" {
+		r.Handle("/*", SPA(d.WebDir))
+	}
 
 	return r
 }

@@ -95,6 +95,7 @@ func run(ctx context.Context) error {
 			Reddit:    reddit.NewClient(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword),
 			Runner:    blockrun.New(st, blockrun.LLM{}, templates),
 			CORS:      cfg.CORSOrigins,
+			WebDir:    cfg.WebDir,
 		}),
 		// ReadHeaderTimeout closes the Slowloris vector (slow header trickling)
 		// that gosec G114 flags; IdleTimeout reaps idle keep-alive connections.

@@ -11,6 +11,7 @@ type Config struct {
 	Addr               string
 	DatabaseURL        string
 	CORSOrigins        []string
+	WebDir             string
 	SessionSecret      string
 	SessionSecure      bool
 	ModeTemplatesDir   string
@@ -37,6 +38,12 @@ func Load() Config {
 	if originsEnv == "" {
 		originsEnv = "http://localhost:5173"
 	}
+
+	// webDir is the built frontend (frontend/dist) served with an SPA fallback
+	// at "/", so `tailscale serve` has a single upstream for both the app and
+	// the API. Empty — the default — disables static serving entirely, which is
+	// what local dev wants: Vite serves the app and proxies /api here.
+	webDir := os.Getenv("WEB_DIR")
 
 	// SessionSecret signs and encrypts the session cookie. The default is for
 	// local dev only — production MUST set SESSION_SECRET to a long random value.
@@ -78,6 +85,7 @@ func Load() Config {
 		Addr:          addr,
 		DatabaseURL:   dbURL,
 		CORSOrigins:   strings.Split(originsEnv, ","),
+		WebDir:        webDir,
 		SessionSecret: sessionSecret,
 		// Mark the cookie Secure in production (HTTPS); SESSION_SECURE=true enables it.
 		SessionSecure:      os.Getenv("SESSION_SECURE") == "true",

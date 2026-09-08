@@ -1,4 +1,4 @@
-.PHONY: help db db-stop db-clean migrate migrate-down backend backend-watch backend-build backend-test frontend-install frontend frontend-build
+.PHONY: help db db-stop db-clean migrate migrate-down backend backend-watch backend-build backend-test frontend-install frontend frontend-build deploy
 
 MIGRATE_BIN := migrate
 MIGRATE_DIR := db/migrations
@@ -49,3 +49,8 @@ frontend: ## Start Vite dev server
 
 frontend-build: ## Build frontend for production (output: frontend/dist/)
 	cd frontend && npm run build
+
+# ── Deploy ────────────────────────────────────────────────────────────────────
+
+deploy: backend-build frontend-build ## Build both and restart the deployed systemd unit
+	systemctl --user restart nisaba
