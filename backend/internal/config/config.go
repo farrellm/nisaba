@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+// charlotteCLIDefault is the fallback for CHARLOTTE_CLI. The Makefile sets it at
+// link time (-ldflags -X) to the absolute path of charlotte-cli as found on the
+// build shell's PATH; a plain `go build` leaves the bare name, resolved on PATH.
+var charlotteCLIDefault = "charlotte-cli"
+
 // Config holds every environment-derived setting, with local-dev defaults so
 // `make backend` runs with no environment at all.
 type Config struct {
@@ -70,10 +75,11 @@ func Load() Config {
 
 	// charlotteCLI is the executable browsed read-only by the "Charlotte" pages,
 	// an older file-based version of this app (`--list` / `--doc <name>`). The
-	// default resolves on PATH; handlers report errors per request if it is missing.
+	// default is charlotteCLIDefault; handlers report errors per request if it is
+	// missing.
 	charlotteCLI := os.Getenv("CHARLOTTE_CLI")
 	if charlotteCLI == "" {
-		charlotteCLI = "charlotte-cli"
+		charlotteCLI = charlotteCLIDefault
 	}
 
 	// Reddit application-only OAuth credentials, from a registered app at
