@@ -83,7 +83,7 @@ The backend reads configuration from environment variables with development defa
 | `SESSION_SECURE` | `false` | `true` marks the session cookie `Secure` (HTTPS only) |
 | `MODE_TEMPLATES_DIR` | `internal/mode/templates` | Base mode-template dir; per-user overrides are read from the sibling `<dir>-<username>/`. Relative to the working directory |
 | `REFLEX_DB_PATH` | `../reflex.db` | Legacy SQLite file browsed read-only by the Anansi pages. Relative to the working directory, and **a missing file fails startup** |
-| `CHARLOTTE_CLI` | `charlotte-cli` | Executable behind the Charlotte pages; resolved on `PATH`. A missing binary does *not* fail startup |
+| `CHARLOTTE_CLI` | absolute path of `charlotte-cli` | Executable behind the Charlotte pages. `make` bakes in the path found on the build-time `PATH`; a build without it (or where it isn't found) falls back to the bare name, resolved on `PATH` at runtime. A missing binary does *not* fail startup |
 
 ### LLM provider
 
