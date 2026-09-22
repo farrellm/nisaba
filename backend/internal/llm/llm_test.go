@@ -1,9 +1,13 @@
 package llm
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/zendev-sh/goai"
+	"github.com/zendev-sh/goai/provider"
 )
 
 // TestModelKeys covers the invariants the init() normalization guarantees: every
@@ -154,5 +158,61 @@ func TestToolResultText(t *testing.T) {
 	want := "error: " + strings.Repeat("x", 500) + "..."
 	if got != want {
 		t.Errorf("long error not truncated to 500 runes: len = %d", len(got))
+	}
+}
+
+// TestCombineSteps covers both framings: a step with ordered Content (each
+// non-empty thinking block wrapped on its own, in place relative to text, e.g.
+// an Opus 5.5 progress update between tool calls) and a step without it
+// (aggregate reasoning ahead of text). Tool blocks close each step either way.
+func TestCombineSteps(t *testing.T) {
+	call := provider.ToolCall{ID: "c1", Name: "generate_name", Input: json.RawMessage(`{"n":1}`)}
+	res := &goai.TextResult{Steps: []goai.StepResult{
+		{
+			Content: []provider.Part{
+				{Type: provider.PartReasoning, ProviderOptions: map[string]any{"redactedData": "enc"}},
+				{Type: provider.PartReasoning, Text: "Reasoning."},
+				{Type: provider.PartReasoning, Text: ""}, // omitted display / empty update
+				{Type: provider.PartText, Text: "Picking a name."},
+				{Type: provider.PartReasoning, Text: "Calling the tool."},
+				{Type: provider.PartToolCall, ToolCallID: "c1", ToolName: "generate_name"},
+			},
+			Reasoning:   "Reasoning.Calling the tool.",
+			Text:        "Picking a name.",
+			ToolCalls:   []provider.ToolCall{call},
+			ToolResults: []provider.ToolResult{{ToolCallID: "c1", Output: "Ada"}},
+		},
+		{Reasoning: "Done.", Text: "<name>Ada</name>"},
+	}}
+	want := "<thinking>\nReasoning.\n</thinking>\n" +
+		"Picking a name." +
+		"<thinking>\nCalling the tool.\n</thinking>\n" +
+		toolBlock("generate_name", `{"n":1}`, "Ada") +
+		"<thinking>\nDone.\n</thinking>\n" +
+		"<name>Ada</name>"
+	if got := combineSteps(res); got != want {
+		t.Errorf("combineSteps =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestRefusal(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		res  *goai.TextResult
+		want error
+	}{
+		{"stop", &goai.TextResult{FinishReason: provider.FinishStop}, nil},
+		{"refused", &goai.TextResult{FinishReason: provider.FinishContentFilter}, ErrRefused},
+		{"refused mid tool loop", &goai.TextResult{
+			FinishReason: provider.FinishStop,
+			Steps: []goai.StepResult{
+				{FinishReason: provider.FinishToolCalls},
+				{FinishReason: provider.FinishContentFilter},
+			},
+		}, ErrRefused},
+	} {
+		if got := refusal(tc.res); !errors.Is(got, tc.want) {
+			t.Errorf("%s: refusal = %v, want %v", tc.name, got, tc.want)
+		}
 	}
 }
