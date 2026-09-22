@@ -35,3 +35,5 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
+
+replace github.com/zendev-sh/goai => github.com/farrellm/goai v0.0.0-20260922214820-8958501ed824

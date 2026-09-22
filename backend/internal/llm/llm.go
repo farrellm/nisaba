@@ -12,6 +12,7 @@ package llm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -70,7 +71,9 @@ type Model struct {
 }
 
 // Shared provider options. anthropicThinking enables adaptive thinking with
-// summarized output. Treated as read-only (buildCall copies them out, never
+// summarized output; without it, 5.x models default to display "omitted", which
+// also empties the progress updates Opus 5.5 / Fable 5.1 write between tool
+// calls (they arrive as thinking blocks, not text). Treated as read-only (buildCall copies them out, never
 // mutates), so the same map may back multiple models.
 var (
 	anthropicThinking = map[string]any{
@@ -94,7 +97,7 @@ var models = []Model{
 	{ID: "claude-opus-5-5", Label: "Claude Opus 5.5", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolCaching: true},
 	{ID: "claude-fable-5-1", Label: "Claude Fable 5.1", Provider: "anthropic",
-		ToolCaching: true},
+		ProviderOptions: anthropicThinking, ToolCaching: true},
 	{ID: "gpt-6-luna", Label: "GPT-6 Luna", Provider: "openai",
 		ProviderOptions: map[string]any{"reasoning_effort": "low"}, Hidden: true},
 	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Provider: "openai",
@@ -302,7 +305,30 @@ func generate(ctx context.Context, model, system, prompt string, tools []Tool) (
 	if err != nil {
 		return nil, err
 	}
+	if err := refusal(res); err != nil {
+		return nil, err
+	}
 	return res, nil
+}
+
+// ErrRefused reports that the model declined the request: Anthropic's
+// stop_reason "refusal" (its safety classifiers) or another provider's content
+// filter, which GoAI both map to FinishContentFilter. The call itself succeeds,
+// usually with no output, so without this a refusal would be saved as an empty
+// (or, mid tool loop, truncated) response.
+var ErrRefused = errors.New("the model refused the request")
+
+// refusal returns ErrRefused when any step of res stopped on a refusal.
+func refusal(res *goai.TextResult) error {
+	if res.FinishReason == provider.FinishContentFilter {
+		return ErrRefused
+	}
+	for _, s := range res.Steps {
+		if s.FinishReason == provider.FinishContentFilter {
+			return ErrRefused
+		}
+	}
+	return nil
 }
 
 // Generate sends prompt to the given model under the given system prompt and
@@ -387,6 +413,7 @@ func GenerateStream(ctx context.Context, model, system, prompt string, tools []T
 		}
 	}
 	inThinking := false
+	thinkingBlock := "" // provider block id of the open <thinking>, if any
 	closeThinking := func() {
 		if inThinking {
 			emit(DeltaKindText, thinkingClose)
@@ -428,9 +455,17 @@ func GenerateStream(ctx context.Context, model, system, prompt string, tools []T
 		switch chunk.Type {
 		case provider.ChunkReasoning:
 			if chunk.Text != "" { // trailing signature/metadata chunk carries no text
+				// Anthropic tags each thinking block; a new block (e.g. a
+				// progress update after a reasoning block) gets its own
+				// <thinking>, matching combineSteps' one-per-block framing.
+				block, _ := chunk.Metadata["blockId"].(string)
+				if inThinking && block != thinkingBlock {
+					closeThinking()
+				}
 				if !inThinking {
 					emit(DeltaKindText, thinkingOpen)
 					inThinking = true
+					thinkingBlock = block
 				}
 				emit(DeltaKindText, chunk.Text)
 			}
@@ -459,23 +494,49 @@ func GenerateStream(ctx context.Context, model, system, prompt string, tools []T
 	if err := ts.Err(); err != nil {
 		return "", err
 	}
-	return combineSteps(ts.Result()), nil
+	res := ts.Result()
+	if err := refusal(res); err != nil {
+		return "", err
+	}
+	return combineSteps(res), nil
 }
 
 // combineSteps joins every generation step's output in order. For each step the
-// thinking (when present) is wrapped as "<thinking>\n…\n</thinking>\n", followed
-// by the step's text, followed by one block per tool call tagged with the tool
-// name and carrying its arguments and result. Across a multi-step tool loop the
-// per-step outputs are concatenated.
+// thinking and text come first, then one block per tool call tagged with the
+// tool name and carrying its arguments and result. Across a multi-step tool
+// loop the per-step outputs are concatenated.
+//
+// When the provider reports the step's ordered content (Anthropic, OpenAI
+// Responses), thinking and text are written in the order produced, each
+// non-empty thinking block wrapped separately as "<thinking>\n…\n</thinking>\n"
+// — so Opus 5.5's progress updates, which arrive as their own thinking blocks
+// between tool calls, stay distinct from the reasoning around them. Otherwise
+// the step's aggregate reasoning is wrapped once, ahead of its text. Tool
+// blocks stay at the end of the step either way: GenerateStream can only emit
+// one after its tool has run, and the two must agree.
 func combineSteps(res *goai.TextResult) string {
 	var b strings.Builder
-	for _, s := range res.Steps {
-		if s.Reasoning != "" {
+	writeThinking := func(text string) {
+		if text != "" {
 			b.WriteString(thinkingOpen)
-			b.WriteString(s.Reasoning)
+			b.WriteString(text)
 			b.WriteString(thinkingClose)
 		}
-		b.WriteString(s.Text)
+	}
+	for _, s := range res.Steps {
+		if len(s.Content) > 0 {
+			for _, p := range s.Content {
+				switch p.Type {
+				case provider.PartReasoning:
+					writeThinking(p.Text)
+				case provider.PartText:
+					b.WriteString(p.Text)
+				}
+			}
+		} else {
+			writeThinking(s.Reasoning)
+			b.WriteString(s.Text)
+		}
 		// Index this step's results by call ID so each call pairs with its own
 		// output; positional pairing breaks when the loop is cut short before
 		// some tools run (ToolResults is then empty).
