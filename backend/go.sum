@@ -5,8 +5,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dustin/go-humanize v1.1.0 h1:dbKTrvD0klcbBV/h4AWJdMuZogJACoMlvWIWZ5b2xWg=
 github.com/dustin/go-humanize v1.1.0/go.mod h1:hc1CvRkJMsgxqjmjMQF3QNRAZBwY8AXBAzKYoSX9sFI=
-github.com/farrellm/goai v0.0.0-20260922214820-8958501ed824 h1:VvyxYleBa2XVbm9KfVbVvem/+59otI29DEuaLeSUruw=
-github.com/farrellm/goai v0.0.0-20260922214820-8958501ed824/go.mod h1:F0NPGQu0kzKQOQ0/pWYJ4E3J0EY2TBa+uEvqgOPsSaY=
+github.com/farrellm/goai v0.0.0-20260922215546-bdddfd881ef7 h1:8UUrB9Ayutg59S5D7lzhXYNLC1hg5EnZBWHjoVxPrMI=
+github.com/farrellm/goai v0.0.0-20260922215546-bdddfd881ef7/go.mod h1:F0NPGQu0kzKQOQ0/pWYJ4E3J0EY2TBa+uEvqgOPsSaY=
 github.com/go-chi/chi/v5 v5.3.2 h1:5YQkICvTCSZ25hoRsyJazN0scjzKGiu4VAUc7H1o1nY=
 github.com/go-chi/chi/v5 v5.3.2/go.mod h1:R+tYY2hNuVUUjxoPtqUdgBqevM9s9njzkTLutVsOCto=
 github.com/go-chi/httprate v0.16.0 h1:8V5DH9j6pSK6UQoBsTpvMyFxycqaKEIToyPKzHJjUa8=
