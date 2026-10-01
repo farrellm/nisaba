@@ -87,12 +87,15 @@ var (
 	}
 )
 
+// DefaultModel is the key of the model selected for newly created documents.
+const DefaultModel = "claude-sonnet-5-5"
+
 // models is the fixed, cross-provider list. IDs are provider-native model names.
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
 	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic",
 		ToolCaching: true, Hidden: true},
-	{ID: "claude-sonnet-5", Label: "Claude Sonnet 5", Provider: "anthropic",
+	{ID: "claude-sonnet-5-5", Label: "Claude Sonnet 5.5", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolCaching: true},
 	{ID: "claude-opus-5-5", Label: "Claude Opus 5.5", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolCaching: true},
@@ -102,8 +105,10 @@ var models = []Model{
 		ProviderOptions: map[string]any{"reasoning_effort": "low"}, Hidden: true},
 	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Provider: "openai",
 		ProviderOptions: openaiReasoning, Hidden: true},
-	{ID: "gpt-6-sol", Label: "GPT-6 Sol", Provider: "openai",
+	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Provider: "openai",
 		ProviderOptions: openaiReasoning},
+	{ID: "gpt-6.1-sol", Label: "GPT-6.1 Sol", Provider: "openai",
+		ProviderOptions: openaiReasoning, Hidden: true},
 	{ID: "gpt-6-astra", Label: "GPT-6 Astra", Provider: "openai",
 		ProviderOptions: openaiReasoning, Hidden: true},
 	{ID: "gemini-3.5-flash-lite", Label: "Gemini 3.5 Flash Lite", Provider: "google", Hidden: true},

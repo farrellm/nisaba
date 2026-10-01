@@ -100,7 +100,7 @@ func testService(t *testing.T, st Store, gen Generator) *Service {
 }
 
 func testDocBlock() (model.Document, model.Block) {
-	doc := model.Document{ID: 10, UserID: 1, SelectedModel: "claude-sonnet-5"}
+	doc := model.Document{ID: 10, UserID: 1, SelectedModel: llm.DefaultModel}
 	block := model.Block{
 		ID:         20,
 		DocumentID: doc.ID,
