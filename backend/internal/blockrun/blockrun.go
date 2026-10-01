@@ -21,7 +21,7 @@ import (
 
 // maxRunDuration bounds a detached model call so a hung provider can't leak
 // the goroutine serving it.
-const maxRunDuration = 15 * time.Minute
+const maxRunDuration = 30 * time.Minute
 
 // Sentinel errors for run preconditions.
 var (

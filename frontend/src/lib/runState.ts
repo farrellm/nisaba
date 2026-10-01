@@ -20,7 +20,7 @@ export interface RunEntry {
 
 // Mirrors the backend's maxRunDuration: a run older than this can no longer
 // produce a response, so its entry is dropped as stale.
-export const RUN_STALE_MS = 15 * 60 * 1000
+export const RUN_STALE_MS = 30 * 60 * 1000
 
 // localStorage writes are synchronous, so per-delta appends are batched.
 const WRITE_THROTTLE_MS = 500
