@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 
+	"github.com/farrellm/nisaba/internal/llm"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
 )
@@ -81,7 +82,7 @@ func importLegacyDocument(ctx context.Context, st ImportStore, userID int64, src
 		UserID:        userID,
 		Title:         src.Title,
 		URL:           src.URL,
-		SelectedModel: "claude-sonnet-5",
+		SelectedModel: llm.DefaultModel,
 	})
 	if err != nil {
 		return model.Document{}, err

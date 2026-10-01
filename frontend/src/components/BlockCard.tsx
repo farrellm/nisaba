@@ -141,7 +141,7 @@ const BlockCard = memo(function BlockCard({
       if (stopped) return
       if (isRunStale(resumeEntry)) {
         settle()
-        setError('The run did not complete within 15 minutes.')
+        setError('The run did not complete within 30 minutes.')
         return
       }
       if (loadRunEntry(block.documentId, block.id) === null) {

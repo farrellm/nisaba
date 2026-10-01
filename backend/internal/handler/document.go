@@ -118,7 +118,7 @@ func CreateDocument(st DocumentStore) http.HandlerFunc {
 			UserID:        id,
 			Title:         title,
 			URL:           url,
-			SelectedModel: "claude-sonnet-5",
+			SelectedModel: llm.DefaultModel,
 		})
 		if err != nil {
 			internalError(w, r, "Could not create document", err)

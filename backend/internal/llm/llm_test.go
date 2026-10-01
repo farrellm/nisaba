@@ -138,6 +138,17 @@ func TestHiddenModel(t *testing.T) {
 	}
 }
 
+// TestDefaultModel pins that DefaultModel names a model the UI selector offers,
+// so a new document never starts on a key that was renamed, removed or hidden.
+func TestDefaultModel(t *testing.T) {
+	for _, m := range Models() {
+		if m.Key == DefaultModel {
+			return
+		}
+	}
+	t.Errorf("DefaultModel %q is not in Models()", DefaultModel)
+}
+
 func TestToolBlock(t *testing.T) {
 	got := toolBlock("generate_name", `{"gender":"female"}`, "Ada")
 	want := "<generate_name>\narguments: {\"gender\":\"female\"}\nresult: Ada\n</generate_name>\n"
