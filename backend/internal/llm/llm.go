@@ -94,7 +94,7 @@ const DefaultModel = "claude-sonnet-5-5"
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
 	{ID: "claude-haiku-5-5", Label: "Claude Haiku 5.5", Provider: "anthropic",
-		ToolCaching: true, Hidden: true},
+		ToolCaching: true},
 	{ID: "claude-sonnet-5-5", Label: "Claude Sonnet 5.5", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolCaching: true},
 	{ID: "claude-opus-5-5", Label: "Claude Opus 5.5", Provider: "anthropic",
