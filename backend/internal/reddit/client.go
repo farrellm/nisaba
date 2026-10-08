@@ -1,7 +1,7 @@
-// Package reddit is a minimal Reddit OAuth client: application-only
-// (client_credentials) tokens for reading and a script-app password grant for
-// submitting self posts. Reddit blocks anonymous JSON access and requires a
-// descriptive User-Agent on every request, including the token exchange.
+// Package reddit is a minimal Reddit client that reads and submits self posts
+// through old.reddit.com as a logged-in user (a reddit_session cookie) rather
+// than the OAuth Data API. Reddit blocks anonymous JSON access and expects a
+// descriptive User-Agent on every request.
 package reddit
 
 import (
@@ -21,17 +21,15 @@ const userAgent = "nisaba/1.0 (writing prompt importer)"
 
 // Sentinel errors callers map onto their own responses.
 var (
-	// ErrAuth means the OAuth token exchange failed.
-	ErrAuth = errors.New("reddit: could not authenticate")
+	// ErrAuth means Reddit refused the session (missing, expired or logged
+	// out).
+	ErrAuth = errors.New("reddit: session rejected")
 	// ErrUnreachable means the HTTP request to Reddit itself failed.
 	ErrUnreachable = errors.New("reddit: could not reach reddit")
 	// ErrNotFound means Reddit answered 404 (unknown subreddit or post).
 	ErrNotFound = errors.New("reddit: not found")
 	// ErrRateLimited means Reddit answered 429.
 	ErrRateLimited = errors.New("reddit: rate limited")
-	// ErrRejected means Reddit answered 401; the cached app token has been
-	// invalidated so the next call fetches a fresh one.
-	ErrRejected = errors.New("reddit: request rejected")
 	// ErrBadResponse means Reddit's response body could not be decoded.
 	ErrBadResponse = errors.New("reddit: unexpected response")
 	// ErrInvalidURL means the supplied post URL is not a Reddit permalink.
@@ -68,7 +66,7 @@ type Post struct {
 }
 
 // listing mirrors the shape of Reddit's listing responses (only the fields we
-// use). The OAuth endpoints return the same structure as the old .json ones.
+// use), as served by old.reddit.com's .json endpoints.
 type listing struct {
 	Data struct {
 		Children []struct {
@@ -81,37 +79,39 @@ type listing struct {
 	} `json:"data"`
 }
 
-// Client calls Reddit's OAuth API. It caches the application-only token
-// (shared across requests, refreshed shortly before expiry) and is safe for
-// concurrent use. username/password are optional script-app account
-// credentials, needed only to submit posts.
+// Client reads and posts through old.reddit.com as a logged-in user, by
+// sending that user's reddit_session cookie (the same JSON the old.reddit web
+// UI serves). It caches subreddit listings briefly to keep request volume low,
+// and is safe for concurrent use.
 type Client struct {
-	clientID     string
-	clientSecret string
-	username     string
-	password     string
+	session string
 
-	// http has an explicit timeout (unlike http.DefaultClient) so a slow
-	// upstream can't hang a handler indefinitely. noRedirect additionally
-	// refuses to follow redirects, to peek at a share link's Location and
-	// re-validate the target rather than chasing it blindly.
-	http       *http.Client
+	// noRedirect has an explicit timeout (unlike http.DefaultClient) so a
+	// slow upstream can't hang a handler indefinitely, and refuses to follow
+	// redirects: to peek at a share link's Location and re-validate the target
+	// rather than chasing it blindly, and to notice Reddit bouncing a stale
+	// session to its login page.
 	noRedirect *http.Client
 
-	mu      sync.Mutex
-	token   string
+	mu       sync.Mutex
+	listings map[string]cachedListing
+}
+
+// cachedListing is one subreddit's newest posts and when they stop being fresh.
+type cachedListing struct {
+	posts   []Post
 	expires time.Time
 }
 
-// NewClient builds a Client. username/password are optional and only used to
-// submit posts.
-func NewClient(clientID, clientSecret, username, password string) *Client {
+// listingTTL is how long NewestPosts reuses a subreddit's listing.
+const listingTTL = 2 * time.Minute
+
+// NewClient builds a Client authenticated by session, the value of a
+// logged-in old.reddit.com reddit_session cookie.
+func NewClient(session string) *Client {
 	return &Client{
-		clientID:     clientID,
-		clientSecret: clientSecret,
-		username:     username,
-		password:     password,
-		http:         &http.Client{Timeout: 10 * time.Second},
+		session:  session,
+		listings: map[string]cachedListing{},
 		noRedirect: &http.Client{
 			Timeout: 10 * time.Second,
 			CheckRedirect: func(*http.Request, []*http.Request) error {
@@ -121,138 +121,75 @@ func NewClient(clientID, clientSecret, username, password string) *Client {
 	}
 }
 
-// Configured reports whether Reddit app credentials were supplied.
+// Configured reports whether a Reddit session was supplied.
 func (c *Client) Configured() bool {
-	return c.clientID != "" && c.clientSecret != ""
+	return c.session != ""
 }
 
-// CanSubmit reports whether the script-app account credentials needed to
-// submit a post (in addition to the app credentials) were supplied.
-func (c *Client) CanSubmit() bool {
-	return c.Configured() && c.username != "" && c.password != ""
-}
-
-// invalidate forces the next accessToken call to fetch a fresh token (e.g.
-// after Reddit rejects the current one with 401).
-func (c *Client) invalidate() {
-	c.mu.Lock()
-	c.token = ""
-	c.mu.Unlock()
-}
-
-// tokenRequest performs one OAuth token exchange with the given form.
-func (c *Client) tokenRequest(ctx context.Context, form url.Values) (string, int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://www.reddit.com/api/v1/access_token", strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", 0, err
-	}
-	req.SetBasicAuth(c.clientID, c.clientSecret)
+// authorize adds the session cookie and User-Agent to req.
+func (c *Client) authorize(req *http.Request) {
+	req.AddCookie(&http.Cookie{Name: "reddit_session", Value: c.session})
 	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return "", 0, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", 0, fmt.Errorf("reddit token request returned %d", resp.StatusCode)
-	}
-
-	var body struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", 0, err
-	}
-	if body.AccessToken == "" {
-		return "", 0, fmt.Errorf("reddit token response missing access_token")
-	}
-	return body.AccessToken, body.ExpiresIn, nil
 }
 
-// accessToken returns the cached application-only OAuth token, fetching a
-// fresh one (client_credentials grant) when absent or near expiry.
-func (c *Client) accessToken(ctx context.Context) (string, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.token != "" && time.Now().Before(c.expires) {
-		return c.token, nil
-	}
-
-	token, expiresIn, err := c.tokenRequest(ctx, url.Values{"grant_type": {"client_credentials"}})
-	if err != nil {
-		return "", err
-	}
-	c.token = token
-	// Refresh a minute before expiry to avoid racing the boundary.
-	c.expires = time.Now().Add(time.Duration(expiresIn-60) * time.Second)
-	return c.token, nil
-}
-
-// userAccessToken fetches a fresh user-context OAuth token via the password
-// grant, authenticating as the configured script-app account. Unlike the
-// application-only token it is not cached: submissions are infrequent, and a
-// per-submit fetch avoids tangling with the cached app token.
-func (c *Client) userAccessToken(ctx context.Context) (string, error) {
-	token, _, err := c.tokenRequest(ctx, url.Values{
-		"grant_type": {"password"},
-		"username":   {c.username},
-		"password":   {c.password},
-	})
-	return token, err
-}
-
-// get performs an authenticated GET against oauth.reddit.com and maps the
+// get performs a session-authenticated GET against old.reddit.com and maps the
 // non-200 statuses onto the package's sentinel errors. The caller decodes the
 // body and must close it.
 func (c *Client) get(ctx context.Context, endpoint string) (*http.Response, error) {
-	token, err := c.accessToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrAuth, err)
-	}
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", userAgent)
+	c.authorize(req)
 
-	resp, err := c.http.Do(req)
+	resp, err := c.noRedirect.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrUnreachable, err)
 	}
 
-	switch resp.StatusCode {
-	case http.StatusOK:
+	code := resp.StatusCode
+	switch {
+	case code == http.StatusOK:
 		return resp, nil
-	case http.StatusNotFound:
+	case code >= 300 && code < 400:
+		// A stale session is bounced to the login page; old.reddit redirects
+		// an unknown subreddit to its search page.
+		loc := resp.Header.Get("Location")
 		resp.Body.Close()
+		if strings.Contains(loc, "/login") {
+			return nil, ErrAuth
+		}
+		return nil, ErrNotFound
+	}
+	resp.Body.Close()
+	switch code {
+	case http.StatusNotFound:
 		return nil, ErrNotFound
 	case http.StatusTooManyRequests:
-		resp.Body.Close()
 		return nil, ErrRateLimited
-	case http.StatusUnauthorized:
-		resp.Body.Close()
-		// Cached token may be stale; drop it so the next attempt refreshes.
-		c.invalidate()
-		return nil, ErrRejected
+	case http.StatusUnauthorized, http.StatusForbidden:
+		// Reddit blocks requests without a valid session outright.
+		return nil, ErrAuth
 	default:
-		code := resp.StatusCode
-		resp.Body.Close()
 		return nil, &StatusError{Code: code}
 	}
 }
 
 // NewestPosts returns the newest posts of a subreddit (Reddit's /new listing,
-// capped at 25) with permalinks expanded to full URLs.
+// capped at 25) with permalinks expanded to full URLs. A subreddit's listing is
+// reused for listingTTL.
 func (c *Client) NewestPosts(ctx context.Context, subreddit string) ([]Post, error) {
+	key := strings.ToLower(subreddit)
+	c.mu.Lock()
+	cached, ok := c.listings[key]
+	c.mu.Unlock()
+	if ok && time.Now().Before(cached.expires) {
+		return cached.posts, nil
+	}
+
 	// The subreddit is escaped as defense in depth, even though callers
 	// validate it on save.
-	endpoint := "https://oauth.reddit.com/r/" + url.PathEscape(subreddit) + "/new?limit=25"
+	endpoint := "https://old.reddit.com/r/" + url.PathEscape(subreddit) + "/new.json?limit=25"
 	resp, err := c.get(ctx, endpoint)
 	if err != nil {
 		return nil, err
@@ -272,6 +209,10 @@ func (c *Client) NewestPosts(ctx context.Context, subreddit string) ([]Post, err
 			Author: child.Data.Author,
 		})
 	}
+
+	c.mu.Lock()
+	c.listings[key] = cachedListing{posts: posts, expires: time.Now().Add(listingTTL)}
+	c.mu.Unlock()
 	return posts, nil
 }
 
@@ -289,7 +230,7 @@ func (c *Client) FetchPost(ctx context.Context, rawURL string) (Post, error) {
 		return Post{}, ErrShareResolve
 	}
 
-	resp, err := c.get(ctx, "https://oauth.reddit.com"+path+"?raw_json=1&limit=1")
+	resp, err := c.get(ctx, "https://old.reddit.com"+path+".json?raw_json=1&limit=1")
 	if err != nil {
 		return Post{}, err
 	}
@@ -324,7 +265,7 @@ func (c *Client) resolveSharePath(ctx context.Context, path string) (string, boo
 	if err != nil {
 		return "", false
 	}
-	req.Header.Set("User-Agent", userAgent)
+	c.authorize(req)
 	resp, err := c.noRedirect.Do(req)
 	if err != nil {
 		return "", false
@@ -341,14 +282,38 @@ func (c *Client) resolveSharePath(ctx context.Context, path string) (string, boo
 	return resolved, true
 }
 
-// SubmitSelfPost publishes a self (text) post to subreddit as the configured
-// script-app account (the password grant) and returns the new post's URL.
-// Validation failures Reddit reports on a 200 (banned, rate limit, empty
-// title, …) surface as a *SubmitError.
-func (c *Client) SubmitSelfPost(ctx context.Context, subreddit, title, body string) (postURL string, err error) {
-	token, err := c.userAccessToken(ctx)
+// modhash fetches the session's modhash, the CSRF token old.reddit requires
+// on state-changing requests. A session Reddit doesn't recognize yields an
+// empty modhash, reported as ErrAuth.
+func (c *Client) modhash(ctx context.Context) (string, error) {
+	resp, err := c.get(ctx, "https://old.reddit.com/api/me.json")
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrAuth, err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var me struct {
+		Data struct {
+			Modhash string `json:"modhash"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrBadResponse, err)
+	}
+	if me.Data.Modhash == "" {
+		return "", ErrAuth
+	}
+	return me.Data.Modhash, nil
+}
+
+// SubmitSelfPost publishes a self (text) post to subreddit as the session's
+// user, the way old.reddit's own submit form does, and returns the new post's
+// URL. Validation failures Reddit reports on a 200 (banned, rate limit,
+// captcha, empty title, …) surface as a *SubmitError.
+func (c *Client) SubmitSelfPost(ctx context.Context, subreddit, title, body string) (postURL string, err error) {
+	uh, err := c.modhash(ctx)
+	if err != nil {
+		return "", err
 	}
 
 	form := url.Values{
@@ -357,17 +322,18 @@ func (c *Client) SubmitSelfPost(ctx context.Context, subreddit, title, body stri
 		"title":    {title},
 		"text":     {body},
 		"api_type": {"json"},
+		"uh":       {uh},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://oauth.reddit.com/api/submit", strings.NewReader(form.Encode()))
+		"https://old.reddit.com/api/submit", strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("User-Agent", userAgent)
+	c.authorize(req)
+	req.Header.Set("X-Modhash", uh)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.noRedirect.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrUnreachable, err)
 	}
@@ -378,6 +344,8 @@ func (c *Client) SubmitSelfPost(ctx context.Context, subreddit, title, body stri
 		// fall through to decode; Reddit reports logical errors in the body.
 	case http.StatusTooManyRequests:
 		return "", ErrRateLimited
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return "", ErrAuth
 	default:
 		return "", &StatusError{Code: resp.StatusCode}
 	}

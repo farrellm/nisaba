@@ -1,17 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   Alert,
+  Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   InputAdornment,
+  Link as MuiLink,
   Stack,
   TextField,
   CircularProgress,
 } from '@mui/material'
 import { api } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import { stripPromptTag } from '../lib/text'
 import { useAsyncAction } from '../lib/useAsyncAction'
 import SubmitButton from './SubmitButton'
@@ -35,12 +38,14 @@ interface RedditSubmitDialogProps {
 // POST /api/documents/:id/reddit-submit, which saves the resulting permalink on
 // the document and returns the refreshed document; on success the dialog closes
 // (the saved permalink surfaces as a "Posted ↗" link in the document header).
+// If posting fails, the error offers to open old.reddit's submit page instead.
 export default function RedditSubmitDialog({
   open,
   doc,
   onClose,
   onPosted,
 }: RedditSubmitDialogProps) {
+  const { user } = useAuth()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [titleLoading, setTitleLoading] = useState(false)
@@ -80,6 +85,10 @@ export default function RedditSubmitDialog({
     // setError is a stable useState setter (via useAsyncAction).
   }, [open, doc, setError])
 
+  const submitUrl =
+    `https://old.reddit.com/r/${encodeURIComponent(user?.subreddit ?? '')}/submit` +
+    `?selftext=true&title=${encodeURIComponent(title)}`
+
   function handleClose() {
     if (submitting) return
     onClose()
@@ -105,6 +114,21 @@ export default function RedditSubmitDialog({
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error}
+              {/* Fallback: post by hand. The story is too long for a URL, so it
+                  goes on the clipboard; the link still opens in this click. */}
+              <Box>
+                <MuiLink
+                  href={submitUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(body).catch(() => {})
+                  }}
+                >
+                  Open on Reddit instead ↗
+                </MuiLink>{' '}
+                (the body is copied to your clipboard)
+              </Box>
             </Alert>
           )}
           <Stack spacing={2} sx={{ mt: 1 }}>

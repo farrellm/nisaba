@@ -6,9 +6,9 @@ import (
 )
 
 // postPath validates a user-supplied Reddit post URL and returns the safe,
-// traversal-free path to forward to oauth.reddit.com. ok is false for any
+// traversal-free path to forward to old.reddit.com. ok is false for any
 // non-Reddit host, non-permalink path, or path containing dot-segments (which
-// would otherwise let "../" traverse to another oauth.reddit.com endpoint once
+// would otherwise let "../" traverse to another old.reddit.com endpoint once
 // the upstream resolves it — SSRF). The dot-segment check runs on the decoded
 // path: EscapedPath() is always a consistent escaping of Path, so a decoded path
 // free of "."/".." segments cannot produce traversal in either literal ("../")

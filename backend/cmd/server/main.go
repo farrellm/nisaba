@@ -92,7 +92,7 @@ func run(ctx context.Context) error {
 			// Legacy file-based app, browsed read-only by the "Charlotte" pages
 			// via charlotte-cli.
 			Charlotte: store.NewCharlotteStore(cfg.CharlotteCLI),
-			Reddit:    reddit.NewClient(cfg.RedditClientID, cfg.RedditClientSecret, cfg.RedditUsername, cfg.RedditPassword),
+			Reddit:    reddit.NewClient(cfg.RedditSession),
 			Runner:    blockrun.New(st, blockrun.LLM{}, templates),
 			CORS:      cfg.CORSOrigins,
 			WebDir:    cfg.WebDir,

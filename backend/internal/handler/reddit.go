@@ -30,15 +30,13 @@ func writeRedditError(w http.ResponseWriter, r *http.Request, err error, notFoun
 	case errors.Is(err, reddit.ErrShareResolve):
 		writeError(w, http.StatusBadGateway, "Could not resolve Reddit share link")
 	case errors.Is(err, reddit.ErrAuth):
-		writeError(w, http.StatusBadGateway, "Could not authenticate with Reddit")
+		writeError(w, http.StatusBadGateway, "Reddit rejected the session; refresh REDDIT_SESSION")
 	case errors.Is(err, reddit.ErrUnreachable):
 		writeError(w, http.StatusBadGateway, "Could not reach Reddit")
 	case errors.Is(err, reddit.ErrNotFound):
 		writeError(w, http.StatusNotFound, notFoundMsg)
 	case errors.Is(err, reddit.ErrRateLimited):
 		writeError(w, http.StatusTooManyRequests, "Reddit is rate-limiting requests; try again shortly")
-	case errors.Is(err, reddit.ErrRejected):
-		writeError(w, http.StatusBadGateway, "Reddit rejected the request; try again")
 	case errors.Is(err, reddit.ErrBadResponse):
 		writeError(w, http.StatusBadGateway, "Unexpected response from Reddit")
 	case errors.As(err, &statusErr):
@@ -52,9 +50,9 @@ func writeRedditError(w http.ResponseWriter, r *http.Request, err error, notFoun
 }
 
 // ListRedditPosts fetches the newest posts from the logged-in user's configured
-// subreddit via Reddit's application-only OAuth API and returns their titles and
-// permalink URLs. Anonymous access is blocked by Reddit, so clientID/secret from
-// a registered app are required.
+// subreddit via old.reddit.com (as the REDDIT_SESSION user) and returns their
+// titles and permalink URLs. Anonymous access is blocked by Reddit, so a session
+// is required.
 func ListRedditPosts(st RedditStore, rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, ok := auth.UserIDFrom(r.Context())
@@ -82,8 +80,7 @@ func ListRedditPosts(st RedditStore, rc *reddit.Client) http.HandlerFunc {
 	}
 }
 
-// GetRedditPost fetches a single Reddit post by URL via Reddit's application-only
-// OAuth API and returns its title and normalized permalink URL. It lets users
+// GetRedditPost fetches a single Reddit post by URL via old.reddit.com and returns its title and normalized permalink URL. It lets users
 // import a specific post that isn't in the subreddit's newest listing.
 func GetRedditPost(rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -112,20 +109,17 @@ func GetRedditPost(rc *reddit.Client) http.HandlerFunc {
 }
 
 // SubmitRedditPost publishes a self (text) post to the document owner's
-// configured subreddit as the script-app account (the password grant) and
-// records the resulting permalink on the document. Reading uses an
-// application-only token, which has no account identity and cannot submit, so
-// this needs REDDIT_USERNAME/PASSWORD in addition to the app credentials and
-// reports 503 when they're absent. It is nested under /documents/{id} so the
-// returned post URL is saved against that document.
+// configured subreddit as the REDDIT_SESSION user and records the resulting
+// permalink on the document. It is nested under /documents/{id} so the returned
+// post URL is saved against that document.
 func SubmitRedditPost(st RedditStore, rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		doc, ok := ownedDocument(w, r, st)
 		if !ok {
 			return
 		}
-		if !rc.CanSubmit() {
-			writeError(w, http.StatusServiceUnavailable, "Reddit posting is not configured")
+		if !rc.Configured() {
+			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
 			return
 		}
 
