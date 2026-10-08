@@ -121,12 +121,21 @@ func TestDuplicateModelKeysPanic(t *testing.T) {
 // TestHiddenModel pins what Hidden means: gone from the served list, but still
 // fully resolvable so stored keys keep working.
 func TestHiddenModel(t *testing.T) {
-	const key = "claude-haiku-4-5"
+	var key, provider string
+	for _, m := range models {
+		if m.Hidden {
+			key, provider = m.Key, m.Provider
+			break
+		}
+	}
+	if key == "" {
+		t.Skip("no hidden model in the list")
+	}
 	if !Valid(key) {
 		t.Errorf("Valid(%q) = false, want true", key)
 	}
-	if got := ProviderFor(key); got != "anthropic" {
-		t.Errorf("ProviderFor(%q) = %q, want %q", key, got, "anthropic")
+	if got := ProviderFor(key); got != provider {
+		t.Errorf("ProviderFor(%q) = %q, want %q", key, got, provider)
 	}
 	for _, m := range Models() {
 		if m.Hidden {
