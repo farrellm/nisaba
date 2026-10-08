@@ -9,12 +9,13 @@ description: Build, launch, and drive Nisaba locally to verify a change end-to-e
 
 - Postgres usually already runs (`docker ps --filter name=nisaba-postgres`); else `make db && make migrate`.
 - LLM API keys (`ANTHROPIC_API_KEY` etc.) are in the environment — real model calls work.
-- Backend: `cd backend && go build -o <scratch>/server ./cmd/server && <scratch>/server &` — **run it with cwd inside the repo** (repo root or `backend/`) or it dies at startup on the `../reflex.db` default (`REFLEX_DB_PATH`). Port 8080; check `curl localhost:8080/api/models`.
-- Frontend: `cd frontend && npm run dev &` — port 5173, proxies `/api` to 8080.
+- Backend: `cd backend && go build -o <scratch>/server ./cmd/server && <scratch>/server &` — **run it with cwd `backend/`** or it dies at startup on the `../reflex.db` default (`REFLEX_DB_PATH`). 8080 is usually taken by the user's own dev server: set `ADDR=127.0.0.1:<free port>` (check with `ss -ltn` first).
+- Reddit endpoints need `REDDIT_SESSION`; `source .envrc` before launching. `REDDIT_SESSION=bogus` exercises the error paths safely, and never submit with the real session without the user's OK.
+- Frontend: `npm run dev` proxies `/api` to a hard-coded 8080. On another port, use `npx vite build --outDir <scratch>/web` and launch the server with `WEB_DIR=<scratch>/web` so it serves the UI itself.
 
 ## Drive the API (no browser needed)
 
-Cookie-jar curl against 8080 works for the whole flow:
+Cookie-jar curl against the backend's port works for the whole flow:
 
 1. `POST /api/auth/login` with `-c jar`. There is no register endpoint — accounts come from the binary itself: `<scratch>/server -list-users` shows the existing ones, `echo 'testpassword' | <scratch>/server -create-user verifyuser` makes a new one (`-delete-user <name> -force` cleans it up). Don't assume `streamingEnabled` — read it off `GET /api/auth/me`.
 2. `POST /api/documents` → id; `PUT /api/documents/{id}` `{"selectedModel":"claude-haiku-4-5"}`. Always verify with `claude-haiku-4-5` (cheapest/fastest) unless the change under test is model-specific. **Never test with Fable.** If Haiku is not in `GET /api/models` (models get dropped from the list via `Model.Hidden`), fall back to `deepseek-v4-pro`.

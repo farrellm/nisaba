@@ -22,7 +22,8 @@ interface RedditUrlDialogProps {
 
 // RedditUrlDialog collects a Reddit post URL, fetches the post's title from the
 // backend, then hands the resolved post off to the caller (which opens the
-// create-document dialog).
+// create-document dialog). If the fetch fails, "Continue anyway" hands off the
+// bare URL so the prompt can be typed by hand.
 export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrlDialogProps) {
   const [url, setUrl] = useState('')
   const { busy: loading, error, setError, run } = useAsyncAction()
@@ -43,6 +44,13 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
       setUrl('')
       onResolved(post)
     })
+  }
+
+  function continueAnyway() {
+    const post = { title: '', url: url.trim(), author: '' }
+    setUrl('')
+    setError(null)
+    onResolved(post)
   }
 
   return (
@@ -70,6 +78,12 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
           <Button onClick={handleClose} disabled={loading} sx={{ color: 'text.secondary' }}>
             Cancel
           </Button>
+          {/* If Reddit couldn't be read, keep the URL and type the prompt by hand. */}
+          {error && (
+            <Button onClick={continueAnyway} disabled={loading || !url.trim()}>
+              Continue anyway
+            </Button>
+          )}
           <SubmitButton busy={loading} busyLabel="Loading…" disabled={!url.trim()}>
             Continue
           </SubmitButton>

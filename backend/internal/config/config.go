@@ -13,19 +13,16 @@ var charlotteCLIDefault = "charlotte-cli"
 // Config holds every environment-derived setting, with local-dev defaults so
 // `make backend` runs with no environment at all.
 type Config struct {
-	Addr               string
-	DatabaseURL        string
-	CORSOrigins        []string
-	WebDir             string
-	SessionSecret      string
-	SessionSecure      bool
-	ModeTemplatesDir   string
-	ReflexDBPath       string
-	CharlotteCLI       string
-	RedditClientID     string
-	RedditClientSecret string
-	RedditUsername     string
-	RedditPassword     string
+	Addr             string
+	DatabaseURL      string
+	CORSOrigins      []string
+	WebDir           string
+	SessionSecret    string
+	SessionSecure    bool
+	ModeTemplatesDir string
+	ReflexDBPath     string
+	CharlotteCLI     string
+	RedditSession    string
 }
 
 func Load() Config {
@@ -82,11 +79,9 @@ func Load() Config {
 		charlotteCLI = charlotteCLIDefault
 	}
 
-	// Reddit application-only OAuth credentials, from a registered app at
-	// https://www.reddit.com/prefs/apps. Without these the Reddit posts endpoint
-	// reports that the integration is not configured. REDDIT_USERNAME/PASSWORD are
-	// the script-app account credentials used to submit posts (password grant);
-	// without them the submit endpoint reports it is not configured.
+	// REDDIT_SESSION is the reddit_session cookie of a logged-in old.reddit.com
+	// browser session, used both to read and to submit posts. Without it the
+	// Reddit endpoints report that the integration is not configured.
 	return Config{
 		Addr:          addr,
 		DatabaseURL:   dbURL,
@@ -94,13 +89,10 @@ func Load() Config {
 		WebDir:        webDir,
 		SessionSecret: sessionSecret,
 		// Mark the cookie Secure in production (HTTPS); SESSION_SECURE=true enables it.
-		SessionSecure:      os.Getenv("SESSION_SECURE") == "true",
-		ModeTemplatesDir:   modeTemplatesDir,
-		ReflexDBPath:       reflexDBPath,
-		CharlotteCLI:       charlotteCLI,
-		RedditClientID:     os.Getenv("REDDIT_CLIENT_ID"),
-		RedditClientSecret: os.Getenv("REDDIT_CLIENT_SECRET"),
-		RedditUsername:     os.Getenv("REDDIT_USERNAME"),
-		RedditPassword:     os.Getenv("REDDIT_PASSWORD"),
+		SessionSecure:    os.Getenv("SESSION_SECURE") == "true",
+		ModeTemplatesDir: modeTemplatesDir,
+		ReflexDBPath:     reflexDBPath,
+		CharlotteCLI:     charlotteCLI,
+		RedditSession:    os.Getenv("REDDIT_SESSION"),
 	}
 }

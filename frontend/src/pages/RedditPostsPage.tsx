@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Box, Container, Divider, Fab, Tooltip, Typography } from '@mui/material'
+import { Box, Container, Divider, Fab, Link as MuiLink, Tooltip, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import { useAuth } from '../auth/AuthContext'
 import { fonts } from '../theme'
@@ -8,7 +8,7 @@ import Masthead from '../components/Masthead'
 import RedditPromptDialog from '../components/RedditPromptDialog'
 import RedditUrlDialog from '../components/RedditUrlDialog'
 import StatusLine from '../components/StatusLine'
-import { listStatusSx } from '../lib/styles'
+import { listStatusSx, postLinkSx } from '../lib/styles'
 import { useFetch } from '../lib/useFetch'
 import { usePageTitle } from '../lib/usePageTitle'
 
@@ -42,9 +42,21 @@ export default function RedditPostsPage() {
         <Divider sx={{ mb: 1 }} />
 
         {error ? (
-          <StatusLine tone="error" sx={listStatusSx}>
-            {error}
-          </StatusLine>
+          <>
+            <StatusLine tone="error" sx={listStatusSx}>
+              {error}
+            </StatusLine>
+            {/* Browse on Reddit instead, then bring a post back via Import from URL. */}
+            <MuiLink
+              href={`https://old.reddit.com/r/${encodeURIComponent(user?.subreddit ?? '')}/new`}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="overline"
+              sx={postLinkSx}
+            >
+              Browse r/{user?.subreddit}/new on Reddit ↗
+            </MuiLink>
+          </>
         ) : loading ? (
           <StatusLine sx={listStatusSx}>Loading…</StatusLine>
         ) : posts && posts.length > 0 ? (
