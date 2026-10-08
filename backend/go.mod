@@ -10,7 +10,7 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/rs/cors v1.11.1
-	github.com/zendev-sh/goai v0.10.4
+	github.com/zendev-sh/goai v0.10.6
 	golang.org/x/crypto v0.57.0
 	golang.org/x/term v0.46.0
 	modernc.org/sqlite v1.59.0
@@ -35,5 +35,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
-
-replace github.com/zendev-sh/goai => github.com/farrellm/goai v0.0.0-20260922215546-bdddfd881ef7
