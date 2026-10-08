@@ -93,7 +93,7 @@ const DefaultModel = "claude-sonnet-5-5"
 // models is the fixed, cross-provider list. IDs are provider-native model names.
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
-	{ID: "claude-haiku-4-5", Label: "Claude Haiku 4.5", Provider: "anthropic",
+	{ID: "claude-haiku-5-5", Label: "Claude Haiku 5.5", Provider: "anthropic",
 		ToolCaching: true, Hidden: true},
 	{ID: "claude-sonnet-5-5", Label: "Claude Sonnet 5.5", Provider: "anthropic",
 		ProviderOptions: anthropicThinking, ToolCaching: true},
