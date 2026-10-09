@@ -118,7 +118,7 @@ const BlockCard = memo(function BlockCard({
     setStream(buffer)
     setRunning(true)
     setResumeEntry(entry)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // While restoring, poll the document until the run's response appears. A run
@@ -174,7 +174,7 @@ const BlockCard = memo(function BlockCard({
       stopped = true
       clearInterval(interval)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeEntry])
 
   // Stop waiting for a restored run without erroring. If the run does finish
