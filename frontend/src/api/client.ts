@@ -14,7 +14,7 @@ export class ApiError extends Error {
 // event — the connection was cut, not a failure the server reported. Distinct
 // from ApiError so callers can tell "the request failed" from "the connection
 // dropped but the (detached) server-side work is likely still running".
-export class StreamInterruptedError extends Error {
+class StreamInterruptedError extends Error {
   constructor() {
     super('Stream ended without a result')
     this.name = 'StreamInterruptedError'

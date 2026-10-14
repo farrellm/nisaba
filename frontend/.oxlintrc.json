@@ -1,12 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "react",
-    "jsx-a11y",
-    "import",
-    "vitest"
-  ],
+  "plugins": ["typescript", "react", "jsx-a11y", "import", "vitest"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -15,9 +9,7 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": [
-    "dist"
-  ],
+  "ignorePatterns": ["dist"],
   "rules": {
     // React 19's automatic JSX runtime needs no React in scope.
     "react/react-in-jsx-scope": "off",
@@ -38,6 +30,12 @@
     "typescript/restrict-template-expressions": "error",
     "typescript/strict-boolean-expressions": "warn",
     "import/no-cycle": "error",
+    "vitest/expect-expect": [
+      "error",
+      {
+        "assertFunctionNames": ["expect", "expectInvariants"]
+      }
+    ],
     "no-case-declarations": "error",
     "no-empty": "error",
     "no-fallthrough": "error",
@@ -60,22 +58,14 @@
     "import/no-unassigned-import": [
       "error",
       {
-        "allow": [
-          "**/*.css"
-        ]
+        "allow": ["**/*.css"]
       }
     ]
   },
   "overrides": [
     {
-      "files": [
-        "src/**/*.ts",
-        "src/**/*.tsx"
-      ],
-      "plugins": [
-        "typescript",
-        "react"
-      ],
+      "files": ["src/**/*.ts", "src/**/*.tsx"],
+      "plugins": ["typescript", "react"],
       "env": {
         "browser": true
       },
@@ -105,9 +95,7 @@
       }
     },
     {
-      "files": [
-        "src/api/client.ts"
-      ],
+      "files": ["src/api/client.ts"],
       "rules": {
         // The JSON boundary: response bodies become T here by assertion.
         "typescript/no-unsafe-type-assertion": "off"
