@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -89,8 +90,14 @@ func pickAllowed(names []string) (string, error) {
 		}
 		return matched[n.Int64()], nil
 	default:
-		return "", fmt.Errorf("no names were generated")
+		return "", errors.New("no names were generated")
 	}
+}
+
+// generateNameArgs is GenerateNameTool's input; its tags drive the generated
+// parameter schema.
+type generateNameArgs struct {
+	Description string `json:"description" jsonschema:"description=A detailed description of the character to name."`
 }
 
 // GenerateNameTool is a tool that generates a unique character name for a given
@@ -100,11 +107,9 @@ func pickAllowed(names []string) (string, error) {
 var GenerateNameTool = goai.NewTool(
 	"generate_name",
 	"Generate a unique name for a character with the specified description.",
-	func(ctx context.Context, args struct {
-		Description string `json:"description" jsonschema:"description=A detailed description of the character to name."`
-	}) (string, error) {
+	func(ctx context.Context, args generateNameArgs) (string, error) {
 		if strings.TrimSpace(args.Description) == "" {
-			return "", fmt.Errorf("generate_name: description is required")
+			return "", errors.New("generate_name: description is required")
 		}
 
 		names, err := generateNames(ctx, args.Description)

@@ -317,10 +317,6 @@ func (s *Store) documentAttributes(ctx context.Context, documentID int64) (map[s
 	return attrs, rows.Err()
 }
 
-// GetDocumentAttribute returns the value of a single document attribute, and
-// whether it exists. A missing document is indistinguishable from a missing key
-// (both return found=false) — callers needing existence checks must do them
-// separately.
 // GetDocumentTitle returns a document's title without loading the full aggregate.
 func (s *Store) GetDocumentTitle(ctx context.Context, documentID int64) (_ string, err error) {
 	defer wrap(&err, "get document title")
@@ -336,6 +332,10 @@ func (s *Store) GetDocumentTitle(ctx context.Context, documentID int64) (_ strin
 	return title, nil
 }
 
+// GetDocumentAttribute returns the value of a single document attribute, and
+// whether it exists. A missing document is indistinguishable from a missing key
+// (both return found=false) — callers needing existence checks must do them
+// separately.
 func (s *Store) GetDocumentAttribute(ctx context.Context, documentID int64, key string) (_ string, _ bool, err error) {
 	defer wrap(&err, "get document attribute")
 	var value string

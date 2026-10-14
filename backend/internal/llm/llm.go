@@ -93,24 +93,15 @@ const DefaultModel = "claude-sonnet-5-5"
 // models is the fixed, cross-provider list. IDs are provider-native model names.
 // Edit here to add/remove a model; Provider must be one clientFor understands.
 var models = []Model{
-	{ID: "claude-haiku-5-5", Label: "Claude Haiku 5.5", Provider: "anthropic",
-		ToolCaching: true},
-	{ID: "claude-sonnet-5-5", Label: "Claude Sonnet 5.5", Provider: "anthropic",
-		ProviderOptions: anthropicThinking, ToolCaching: true},
-	{ID: "claude-opus-5-5", Label: "Claude Opus 5.5", Provider: "anthropic",
-		ProviderOptions: anthropicThinking, ToolCaching: true},
-	{ID: "claude-fable-5-1", Label: "Claude Fable 5.1", Provider: "anthropic",
-		ProviderOptions: anthropicThinking, ToolCaching: true},
-	{ID: "gpt-6-luna", Label: "GPT-6 Luna", Provider: "openai",
-		ProviderOptions: map[string]any{"reasoning_effort": "low"}, Hidden: true},
-	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Provider: "openai",
-		ProviderOptions: openaiReasoning, Hidden: true},
-	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Provider: "openai",
-		ProviderOptions: openaiReasoning},
-	{ID: "gpt-6.1-sol", Label: "GPT-6.1 Sol", Provider: "openai",
-		ProviderOptions: openaiReasoning, Hidden: true},
-	{ID: "gpt-6-astra", Label: "GPT-6 Astra", Provider: "openai",
-		ProviderOptions: openaiReasoning, Hidden: true},
+	{ID: "claude-haiku-5-5", Label: "Claude Haiku 5.5", Provider: "anthropic", ToolCaching: true},
+	{ID: "claude-sonnet-5-5", Label: "Claude Sonnet 5.5", Provider: "anthropic", ProviderOptions: anthropicThinking, ToolCaching: true},
+	{ID: "claude-opus-5-5", Label: "Claude Opus 5.5", Provider: "anthropic", ProviderOptions: anthropicThinking, ToolCaching: true},
+	{ID: "claude-fable-5-1", Label: "Claude Fable 5.1", Provider: "anthropic", ProviderOptions: anthropicThinking, ToolCaching: true},
+	{ID: "gpt-6-luna", Label: "GPT-6 Luna", Provider: "openai", ProviderOptions: map[string]any{"reasoning_effort": "low"}, Hidden: true},
+	{ID: "gpt-5.6-terra", Label: "GPT-5.6 Terra", Provider: "openai", ProviderOptions: openaiReasoning, Hidden: true},
+	{ID: "gpt-5.6-sol", Label: "GPT-5.6 Sol", Provider: "openai", ProviderOptions: openaiReasoning},
+	{ID: "gpt-6.1-sol", Label: "GPT-6.1 Sol", Provider: "openai", ProviderOptions: openaiReasoning, Hidden: true},
+	{ID: "gpt-6-astra", Label: "GPT-6 Astra", Provider: "openai", ProviderOptions: openaiReasoning, Hidden: true},
 	{ID: "gemini-3.5-flash-lite", Label: "Gemini 3.5 Flash Lite", Provider: "google", Hidden: true},
 	{ID: "gemini-3.8-flash", Label: "Gemini 3.8 Flash", Provider: "google", Hidden: true},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google", Hidden: true},
@@ -485,6 +476,9 @@ func GenerateStream(ctx context.Context, model, system, prompt string, tools []T
 			if !resolved[chunk.ToolCallID] {
 				pending = append(pending, toolCall{id: chunk.ToolCallID, name: chunk.ToolName, input: chunk.ToolInput})
 			}
+		default:
+			// Step/finish markers and tool results carry nothing to stream; the
+			// final value comes from ts.Result() below.
 		}
 		mu.Unlock()
 	}
@@ -536,6 +530,9 @@ func combineSteps(res *goai.TextResult) string {
 					writeThinking(p.Text)
 				case provider.PartText:
 					b.WriteString(p.Text)
+				default:
+					// Tool calls are rendered from s.ToolCalls below; images and
+					// files have no text form.
 				}
 			}
 		} else {

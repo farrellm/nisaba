@@ -5,8 +5,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/farrellm/nisaba/internal/model"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/farrellm/nisaba/internal/model"
 )
 
 // deleteOrphanLabelsSQL removes a user's labels that are no longer attached to any

@@ -116,7 +116,7 @@ func findMatchingClose(s string, from int, name string) (int, int) {
 // opening tag's interior), stopping at the first whitespace or '/'.
 func tagName(inner string) string {
 	end := len(inner)
-	for j := 0; j < len(inner); j++ {
+	for j := range len(inner) {
 		c := inner[j]
 		if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '/' {
 			end = j

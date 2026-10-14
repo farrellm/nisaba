@@ -36,7 +36,7 @@ func BenchmarkMergedBlockAttrs(b *testing.B) {
 		"ignored_key":    "dropped because outside the mode's key set",
 	}
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		MergedAttrs(block, m, edits)
 	}
 }
@@ -54,7 +54,7 @@ func BenchmarkApplyRenames(b *testing.B) {
 		"story":           benchProse(4096),
 	}
 	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		updates := make(map[string]string, len(base))
 		for k, v := range base {
 			updates[k] = v

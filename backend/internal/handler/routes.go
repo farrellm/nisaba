@@ -40,9 +40,11 @@ func Routes(d Deps) http.Handler {
 
 	r := chi.NewRouter()
 	// The deployed process binds loopback only and is reached solely through
-	// `tailscale serve`, which sets X-Forwarded-For, so trusting it here is safe
-	// and gives the login limiter below a real client address.
-	r.Use(middleware.RealIP)
+	// `tailscale serve` — exactly one trusted hop — so the rightmost
+	// X-Forwarded-For entry (the one tailscaled appends) is the client address
+	// the login limiter below keys on. Earlier entries are client-supplied and
+	// never trusted.
+	r.Use(middleware.ClientIPFromXFF())
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(cors.New(cors.Options{
@@ -69,7 +71,7 @@ func Routes(d Deps) http.Handler {
 			// ingress source address, so this throttles brute force in
 			// aggregate rather than strictly per-client; bcrypt (cost 10)
 			// remains the per-guess cost.
-			r.With(httprate.LimitByIP(10, time.Minute)).Post("/login", Login(st, sess))
+			r.With(httprate.LimitBy(10, time.Minute, keyByClientIP)).Post("/login", Login(st, sess))
 			r.Post("/logout", Logout(sess))
 			r.Get("/me", Me(st, sess))
 			r.Put("/me", UpdateMe(st, sess))
@@ -137,4 +139,11 @@ func Routes(d Deps) http.Handler {
 	}
 
 	return r
+}
+
+// keyByClientIP keys the rate limiter on the address ClientIPFromXFF resolved.
+// A request with no usable X-Forwarded-For resolves to "", sharing one bucket
+// (fail-closed).
+func keyByClientIP(r *http.Request) (string, error) {
+	return httprate.CanonicalizeIP(middleware.GetClientIP(r.Context())), nil
 }
