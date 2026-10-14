@@ -23,7 +23,7 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       await login(username, password)
-      navigate('/', { replace: true })
+      void navigate('/', { replace: true })
     } catch (err) {
       setError(errorMessage(err, 'Something went wrong. Try again.'))
     } finally {
@@ -33,7 +33,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout eyebrow="Sign in">
-      <Box component="form" onSubmit={handleSubmit} noValidate>
+      <Box component="form" onSubmit={(e) => void handleSubmit(e)} noValidate>
         <Typography variant="h4" sx={{ mb: 0.5 }}>
           Welcome back
         </Typography>

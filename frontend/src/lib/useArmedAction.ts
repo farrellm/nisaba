@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // useArmedAction implements the two-step destructive action shared by block
 // and document deletion: the first fire() arms the control (and starts a
 // timer that quietly disarms it), the second fire() confirms by calling
-// onConfirm. disarm() cancels an armed state (e.g. when a menu closes); the
+// onConfirm (which handles its own errors). disarm() cancels an armed state (e.g. when a menu closes); the
 // pending timer is also cleared on unmount.
-export function useArmedAction(onConfirm: () => void, disarmMs = 4000) {
+export function useArmedAction(onConfirm: () => void | Promise<void>, disarmMs = 4000) {
   const [armed, setArmed] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -23,7 +23,7 @@ export function useArmedAction(onConfirm: () => void, disarmMs = 4000) {
       return
     }
     clearTimeout(timer.current)
-    onConfirm()
+    void onConfirm()
   }, [armed, onConfirm, disarmMs])
 
   return { armed, fire, disarm }

@@ -41,13 +41,13 @@ export default function AccountMenu() {
 
   function goToSettings() {
     close()
-    navigate('/settings')
+    void navigate('/settings')
   }
 
   async function handleLogout() {
     close()
     await logout()
-    navigate('/login', { replace: true })
+    void navigate('/login', { replace: true })
   }
 
   return (
@@ -77,7 +77,7 @@ export default function AccountMenu() {
           {user?.username}
         </Typography>
         <Divider />
-        <MenuItem onClick={toggleStreaming} disabled={savingStreaming}>
+        <MenuItem onClick={() => void toggleStreaming()} disabled={savingStreaming}>
           <ListItemText>Streaming</ListItemText>
           <Switch
             edge="end"
@@ -91,7 +91,7 @@ export default function AccountMenu() {
         <MenuItem onClick={goToSettings}>
           <ListItemText>Settings</ListItemText>
         </MenuItem>
-        <MenuItem onClick={handleLogout}>
+        <MenuItem onClick={() => void handleLogout()}>
           <ListItemText>Log out</ListItemText>
         </MenuItem>
       </Menu>

@@ -32,7 +32,7 @@ export default function AuthorField({ value, onChange }: AuthorFieldProps) {
       options={options}
       value={value}
       inputValue={value}
-      onOpen={loadOptions}
+      onOpen={() => void loadOptions()}
       // Free-solo: drive state from the input string so typing a new name and
       // picking a suggestion both flow through the same path.
       onInputChange={(_, next) => onChange(next)}

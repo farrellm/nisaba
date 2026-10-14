@@ -65,7 +65,7 @@ export default function ModelSelector({ doc, onChange }: ModelSelectorProps) {
       </Typography>
       <Select
         value={doc.selectedModel || ''}
-        onChange={handleChange}
+        onChange={(e) => void handleChange(e)}
         size="small"
         displayEmpty
         disabled={saving}

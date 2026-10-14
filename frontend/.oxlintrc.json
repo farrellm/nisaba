@@ -1,10 +1,16 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": [
-    "typescript"
+    "typescript",
+    "react",
+    "jsx-a11y",
+    "import",
+    "vitest"
   ],
   "categories": {
-    "correctness": "off"
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "warn"
   },
   "env": {
     "builtin": true
@@ -13,75 +19,50 @@
     "dist"
   ],
   "rules": {
-    "for-direction": "error",
-    "no-async-promise-executor": "error",
+    // React 19's automatic JSX runtime needs no React in scope.
+    "react/react-in-jsx-scope": "off",
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error",
+    // Type-aware: guards the NDJSON streaming code and async handlers.
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/strict-boolean-expressions": "warn",
+    "import/no-cycle": "error",
     "no-case-declarations": "error",
-    "no-compare-neg-zero": "error",
-    "no-cond-assign": "error",
-    "no-constant-binary-expression": "error",
-    "no-constant-condition": "error",
-    "no-control-regex": "error",
-    "no-debugger": "error",
-    "no-delete-var": "error",
-    "no-dupe-else-if": "error",
-    "no-duplicate-case": "error",
     "no-empty": "error",
-    "no-empty-character-class": "error",
-    "no-empty-pattern": "error",
-    "no-empty-static-block": "error",
-    "no-ex-assign": "error",
-    "no-extra-boolean-cast": "error",
     "no-fallthrough": "error",
-    "no-global-assign": "error",
-    "no-invalid-regexp": "error",
-    "no-irregular-whitespace": "error",
-    "no-loss-of-precision": "error",
-    "no-misleading-character-class": "error",
-    "no-nonoctal-decimal-escape": "error",
     "no-prototype-builtins": "error",
     "no-regex-spaces": "error",
-    "no-self-assign": "error",
-    "no-shadow-restricted-names": "error",
-    "no-sparse-arrays": "error",
-    "no-unassigned-vars": "error",
-    "no-unsafe-finally": "error",
-    "no-unsafe-optional-chaining": "error",
-    "no-unused-labels": "error",
-    "no-unused-private-class-members": "error",
-    "no-useless-backreference": "error",
-    "no-useless-catch": "error",
-    "no-useless-escape": "error",
-    "preserve-caught-error": "error",
-    "require-yield": "error",
-    "use-isnan": "error",
-    "valid-typeof": "error",
     "no-var": "error",
     "prefer-const": "error",
     "prefer-rest-params": "error",
     "prefer-spread": "error",
     "no-array-constructor": "error",
-    "no-unused-expressions": "error",
     "typescript/ban-ts-comment": "error",
-    "typescript/no-duplicate-enum-values": "error",
     "typescript/no-empty-object-type": "error",
-    "typescript/no-explicit-any": "error",
-    "typescript/no-extra-non-null-assertion": "error",
-    "typescript/no-misused-new": "error",
     "typescript/no-namespace": "error",
-    "typescript/no-non-null-asserted-optional-chain": "error",
     "typescript/no-require-imports": "error",
-    "typescript/no-this-alias": "error",
-    "typescript/no-unnecessary-type-constraint": "error",
-    "typescript/no-unsafe-declaration-merging": "error",
     "typescript/no-unsafe-function-type": "error",
-    "typescript/no-wrapper-object-types": "error",
-    "typescript/prefer-as-const": "error",
-    "typescript/prefer-namespace-keyword": "error",
-    "typescript/triple-slash-reference": "error",
-    "no-unused-vars": [
+    // Dialogs deliberately focus their first field.
+    "jsx-a11y/no-autofocus": "off",
+    // Effects return a cleanup on some paths and bail early on others.
+    "typescript/consistent-return": "off",
+    "import/no-unassigned-import": [
       "error",
       {
-        "argsIgnorePattern": "^_"
+        "allow": [
+          "**/*.css"
+        ]
       }
     ]
   },
@@ -118,7 +99,18 @@
             "allowConstantExport": true,
             "allowCompoundComponents": true
           }
-        ]
+        ],
+        // Dialog-seeding effects; refactor to keyed remounts before raising.
+        "react/set-state-in-effect": "warn"
+      }
+    },
+    {
+      "files": [
+        "src/api/client.ts"
+      ],
+      "rules": {
+        // The JSON boundary: response bodies become T here by assertion.
+        "typescript/no-unsafe-type-assertion": "off"
       }
     }
   ]

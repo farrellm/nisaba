@@ -211,7 +211,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
               <Typography variant="overline" sx={{ color: 'text.secondary' }}>
                 Suggested
               </Typography>
-              <Button size="small" onClick={handleSuggest} disabled={suggesting}>
+              <Button size="small" onClick={() => void handleSuggest()} disabled={suggesting}>
                 {suggesting
                   ? 'Suggesting…'
                   : suggested.length > 0
@@ -256,7 +256,7 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
               </Typography>
               <Button
                 size="small"
-                onClick={handleRecommend}
+                onClick={() => void handleRecommend()}
                 disabled={recommending || others.length === 0}
               >
                 {recommending ? 'Recommending…' : 'Recommend'}
@@ -289,7 +289,12 @@ export default function EditLabelsDialog({ open, doc, onChange, onClose }: EditL
         <Button onClick={handleClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
           Cancel
         </Button>
-        <SubmitButton type="button" onClick={handleSave} busy={submitting} busyLabel="Saving…">
+        <SubmitButton
+          type="button"
+          onClick={() => void handleSave()}
+          busy={submitting}
+          busyLabel="Saving…"
+        >
           Save
         </SubmitButton>
       </DialogActions>

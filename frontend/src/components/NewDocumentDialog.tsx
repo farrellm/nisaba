@@ -43,7 +43,7 @@ export default function NewDocumentDialog({ open, onClose }: NewDocumentDialogPr
         title,
         url: url.trim() || null,
       })
-      navigate(`/documents/${doc.id}`)
+      void navigate(`/documents/${doc.id}`)
     })
   }
 

@@ -70,6 +70,8 @@ export default function RedditPostsPage() {
                   openPost(post)
                 }
               }}
+              // A card-sized row; a real <button> would fight the Box layout.
+              // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role
               role="button"
               tabIndex={0}
               sx={{

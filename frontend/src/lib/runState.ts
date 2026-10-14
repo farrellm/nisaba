@@ -35,7 +35,7 @@ export function isRunStale(entry: RunEntry, now = Date.now()): boolean {
 
 function isRunEntry(value: unknown): value is RunEntry {
   if (typeof value !== 'object' || value === null) return false
-  const v = value as Record<string, unknown>
+  const v: Partial<Record<keyof RunEntry, unknown>> = value
   return (
     typeof v.blockId === 'number' &&
     typeof v.documentId === 'number' &&

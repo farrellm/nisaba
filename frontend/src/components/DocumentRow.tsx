@@ -10,13 +10,13 @@ interface DocumentRowProps {
   doc: Document
   // When true, an archived document is marked beside its timestamp. Off by default
   // so the Documents and Archive lists (single-state pages) stay unmarked.
-  showArchived?: boolean
+  showArchived?: boolean | undefined
   // Route prefix the title links to; defaults to the live document view. The
   // read-only Anansi list passes '/anansi' to open the legacy viewer.
-  basePath?: string
+  basePath?: string | undefined
   // Hide the "time ago" stamp for sources without meaningful timestamps (the
   // Charlotte list, whose CLI only exposes file names). The archived marker remains.
-  hideTime?: boolean
+  hideTime?: boolean | undefined
 }
 
 // DocumentRow is one ledger line in a list of documents: a serif title that links

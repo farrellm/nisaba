@@ -60,7 +60,7 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
         await api.put<DocumentDetail>(`/api/documents/${doc.id}`, {
           attributes: { prompt },
         })
-        navigate(`/documents/${doc.id}`)
+        void navigate(`/documents/${doc.id}`)
       },
       { keepBusyOnSuccess: true },
     )

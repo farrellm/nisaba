@@ -29,7 +29,7 @@ export function parseResponseSegments(s: string): ResponseSegment[] {
 
     // Not a start tag (closing tag, comment, declaration, stray '<'): leave it
     // as part of the surrounding text and keep scanning.
-    if (i + 1 >= s.length || !isNameStart(s[i + 1])) {
+    if (i + 1 >= s.length || !isNameStart(s[i + 1]!)) {
       i++
       continue
     }
@@ -121,7 +121,7 @@ function tagName(inner: string): string {
     }
   }
   const name = inner.slice(0, end)
-  if (name === '' || !isNameStart(name[0])) return ''
+  if (name === '' || !isNameStart(name[0]!)) return ''
   return name
 }
 
