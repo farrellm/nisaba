@@ -10,7 +10,7 @@ import (
 // The mustache templates are intentionally omitted from the response — prompt
 // assembly happens server-side.
 func ListModes() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, mode.All())
 	}
 }

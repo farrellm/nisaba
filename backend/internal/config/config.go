@@ -33,7 +33,7 @@ func Load() Config {
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://nisaba:nisaba@localhost:5432/nisaba?sslmode=disable"
+		dbURL = "postgres://nisaba:nisaba@localhost:5432/nisaba?sslmode=disable" //nolint:gosec // G101: local-dev default, overridden in production
 	}
 
 	originsEnv := os.Getenv("CORS_ORIGINS")
@@ -51,7 +51,7 @@ func Load() Config {
 	// local dev only — production MUST set SESSION_SECRET to a long random value.
 	sessionSecret := os.Getenv("SESSION_SECRET")
 	if sessionSecret == "" {
-		sessionSecret = "dev-insecure-session-secret-change-me"
+		sessionSecret = "dev-insecure-session-secret-change-me" //nolint:gosec // G101: local-dev default; production must set SESSION_SECRET
 	}
 
 	// modeTemplatesDir is the base templates directory; per-user overrides live

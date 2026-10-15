@@ -223,7 +223,7 @@ func CopyBlock(st BlockStore) http.HandlerFunc {
 // is fine (the block's saved values are used); a malformed one is a 400.
 func runBody(w http.ResponseWriter, r *http.Request, doc model.Document, block model.Block) (map[string]string, bool) {
 	var body updateBlock
-	if err := decodeJSON(r, &body); err != nil && err != io.EOF {
+	if err := decodeJSON(r, &body); err != nil && !errors.Is(err, io.EOF) {
 		slog.Error("run failed: decode request body",
 			"err", err, "user", doc.UserID, "doc", doc.ID, "block", block.ID, "mode", block.Mode)
 		writeError(w, http.StatusBadRequest, "Invalid request body")

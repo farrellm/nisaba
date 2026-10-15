@@ -128,7 +128,7 @@ func (c *Client) Configured() bool {
 
 // authorize adds the session cookie and User-Agent to req.
 func (c *Client) authorize(req *http.Request) {
-	req.AddCookie(&http.Cookie{Name: "reddit_session", Value: c.session})
+	req.AddCookie(&http.Cookie{Name: "reddit_session", Value: c.session}) //nolint:gosec // G124: outbound request cookie; Secure/HttpOnly apply only to Set-Cookie
 	req.Header.Set("User-Agent", userAgent)
 }
 

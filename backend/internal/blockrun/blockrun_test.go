@@ -60,7 +60,7 @@ func (f *fakeStore) UpdateDocument(_ context.Context, doc model.Document) (model
 	return doc, nil
 }
 
-func (f *fakeStore) GetUser(_ context.Context, id int64) (model.User, error) {
+func (f *fakeStore) GetUser(_ context.Context, _ int64) (model.User, error) {
 	return f.user, nil
 }
 
@@ -72,7 +72,7 @@ func (f *fakeStore) CreateResponse(_ context.Context, resp model.Response) (mode
 	return resp, nil
 }
 
-func (f *fakeStore) GetBlock(_ context.Context, id int64) (model.Block, error) {
+func (f *fakeStore) GetBlock(_ context.Context, _ int64) (model.Block, error) {
 	return f.block, nil
 }
 

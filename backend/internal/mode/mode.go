@@ -165,7 +165,7 @@ func (t *Templates) lookupOverride(username, name string) (string, bool) {
 	if !safeUsername(username) {
 		return "", false
 	}
-	b, err := os.ReadFile(filepath.Join(t.baseDir+"-"+username, name+".mustache"))
+	b, err := os.ReadFile(filepath.Join(t.baseDir+"-"+username, name+".mustache")) //nolint:gosec // G304: username is validated by safeUsername above
 	if err != nil {
 		return "", false
 	}

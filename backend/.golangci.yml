@@ -1,0 +1,63 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - contextcheck
+    - copyloopvar
+    - errorlint
+    - exhaustive
+    - gosec
+    - intrange
+    - misspell
+    - nilerr
+    - noctx
+    - perfsprint
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - usestdlibvars
+  settings:
+    errcheck:
+      # Close errors on read paths and best-effort writes to a terminal carry
+      # nothing actionable.
+      exclude-functions:
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - fmt.Fprintf
+        - fmt.Fprintln
+    exhaustive:
+      default-signifies-exhaustive: true
+    gosec:
+      excludes:
+        - G104 # unhandled errors: errcheck covers this, with its own exclusions
+    revive:
+      enable-default-rules: true
+      rules:
+        # Doc comments are written where they add something, not on every
+        # exported name.
+        - name: exported
+          disabled: true
+        - name: package-comments
+          disabled: true
+  exclusions:
+    rules:
+      # Tests write throwaway files under t.TempDir().
+      - path: _test\.go
+        linters: [gosec]
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/farrellm/nisaba
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

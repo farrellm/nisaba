@@ -33,7 +33,7 @@ func asUser(r *http.Request, id int64) *http.Request {
 
 func TestListDocumentsRequiresUser(t *testing.T) {
 	rec := httptest.NewRecorder()
-	ListDocuments(&fakeDocumentStore{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/documents", nil))
+	ListDocuments(&fakeDocumentStore{}).ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/documents", nil))
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", rec.Code)
@@ -45,7 +45,7 @@ func TestListDocumentsRequiresUser(t *testing.T) {
 
 func TestListDocumentsEmptyIsJSONArray(t *testing.T) {
 	rec := httptest.NewRecorder()
-	req := asUser(httptest.NewRequest(http.MethodGet, "/api/documents", nil), 1)
+	req := asUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/documents", nil), 1)
 	ListDocuments(&fakeDocumentStore{docs: nil}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
@@ -59,7 +59,7 @@ func TestListDocumentsEmptyIsJSONArray(t *testing.T) {
 
 func TestListDocumentsStoreError(t *testing.T) {
 	rec := httptest.NewRecorder()
-	req := asUser(httptest.NewRequest(http.MethodGet, "/api/documents", nil), 1)
+	req := asUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/documents", nil), 1)
 	ListDocuments(&fakeDocumentStore{listErr: errors.New("boom")}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusInternalServerError {
@@ -76,7 +76,7 @@ func TestListDocumentsStoreError(t *testing.T) {
 
 func TestListDocumentsReturnsDocs(t *testing.T) {
 	rec := httptest.NewRecorder()
-	req := asUser(httptest.NewRequest(http.MethodGet, "/api/documents", nil), 1)
+	req := asUser(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/documents", nil), 1)
 	ListDocuments(&fakeDocumentStore{docs: []model.Document{{ID: 7, Title: "one"}}}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {

@@ -33,7 +33,7 @@ func NewCharlotteStore(exe string) *CharlotteStore {
 // list runs `<exe> --list` and returns the document names sorted lexicographically,
 // which fixes the id↔name mapping used by both list and get.
 func (s *CharlotteStore) list(ctx context.Context) ([]string, error) {
-	out, err := exec.CommandContext(ctx, s.exe, "--list").Output()
+	out, err := exec.CommandContext(ctx, s.exe, "--list").Output() //nolint:gosec // G204: exe comes from server config, not the request
 	if err != nil {
 		return nil, fmt.Errorf("charlotte --list: %w", err)
 	}
@@ -89,7 +89,7 @@ func (s *CharlotteStore) GetDocument(ctx context.Context, id int64) (model.Docum
 	}
 	name := names[id-1]
 
-	out, err := exec.CommandContext(ctx, s.exe, "--doc", name).Output()
+	out, err := exec.CommandContext(ctx, s.exe, "--doc", name).Output() //nolint:gosec // G204: exe is from config; name is one of its own --list entries
 	if err != nil {
 		return model.Document{}, fmt.Errorf("charlotte --doc %q: %w", name, err)
 	}
