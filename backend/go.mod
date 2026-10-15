@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/cbroglie/mustache v1.4.2
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/httprate v0.16.1
 	github.com/gorilla/sessions v1.4.0
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
