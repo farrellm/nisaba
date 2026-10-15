@@ -45,7 +45,7 @@ func TestSPAServesFilesAndFallsBack(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+			h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, tc.path, nil))
 
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200", rec.Code)
@@ -66,7 +66,7 @@ func TestSPADoesNotEscapeDir(t *testing.T) {
 	// leaves the directory.
 	for _, path := range []string{"/../secret.txt", "/%2e%2e/secret.txt"} {
 		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		h.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
 
 		if strings.Contains(rec.Body.String(), "nope") {
 			t.Errorf("%s: served the file outside the directory", path)

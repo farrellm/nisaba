@@ -74,7 +74,7 @@ func run(ctx context.Context) error {
 	defer pool.Close()
 
 	// Legacy reflex.db, browsed read-only by the "Anansi" pages.
-	reflexDB, err := db.OpenSQLite(cfg.ReflexDBPath)
+	reflexDB, err := db.OpenSQLite(ctx, cfg.ReflexDBPath)
 	if err != nil {
 		return fmt.Errorf("reflex sqlite open %q: %w", cfg.ReflexDBPath, err)
 	}
@@ -117,7 +117,7 @@ func run(ctx context.Context) error {
 	case <-ctx.Done():
 		// Give in-flight requests a moment to drain; a second signal
 		// terminates the process the hard way.
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, context.DeadlineExceeded) {
 			return fmt.Errorf("shutdown: %w", err)

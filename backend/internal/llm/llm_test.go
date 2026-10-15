@@ -54,17 +54,19 @@ func TestModelVariants(t *testing.T) {
 	const id = "vendor/model-1"
 	swapModels(t, []Model{
 		{ID: id, Label: "Model 1", Provider: "openrouter"},
-		{Key: id + ":max", ID: id, Label: "Model 1 (max)", Provider: "openrouter",
+		{
+			Key: id + ":max", ID: id, Label: "Model 1 (max)", Provider: "openrouter",
 			ProviderOptions: map[string]any{
 				"reasoning": map[string]any{"effort": "xhigh"},
-			}},
+			},
+		},
 	})
 
 	base, ok := lookup(id)
 	if !ok {
 		t.Fatalf("lookup(%q) not found", id)
 	}
-	max, ok := lookup(id + ":max")
+	variant, ok := lookup(id + ":max")
 	if !ok {
 		t.Fatalf("lookup(%q) not found", id+":max")
 	}
@@ -73,18 +75,18 @@ func TestModelVariants(t *testing.T) {
 	if base.Key != id {
 		t.Errorf("base key = %q, want %q", base.Key, id)
 	}
-	if base.ID != max.ID {
-		t.Errorf("variants route to different provider ids: %q vs %q", base.ID, max.ID)
+	if base.ID != variant.ID {
+		t.Errorf("variants route to different provider ids: %q vs %q", base.ID, variant.ID)
 	}
-	if base.Label == max.Label {
+	if base.Label == variant.Label {
 		t.Errorf("variants share label %q", base.Label)
 	}
 	if base.ProviderOptions != nil {
 		t.Errorf("base ProviderOptions = %v, want nil", base.ProviderOptions)
 	}
-	reasoning, ok := max.ProviderOptions["reasoning"].(map[string]any)
+	reasoning, ok := variant.ProviderOptions["reasoning"].(map[string]any)
 	if !ok {
-		t.Fatalf("max ProviderOptions missing reasoning: %v", max.ProviderOptions)
+		t.Fatalf("max ProviderOptions missing reasoning: %v", variant.ProviderOptions)
 	}
 	if reasoning["effort"] != "xhigh" {
 		t.Errorf("max reasoning effort = %v, want xhigh", reasoning["effort"])

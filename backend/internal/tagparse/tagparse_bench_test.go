@@ -41,7 +41,7 @@ func BenchmarkParseTopLevelTags(b *testing.B) {
 		b.Run(c.name, func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(c.input)))
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				Parse(c.input)
 			}
 		})

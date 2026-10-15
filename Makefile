@@ -1,4 +1,4 @@
-.PHONY: help db db-stop db-clean migrate migrate-down backend backend-watch backend-build backend-test frontend-install frontend frontend-build deploy
+.PHONY: help db db-stop db-clean migrate migrate-down backend backend-watch backend-build backend-test backend-lint frontend-install frontend frontend-build deploy
 
 MIGRATE_BIN := migrate
 MIGRATE_DIR := db/migrations
@@ -42,7 +42,10 @@ backend-build: ## Compile the Go binary to backend/bin/server
 	cd backend && go build -ldflags "$(GO_LDFLAGS)" -o bin/server ./cmd/server
 
 backend-test: ## Run Go tests
-	cd backend && go test ./...
+	cd backend && go test -race -shuffle=on ./...
+
+backend-lint: ## Lint the Go code (golangci-lint) and scan for known vulnerabilities
+	cd backend && golangci-lint run ./... && go tool govulncheck ./...
 
 # ── Frontend ──────────────────────────────────────────────────────────────────
 

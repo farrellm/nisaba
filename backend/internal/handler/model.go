@@ -9,7 +9,7 @@ import (
 // ListModels returns the fixed, cross-provider list of selectable models.
 // Distinct from ListModes (GET /api/modes), which returns the writing modes.
 func ListModels() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, llm.Models())
 	}
 }
