@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Common Commands
 
-`make help` lists every target (db/migrate/backend/frontend). Quick checks: `gofmt -l backend/`, and in `frontend/`: `npx tsc --noEmit`, `npm run lint`, `npm run format`.
+`make help` lists every target (db/migrate/backend/frontend). `make check` runs everything CI runs (format, lint, type-check, migration lint, secret scan, tests) and `make fmt` fixes formatting; `make tools` installs the pinned linters into `./bin`, `make hooks` the lefthook git hooks.
 
 Install golang-migrate before running migrations:
 ```sh

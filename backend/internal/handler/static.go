@@ -37,7 +37,7 @@ func resolve(dir, urlPath string) (string, bool) {
 		return "", false
 	}
 
-	info, err := os.Stat(name)
+	info, err := os.Stat(name) //nolint:gosec // G703: name is cleaned and prefix-checked against dir above
 	if err != nil || !info.Mode().IsRegular() {
 		return "", false
 	}

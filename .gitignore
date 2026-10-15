@@ -40,3 +40,6 @@ docker-compose.override.yml
 
 # Legacy SQLite database browsed read-only by the Charlotte pages
 reflex.db
+
+# Pinned dev tools (make tools)
+/bin/

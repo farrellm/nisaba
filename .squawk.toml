@@ -1,0 +1,16 @@
+# squawk config for db/migrations (run via `make lint`; only *.up.sql is linted,
+# since down migrations drop tables/columns by design).
+pg_version = "17.0"
+# golang-migrate sends each file as one multi-statement query, which Postgres
+# runs as a single implicit transaction.
+assume_in_transaction = true
+# Single-user app with small tables: brief locks during a migration are fine,
+# and CONCURRENTLY can't run inside the implicit transaction anyway.
+excluded_rules = [
+  "require-statement-timeout",
+  "require-lock-timeout",
+  "require-concurrent-index-creation",
+  "require-concurrent-index-deletion",
+]
+# Already applied and immutable; new tables should use identity/bigint keys.
+excluded_paths = ["*000001_initial.up.sql", "*000002_data_model.up.sql"]
