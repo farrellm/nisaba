@@ -1,0 +1,27 @@
+# Git hooks (install with `make hooks`). pre-commit runs only fast checks on
+# staged files; pre-push runs the same `make check` as CI.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: go-fmt
+      root: backend/
+      glob: "*.go"
+      run: ../bin/golangci-lint fmt --diff {staged_files}
+    - name: oxlint
+      root: frontend/
+      glob: "*.{ts,tsx,js,mjs}"
+      run: npx oxlint {staged_files}
+    - name: prettier
+      root: frontend/
+      glob: "*.{ts,tsx,js,mjs,json,md,css,html}"
+      run: npx prettier --check {staged_files}
+    - name: squawk
+      glob: "db/migrations/*.up.sql"
+      run: bin/squawk {staged_files}
+    - name: gitleaks
+      run: bin/gitleaks git --pre-commit --staged --no-banner --redact
+
+pre-push:
+  jobs:
+    - name: check
+      run: make check

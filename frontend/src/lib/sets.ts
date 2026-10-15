@@ -16,7 +16,7 @@ export function addToSet<T>(prev: Set<T>, item: T): Set<T> {
 
 // removeFromSet returns prev unchanged when item is absent (so React can skip
 // the re-render), else a copy with item removed.
-export function removeFromSet<T>(prev: Set<T>, item: T): Set<T> {
+function removeFromSet<T>(prev: Set<T>, item: T): Set<T> {
   if (!prev.has(item)) return prev
   const next = new Set(prev)
   next.delete(item)
