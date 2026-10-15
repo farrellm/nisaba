@@ -58,7 +58,7 @@ export default function ReadOnlyDocumentPage({ apiBase }: { apiBase: string }) {
     runImport(
       async () => {
         const imported = await api.post<Document>(`${apiBase}/${id}/import`)
-        navigate(`/documents/${imported.id}`)
+        void navigate(`/documents/${imported.id}`)
       },
       { fallback: 'Could not import document', keepBusyOnSuccess: true },
     )
@@ -154,11 +154,13 @@ function BlockSection({ block, defaultOpen }: { block: Block; defaultOpen: boole
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   // The last block's newest response opens in the structured view by default.
   const [structured, setStructured] = useState<Set<number>>(() =>
-    defaultOpen && responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set(),
+    defaultOpen && responses.length > 0
+      ? new Set([responses[responses.length - 1]!.id])
+      : new Set(),
   )
   // Which responses' <details> are expanded (newest open by default).
   const [openIds, setOpenIds] = useState<Set<number>>(() =>
-    responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set(),
+    responses.length > 0 ? new Set([responses[responses.length - 1]!.id]) : new Set(),
   )
 
   const reveal = (key: string) => setExpanded((prev) => addToSet(prev, key))

@@ -228,7 +228,7 @@ export default function DocumentList({
               </Typography>
               <Select
                 value={sort}
-                onChange={(e: SelectChangeEvent) => setSort(e.target.value as SortOrder)}
+                onChange={(e: SelectChangeEvent<SortOrder>) => setSort(e.target.value)}
                 size="small"
                 variant="standard"
                 disableUnderline

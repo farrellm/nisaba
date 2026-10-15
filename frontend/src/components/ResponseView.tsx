@@ -24,11 +24,13 @@ interface ResponseViewProps {
   // When set, the response is being edited in place: the summary shows
   // editing.actions (save/cancel) instead of the toggle + actions, and the
   // body is an editable mono TextField.
-  editing?: {
-    value: string
-    onChange: (value: string) => void
-    actions: ReactNode
-  }
+  editing?:
+    | {
+        value: string
+        onChange: (value: string) => void
+        actions: ReactNode
+      }
+    | undefined
 }
 
 // ResponseView renders one model response as a collapsible <details> with the
@@ -49,11 +51,7 @@ export default function ResponseView({
   const models = useModels()
 
   return (
-    <Box
-      component="details"
-      open={open}
-      onToggle={(e) => onToggle((e.currentTarget as HTMLDetailsElement).open)}
-    >
+    <Box component="details" open={open} onToggle={(e) => onToggle(e.currentTarget.open)}>
       <Box
         component="summary"
         sx={{

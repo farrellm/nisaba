@@ -20,7 +20,7 @@ const wordmarkSx = {
 } as const
 
 interface MastheadProps {
-  active?: Section
+  active?: Section | undefined
   // 'wordmark' renders just the (non-link) wordmark and the account menu — the
   // landing page's header, which is already home so the nav would be noise.
   variant?: 'full' | 'wordmark'

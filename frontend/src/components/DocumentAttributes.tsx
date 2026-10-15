@@ -45,7 +45,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
       const next = { ...prev }
       for (const key of Object.keys(server)) {
         const userEdited = (prev[key] ?? '') !== (serverRef.current[key] ?? '')
-        if (!userEdited) next[key] = server[key]
+        if (!userEdited) next[key] = server[key]!
       }
       return next
     })
@@ -111,7 +111,7 @@ export default function DocumentAttributes({ doc, onChange }: DocumentAttributes
                 type="button"
                 variant="outlined"
                 size="small"
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 busy={saving}
                 busyLabel="Saving…"
                 disabled={!dirty}

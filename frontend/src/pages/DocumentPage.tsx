@@ -69,7 +69,7 @@ export default function DocumentPage() {
       // Archiving removes the doc from the active list, so leave for it.
       // Unarchiving keeps you on the page; just reflect the new state.
       if (archive) {
-        navigate('/documents')
+        void navigate('/documents')
       } else {
         setDoc(updated)
         setBusy(false)
@@ -87,7 +87,7 @@ export default function DocumentPage() {
     setError(null)
     try {
       await api.del(`/api/documents/${id}`)
-      navigate('/documents', { replace: true })
+      void navigate('/documents', { replace: true })
     } catch (err) {
       setError(errorMessage(err, 'Could not delete. Try again.'))
       setBusy(false)
@@ -211,7 +211,7 @@ export default function DocumentPage() {
                 >
                   <ListItemText>Post to Reddit…</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={handleToggleArchive} disabled={busy}>
+                <MenuItem onClick={() => void handleToggleArchive()} disabled={busy}>
                   <ListItemText>{doc.isArchived ? 'Unarchive' : 'Archive'}</ListItemText>
                 </MenuItem>
                 <MenuItem onClick={fireDelete} disabled={busy}>

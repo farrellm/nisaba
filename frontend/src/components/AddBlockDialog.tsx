@@ -30,7 +30,7 @@ export default function AddBlockDialog({ open, modes, onClose, onCreate }: AddBl
   const { busy: submitting, error, setError, run } = useAsyncAction()
 
   useEffect(() => {
-    if (open && !selected && modes.length > 0) setSelected(modes[0].name)
+    if (open && !selected && modes[0]) setSelected(modes[0].name)
   }, [open, selected, modes])
 
   function handleClose() {

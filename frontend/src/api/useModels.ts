@@ -25,7 +25,8 @@ export function useModels(): LLMModel[] {
 
   useEffect(() => {
     let active = true
-    fetchModels().then((m) => {
+    // fetchModels never rejects (it falls back to []).
+    void fetchModels().then((m) => {
       if (active) setModels(m)
     })
     return () => {

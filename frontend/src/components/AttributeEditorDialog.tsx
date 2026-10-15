@@ -126,7 +126,7 @@ export default function AttributeEditorDialog({
         <Button onClick={onClose} disabled={saving} sx={{ color: 'text.secondary' }}>
           Cancel
         </Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
+        <Button variant="contained" onClick={() => void handleSave()} disabled={saving}>
           {saving ? (
             <>
               <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />

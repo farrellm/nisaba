@@ -41,6 +41,8 @@ export function useFetch<T>(path: string): Fetched<T> {
     return () => {
       cancelled = true
     }
+    // tick is a deliberate extra dependency: bumping it (reload) refetches.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [path, tick])
 
   const reload = useCallback(() => {

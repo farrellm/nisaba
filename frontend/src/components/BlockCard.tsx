@@ -90,7 +90,7 @@ const BlockCard = memo(function BlockCard({
     // The last block's newest response opens in the structured view by default.
     const responses = block.responses ?? []
     return defaultOpen && responses.length > 0
-      ? new Set([responses[responses.length - 1].id])
+      ? new Set([responses[responses.length - 1]!.id])
       : new Set()
   })
   // Which responses' <details> are expanded. Controlled so a run can collapse
@@ -98,7 +98,7 @@ const BlockCard = memo(function BlockCard({
   // the newest response open, matching how each list started before.
   const [openIds, setOpenIds] = useState<Set<number>>(() => {
     const responses = block.responses ?? []
-    return responses.length > 0 ? new Set([responses[responses.length - 1].id]) : new Set()
+    return responses.length > 0 ? new Set([responses[responses.length - 1]!.id]) : new Set()
   })
 
   // Restore a run that was in flight when the page was last unloaded. The run
@@ -470,7 +470,7 @@ const BlockCard = memo(function BlockCard({
             <span>
               <IconButton
                 size="small"
-                onClick={handleSave}
+                onClick={() => void handleSave()}
                 disabled={!dirty || busy}
                 aria-label="Save"
                 sx={editActionSx(dirty)}
@@ -483,7 +483,7 @@ const BlockCard = memo(function BlockCard({
             <span>
               <IconButton
                 size="small"
-                onClick={handleCopy}
+                onClick={() => void handleCopy()}
                 disabled={busy}
                 aria-label="Copy to document"
                 sx={editActionSx(dirty)}
@@ -497,7 +497,7 @@ const BlockCard = memo(function BlockCard({
             <span>
               <IconButton
                 size="small"
-                onClick={handleRun}
+                onClick={() => void handleRun()}
                 disabled={busy}
                 aria-label="Run"
                 sx={{
@@ -585,7 +585,7 @@ const BlockCard = memo(function BlockCard({
                             aria-label="Re-parse response into document attributes"
                             onClick={(e) => {
                               e.preventDefault()
-                              handleReparse(response.id)
+                              void handleReparse(response.id)
                             }}
                             sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
                           >
@@ -614,7 +614,7 @@ const BlockCard = memo(function BlockCard({
                                     aria-label="Save edited response"
                                     onClick={(e) => {
                                       e.preventDefault()
-                                      handleSaveEdit(response.id)
+                                      void handleSaveEdit(response.id)
                                     }}
                                     sx={editActionSx(editValue !== response.value)}
                                   >
