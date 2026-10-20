@@ -10,13 +10,14 @@ require (
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/rs/cors v1.11.1
-	github.com/zendev-sh/goai v0.10.8
+	github.com/zendev-sh/goai v0.10.9
 	golang.org/x/crypto v0.58.0
 	golang.org/x/term v0.47.0
 	modernc.org/sqlite v1.60.1
 )
 
 require (
+	github.com/coder/websocket v1.8.15 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
