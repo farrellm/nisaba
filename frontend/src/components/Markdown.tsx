@@ -54,7 +54,7 @@ const Markdown = memo(function Markdown({ children }: { children: string }) {
         '& code': {
           fontFamily: fonts.mono,
           fontSize: '0.88em',
-          bgcolor: 'rgba(0,0,0,0.05)',
+          bgcolor: 'action.hover',
           px: 0.6,
           py: 0.2,
           borderRadius: 1,
@@ -63,7 +63,7 @@ const Markdown = memo(function Markdown({ children }: { children: string }) {
           my: 2,
           p: 2,
           overflowX: 'auto',
-          bgcolor: 'rgba(0,0,0,0.05)',
+          bgcolor: 'action.hover',
           borderRadius: 1,
           border: '1px solid',
           borderColor: 'divider',
