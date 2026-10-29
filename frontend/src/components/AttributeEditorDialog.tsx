@@ -151,17 +151,23 @@ export default function AttributeEditorDialog({
             px: { xs: 2, sm: 4 },
             py: 3,
             // Tune Crepe's frame theme to the app's ink-blue editorial palette.
-            // The surface/hover/selected tints below are Crepe-specific
-            // derivatives of palette.paper/palette.accent; keep them in step
-            // if the palette changes.
             '& .milkdown': {
               '--crepe-color-primary': palette.accent,
               '--crepe-color-background': palette.paper,
-              '--crepe-color-surface': '#F3F1EA',
-              '--crepe-color-surface-low': '#ECE9E0',
-              '--crepe-color-hover': '#ECE9E0',
-              '--crepe-color-selected': '#DFE3FB',
-              '--crepe-color-inline-area': '#DFE3FB',
+              '--crepe-color-surface': palette.surface,
+              '--crepe-color-surface-low': palette.surfaceLow,
+              '--crepe-color-hover': palette.surfaceLow,
+              '--crepe-color-selected': palette.selected,
+              '--crepe-color-inline-area': palette.selected,
+              '--crepe-color-on-background': 'var(--mui-palette-text-primary)',
+              '--crepe-color-on-surface': 'var(--mui-palette-text-primary)',
+              '--crepe-color-on-surface-variant': 'var(--mui-palette-text-secondary)',
+              '--crepe-color-outline': 'var(--mui-palette-text-disabled)',
+              '--crepe-color-secondary': palette.selected,
+              '--crepe-color-on-secondary': 'var(--mui-palette-text-primary)',
+              '--crepe-color-inverse': 'var(--mui-palette-text-primary)',
+              '--crepe-color-on-inverse': palette.paper,
+              '--crepe-color-inline-code': palette.struck,
               '--crepe-font-default': fonts.body,
               '--crepe-font-title': fonts.display,
               '--crepe-font-code': fonts.mono,

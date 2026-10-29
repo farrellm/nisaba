@@ -9,7 +9,9 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <meta name="theme-color" content="#2540E0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#2540E0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161A2B" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-title" content="Nisaba" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,6 +21,16 @@
     />
   </head>
   <body>
+    <script>
+      // Apply the saved light/dark/system choice before first paint (mirrors
+      // MUI's InitColorSchemeScript; see src/theme.ts).
+      try {
+        var mode = localStorage.getItem('mui-mode') || 'system'
+        if (mode === 'system')
+          mode = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        document.documentElement.setAttribute('data-color-scheme', mode)
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
