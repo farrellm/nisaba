@@ -6,10 +6,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/farrellm/nisaba/internal/llm"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
+	"github.com/farrellm/nisaba/internal/push"
 )
 
 // fakeStore records the writes a run performs and serves canned reads.
@@ -313,6 +315,78 @@ func TestApplyRenames(t *testing.T) {
 			applyRenames(tt.updates, tt.renames)
 			if !reflect.DeepEqual(tt.updates, tt.want) {
 				t.Errorf("applyRenames() = %v, want %v", tt.updates, tt.want)
+			}
+		})
+	}
+}
+
+type notification struct {
+	userID int64
+	msg    push.Message
+}
+
+// fakeNotifier forwards each Notify onto a channel (Notify runs in a goroutine).
+type fakeNotifier chan notification
+
+func (f fakeNotifier) Notify(_ context.Context, userID int64, msg push.Message) {
+	f <- notification{userID, msg}
+}
+
+func (f fakeNotifier) next(t *testing.T) notification {
+	t.Helper()
+	select {
+	case n := <-f:
+		return n
+	case <-time.After(2 * time.Second):
+		t.Fatal("no notification sent")
+		return notification{}
+	}
+}
+
+func TestExecuteNotifies(t *testing.T) {
+	doc, block := testDocBlock()
+	doc.Title = "My Story"
+	m, _ := mode.Get(block.Mode)
+	label := m.Label
+
+	cases := []struct {
+		name   string
+		gen    fakeGen
+		stream bool
+		body   string
+	}{
+		{"success", fakeGen{output: "<story>ok</story>"}, false, label + " finished"},
+		{"failure", fakeGen{err: errors.New("provider down")}, false, label + " failed"},
+		{"stream success", fakeGen{output: "<story>ok</story>"}, true, label + " finished"},
+		{"stream failure", fakeGen{err: errors.New("provider down")}, true, label + " failed"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st := newFakeStore()
+			st.block = block
+			svc := testService(t, st, tc.gen)
+			notes := make(fakeNotifier, 4)
+			svc.SetNotifier(notes)
+
+			run, err := svc.Prepare(context.Background(), doc, block, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.stream {
+				_, _ = svc.ExecuteStream(context.Background(), run, func(llm.DeltaKind, string) {})
+			} else {
+				_, _ = svc.Execute(context.Background(), run)
+			}
+
+			n := notes.next(t)
+			want := push.Message{Title: "My Story", Body: tc.body, URL: "/documents/10"}
+			if n.userID != doc.UserID || n.msg != want {
+				t.Errorf("notification = %+v, want user %d %+v", n, doc.UserID, want)
+			}
+			select {
+			case extra := <-notes:
+				t.Errorf("unexpected second notification %+v", extra)
+			case <-time.After(50 * time.Millisecond):
 			}
 		})
 	}

@@ -36,5 +36,10 @@
     "typescript": "^7.0.2",
     "vite": "^8.2.0",
     "vitest": "^5.0.4"
+  },
+  "knip": {
+    "ignore": [
+      "public/sw.js"
+    ]
   }
 }

@@ -23,6 +23,9 @@ type Config struct {
 	ReflexDBPath     string
 	CharlotteCLI     string
 	RedditSession    string
+	VAPIDPublicKey   string
+	VAPIDPrivateKey  string
+	VAPIDSubject     string
 }
 
 func Load() Config {
@@ -94,5 +97,13 @@ func Load() Config {
 		ReflexDBPath:     reflexDBPath,
 		CharlotteCLI:     charlotteCLI,
 		RedditSession:    os.Getenv("REDDIT_SESSION"),
+		// Web Push (run-finished notifications). Generate a key pair with the
+		// server's -gen-vapid-keys flag. VAPID_SUBJECT is the contact sent to
+		// push services (an https: URL, e.g. the app's own, or an e-mail
+		// address); Apple rejects placeholders, so it has no default. Push is
+		// disabled unless all three are set.
+		VAPIDPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:    os.Getenv("VAPID_SUBJECT"),
 	}
 }

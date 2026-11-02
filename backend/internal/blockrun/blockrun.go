@@ -16,12 +16,16 @@ import (
 	"github.com/farrellm/nisaba/internal/llm"
 	"github.com/farrellm/nisaba/internal/mode"
 	"github.com/farrellm/nisaba/internal/model"
+	"github.com/farrellm/nisaba/internal/push"
 	"github.com/farrellm/nisaba/internal/tagparse"
 )
 
 // maxRunDuration bounds a detached model call so a hung provider can't leak
 // the goroutine serving it.
 const maxRunDuration = 30 * time.Minute
+
+// notifyTimeout bounds the post-run push notification.
+const notifyTimeout = 30 * time.Second
 
 // Sentinel errors for run preconditions.
 var (
@@ -90,6 +94,19 @@ type Service struct {
 	store     Store
 	gen       Generator
 	templates *mode.Templates
+	notifier  Notifier
+}
+
+// Notifier is told when a run finishes (successfully or not), e.g. to push a
+// notification to the user's phone. *push.Notifier satisfies it.
+type Notifier interface {
+	Notify(ctx context.Context, userID int64, msg push.Message)
+}
+
+// SetNotifier attaches n to be told about every finished Execute/ExecuteStream.
+// A nil n disables notifications.
+func (s *Service) SetNotifier(n Notifier) {
+	s.notifier = n
 }
 
 // New builds a Service over the given store, generator, and template resolver.
@@ -195,9 +212,10 @@ func detach(ctx context.Context) (context.Context, context.CancelFunc) {
 
 // Execute runs the model over a prepared Run, saves the reply as a response,
 // feeds it back into the document, and returns the freshly hydrated block.
-func (s *Service) Execute(ctx context.Context, run Run) (model.Block, error) {
+func (s *Service) Execute(ctx context.Context, run Run) (_ model.Block, err error) {
 	ctx, cancel := detach(ctx)
 	defer cancel()
+	defer func() { s.notify(ctx, run, err) }()
 
 	output, err := s.gen.Generate(ctx, run.Doc.SelectedModel, run.System, run.Prompt, run.Mode.Tools)
 	if err != nil {
@@ -209,9 +227,10 @@ func (s *Service) Execute(ctx context.Context, run Run) (model.Block, error) {
 
 // ExecuteStream is the streaming sibling of Execute: the model's reply is
 // forwarded to onDelta as it arrives, then persisted exactly like Execute.
-func (s *Service) ExecuteStream(ctx context.Context, run Run, onDelta func(llm.DeltaKind, string)) (model.Block, error) {
+func (s *Service) ExecuteStream(ctx context.Context, run Run, onDelta func(llm.DeltaKind, string)) (_ model.Block, err error) {
 	ctx, cancel := detach(ctx)
 	defer cancel()
+	defer func() { s.notify(ctx, run, err) }()
 
 	output, err := s.gen.GenerateStream(ctx, run.Doc.SelectedModel, run.System, run.Prompt, run.Mode.Tools, onDelta)
 	if err != nil {
@@ -249,6 +268,34 @@ func (s *Service) save(ctx context.Context, run Run, output string) (model.Block
 	}
 
 	return s.store.GetBlock(ctx, run.Block.ID)
+}
+
+// notify tells the notifier, if any, that run finished with err (nil on
+// success). It runs in the background so the HTTP response isn't held up on
+// the push service.
+func (s *Service) notify(ctx context.Context, run Run, err error) {
+	if s.notifier == nil {
+		return
+	}
+	title := run.Doc.Title
+	if title == "" {
+		title = "Nisaba"
+	}
+	label := run.Mode.Label
+	if label == "" {
+		label = run.Mode.Name
+	}
+	body := label + " finished"
+	if err != nil {
+		body = label + " failed"
+	}
+	msg := push.Message{Title: title, Body: body, URL: fmt.Sprintf("/documents/%d", run.Doc.ID)}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), notifyTimeout)
+		defer cancel()
+		s.notifier.Notify(ctx, run.Doc.UserID, msg)
+	}()
 }
 
 func (s *Service) logRunError(msg string, err error, run Run) {

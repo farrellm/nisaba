@@ -3,6 +3,7 @@ module github.com/farrellm/nisaba
 go 1.26.0
 
 require (
+	github.com/SherClockHolmes/webpush-go v1.4.0
 	github.com/cbroglie/mustache v1.4.2
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-chi/httprate v0.16.1
@@ -18,6 +19,7 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
