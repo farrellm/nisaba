@@ -12,12 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/SherClockHolmes/webpush-go"
+
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/blockrun"
 	"github.com/farrellm/nisaba/internal/config"
 	"github.com/farrellm/nisaba/internal/db"
 	"github.com/farrellm/nisaba/internal/handler"
 	"github.com/farrellm/nisaba/internal/mode"
+	"github.com/farrellm/nisaba/internal/push"
 	"github.com/farrellm/nisaba/internal/reddit"
 	"github.com/farrellm/nisaba/internal/store"
 )
@@ -30,10 +33,23 @@ var (
 	listUsers  = flag.Bool("list-users", false, "list all users, then exit")
 	deleteUser = flag.String("delete-user", "", "delete this user and all their data, then exit")
 	force      = flag.Bool("force", false, "with -delete-user, skip the confirmation prompt")
+
+	genVAPIDKeys = flag.Bool("gen-vapid-keys", false, "print a new VAPID key pair for push notifications, then exit")
 )
 
 func main() {
 	flag.Parse()
+
+	if *genVAPIDKeys {
+		priv, pub, err := webpush.GenerateVAPIDKeys()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("export VAPID_PUBLIC_KEY=%s\nexport VAPID_PRIVATE_KEY=%s\n", pub, priv)
+		fmt.Println("# also set VAPID_SUBJECT to a contact: the app's https:// URL or an e-mail address")
+		return
+	}
 
 	actions := 0
 	for _, set := range []bool{*createUser != "", *listUsers, *deleteUser != ""} {
@@ -82,6 +98,13 @@ func run(ctx context.Context) error {
 
 	st := store.New(pool)
 	templates := mode.NewTemplates(cfg.ModeTemplatesDir)
+	notifier := push.NewNotifier(st, cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
+	runner := blockrun.New(st, blockrun.LLM{}, templates)
+	if notifier.Enabled() {
+		runner.SetNotifier(notifier)
+	} else {
+		slog.Info("push notifications disabled: set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT")
+	}
 	srv := &http.Server{
 		Addr: cfg.Addr,
 		Handler: handler.Routes(handler.Deps{
@@ -93,7 +116,8 @@ func run(ctx context.Context) error {
 			// via charlotte-cli.
 			Charlotte: store.NewCharlotteStore(cfg.CharlotteCLI),
 			Reddit:    reddit.NewClient(cfg.RedditSession),
-			Runner:    blockrun.New(st, blockrun.LLM{}, templates),
+			Runner:    runner,
+			Push:      notifier,
 			CORS:      cfg.CORSOrigins,
 			WebDir:    cfg.WebDir,
 		}),

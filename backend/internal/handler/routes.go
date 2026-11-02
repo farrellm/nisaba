@@ -11,6 +11,7 @@ import (
 
 	"github.com/farrellm/nisaba/internal/auth"
 	"github.com/farrellm/nisaba/internal/blockrun"
+	"github.com/farrellm/nisaba/internal/push"
 	"github.com/farrellm/nisaba/internal/reddit"
 	"github.com/farrellm/nisaba/internal/store"
 )
@@ -26,7 +27,9 @@ type Deps struct {
 	Charlotte *store.CharlotteStore
 	Reddit    *reddit.Client
 	Runner    *blockrun.Service
-	CORS      []string
+	// Push sends run-finished notifications; nil when VAPID keys are unset.
+	Push *push.Notifier
+	CORS []string
 	// WebDir is the built frontend served at "/" with an SPA fallback. Empty
 	// (the local-dev default) leaves the tree API-only, since Vite serves the
 	// app itself and proxies /api here.
@@ -92,6 +95,12 @@ func Routes(d Deps) http.Handler {
 				r.Delete("/", DeleteLabel(st))
 			})
 			r.Get("/attribute-values", ListAttributeValues(st))
+
+			r.Route("/push", func(r chi.Router) {
+				r.Get("/vapid-public-key", PushPublicKey(d.Push))
+				r.Post("/subscriptions", SubscribePush(st, d.Push))
+				r.Delete("/subscriptions", UnsubscribePush(st))
+			})
 
 			r.Route("/anansi/documents", func(r chi.Router) {
 				r.Get("/", ListLegacyDocuments(d.Reflex))

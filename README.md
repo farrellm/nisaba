@@ -84,6 +84,8 @@ The backend reads configuration from environment variables with development defa
 | `MODE_TEMPLATES_DIR` | `internal/mode/templates` | Base mode-template dir; per-user overrides are read from the sibling `<dir>-<username>/`. Relative to the working directory |
 | `REFLEX_DB_PATH` | `../reflex.db` | Legacy SQLite file browsed read-only by the Anansi pages. Relative to the working directory, and **a missing file fails startup** |
 | `CHARLOTTE_CLI` | absolute path of `charlotte-cli` | Executable behind the Charlotte pages. `make` bakes in the path found on the build-time `PATH`; a build without it (or where it isn't found) falls back to the bare name, resolved on `PATH` at runtime. A missing binary does *not* fail startup |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | *(empty)* | Web Push key pair for run-finished notifications; generate with `go run ./cmd/server -gen-vapid-keys`. Push is disabled unless these and `VAPID_SUBJECT` are set |
+| `VAPID_SUBJECT` | *(empty)* | Contact sent to push services: an `https:` URL (e.g. the app's own) or an e-mail address. Required — Apple rejects placeholder subjects with `403 BadJwtToken` |
 
 ### LLM provider
 
@@ -96,6 +98,10 @@ export GEMINI_API_KEY=...      # Gemini models (or GOOGLE_GENERATIVE_AI_API_KEY)
 ```
 
 GoAI reads each key from the environment automatically; you only need the keys for the providers whose models you actually run.
+
+### Run notifications (iPhone)
+
+With the VAPID keys set, each finished run (success or failure) pushes a notification to every device the user has enabled. On iPhone (iOS 16.4+): open Nisaba in Safari, Share → **Add to Home Screen**, launch it from the Home Screen, then turn on **Run notifications** under Settings. Desktop browsers can enable it there directly.
 
 ## Deployment
 
