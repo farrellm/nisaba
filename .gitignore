@@ -37,6 +37,7 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+/data/
 
 # Legacy SQLite database browsed read-only by the Charlotte pages
 reflex.db

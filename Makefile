@@ -85,8 +85,9 @@ db: ## Start Postgres in Docker (detached)
 db-stop: ## Stop Postgres container (data preserved)
 	docker compose stop postgres
 
-db-clean: ## Remove Postgres container AND data volume
-	docker compose down -v
+db-clean: ## Remove Postgres container AND its ./data/postgres data
+	docker compose down
+	docker run --rm -v $(CURDIR)/data:/data alpine rm -rf /data/postgres
 
 migrate: ## Run all pending up migrations
 	$(MIGRATE_BIN) -path $(MIGRATE_DIR) -database "$(DB_URL)" up

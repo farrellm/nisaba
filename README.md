@@ -57,7 +57,7 @@ Each flag performs its action against `DATABASE_URL` and exits; with no flags th
 make help           Show all targets
 make db             Start Postgres container (data persists across restarts)
 make db-stop        Stop Postgres container
-make db-clean       Remove container and wipe data volume
+make db-clean       Remove container and wipe ./data/postgres
 make migrate        Run pending migrations
 make migrate-down   Roll back the last migration
 make backend        Run Go server (go run)
