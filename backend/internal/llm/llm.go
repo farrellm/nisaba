@@ -331,12 +331,13 @@ func refusal(res *goai.TextResult) error {
 // returns its reply as the combined per-step output (see combineSteps): each
 // step's thinking, when present, wrapped in <thinking>…</thinking> ahead of its
 // text, concatenated across a multi-step tool loop.
+//
+// It runs through GenerateStream (with no delta consumer) rather than
+// goai.GenerateText, because GenerateText discards every completed step on
+// error; this way a failed call still returns its partial output alongside the
+// error, exactly as GenerateStream does.
 func Generate(ctx context.Context, model, system, prompt string, tools []Tool) (string, error) {
-	res, err := generate(ctx, model, system, prompt, tools)
-	if err != nil {
-		return "", err
-	}
-	return combineSteps(res), nil
+	return GenerateStream(ctx, model, system, prompt, tools, nil)
 }
 
 // thinkingOpen/thinkingClose frame a step's reasoning text. Shared by
@@ -394,6 +395,11 @@ func toolResultText(output string, err error) string {
 // as one atomic <toolname>…</toolname> block carrying arguments and result,
 // with DeltaKindTool. The hook fires from GoAI's tool goroutines, concurrent
 // with this stream loop, so all emission is serialized under one mutex.
+//
+// When the call fails after output has started (a provider/network error
+// mid-stream, a deadline, a refusal), the error is returned together with the
+// partial output produced so far — everything that was emitted, in the same
+// framing — so the caller can still keep it. onDelta may be nil.
 func GenerateStream(ctx context.Context, model, system, prompt string, tools []Tool, onDelta func(DeltaKind, string)) (string, error) {
 	client, opts, err := buildCall(model, system, prompt, tools)
 	if err != nil {
@@ -403,8 +409,13 @@ func GenerateStream(ctx context.Context, model, system, prompt string, tools []T
 	// mu guards emission and the tool-call bookkeeping below; emit and
 	// closeThinking must be called with it held.
 	var mu sync.Mutex
+	var partial strings.Builder // everything emitted so far, returned on error
 	emit := func(kind DeltaKind, s string) {
-		if onDelta != nil && s != "" {
+		if s == "" {
+			return
+		}
+		partial.WriteString(s)
+		if onDelta != nil {
 			onDelta(kind, s)
 		}
 	}
@@ -491,11 +502,17 @@ func GenerateStream(ctx context.Context, model, system, prompt string, tools []T
 	mu.Unlock()
 
 	if err := ts.Err(); err != nil {
-		return "", err
+		return partial.String(), err
+	}
+	// GoAI can end the stream cleanly when ctx is cancelled or hits its
+	// deadline mid-call (ts.Err() stays nil), which would pass a truncated
+	// reply off as a complete one.
+	if err := ctx.Err(); err != nil {
+		return partial.String(), err
 	}
 	res := ts.Result()
 	if err := refusal(res); err != nil {
-		return "", err
+		return partial.String(), err
 	}
 	return combineSteps(res), nil
 }

@@ -292,12 +292,14 @@ const BlockCard = memo(function BlockCard({
       )
     } catch (err) {
       if (err instanceof ApiError) {
-        // The server refused the run or reported a failure — nothing will be
-        // saved, so forget the run.
+        // The server refused the run or reported a failure, so forget the run.
+        // A model failure partway through still saves the partial output as a
+        // response, so reload to show it.
         setError(errorMessage(err, 'Could not run. Try again.'))
         recorder.clear()
         setStream(null)
         setRunning(false)
+        onAfterRun()
         return
       }
       // The connection was interrupted (reload or app-switch teardown, network

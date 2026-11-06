@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/cbroglie/mustache"
@@ -26,6 +27,9 @@ const maxRunDuration = 30 * time.Minute
 
 // notifyTimeout bounds the post-run push notification.
 const notifyTimeout = 30 * time.Second
+
+// savePartialTimeout bounds saving a failed run's partial output.
+const savePartialTimeout = 10 * time.Second
 
 // Sentinel errors for run preconditions.
 var (
@@ -72,7 +76,9 @@ type Store interface {
 	GetBlock(ctx context.Context, id int64) (model.Block, error)
 }
 
-// Generator abstracts the LLM call (internal/llm) for tests.
+// Generator abstracts the LLM call (internal/llm) for tests. On error, the
+// returned string may still carry the partial output produced before the
+// failure (empty when nothing was produced).
 type Generator interface {
 	Generate(ctx context.Context, model, system, prompt string, tools []llm.Tool) (string, error)
 	GenerateStream(ctx context.Context, model, system, prompt string, tools []llm.Tool, onDelta func(llm.DeltaKind, string)) (string, error)
@@ -220,6 +226,7 @@ func (s *Service) Execute(ctx context.Context, run Run) (_ model.Block, err erro
 	output, err := s.gen.Generate(ctx, run.Doc.SelectedModel, run.System, run.Prompt, run.Mode.Tools)
 	if err != nil {
 		s.logRunError("run failed: model request", err, run)
+		s.savePartial(ctx, run, output, err)
 		return model.Block{}, &Error{Step: StepGenerate, Err: err}
 	}
 	return s.finish(ctx, run, output, "")
@@ -235,6 +242,7 @@ func (s *Service) ExecuteStream(ctx context.Context, run Run, onDelta func(llm.D
 	output, err := s.gen.GenerateStream(ctx, run.Doc.SelectedModel, run.System, run.Prompt, run.Mode.Tools, onDelta)
 	if err != nil {
 		s.logRunError("run failed: model request (stream)", err, run)
+		s.savePartial(ctx, run, output, err)
 		return model.Block{}, &Error{Step: StepGenerate, Err: err}
 	}
 	return s.finish(ctx, run, output, " (stream)")
@@ -268,6 +276,31 @@ func (s *Service) save(ctx context.Context, run Run, output string) (model.Block
 	}
 
 	return s.store.GetBlock(ctx, run.Block.ID)
+}
+
+// savePartial keeps whatever the model produced before a failed call, so a
+// mid-run error doesn't discard it: the partial output is stored as a response
+// with a plain-text "[run failed: …]" trailer marking it incomplete. It is
+// deliberately not reparsed into the document's attributes (its last tag may
+// be cut off); the user can still apply it with the per-response Reparse.
+//
+// The write uses a fresh context, since the failure may be the run context's
+// own deadline. A failed save is logged; the caller still reports the
+// original model error.
+func (s *Service) savePartial(ctx context.Context, run Run, output string, genErr error) {
+	if strings.TrimSpace(output) == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), savePartialTimeout)
+	defer cancel()
+	if _, err := s.store.CreateResponse(ctx, model.Response{
+		BlockID:  run.Block.ID,
+		Value:    output + "\n\n[run failed: " + genErr.Error() + "]",
+		Model:    run.Doc.SelectedModel,
+		Position: len(run.Block.Responses),
+	}); err != nil {
+		s.logRunError("run failed: save partial response", err, run)
+	}
 }
 
 // notify tells the notifier, if any, that run finished with err (nil on

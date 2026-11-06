@@ -66,7 +66,10 @@ func (f *fakeStore) GetUser(_ context.Context, _ int64) (model.User, error) {
 	return f.user, nil
 }
 
-func (f *fakeStore) CreateResponse(_ context.Context, resp model.Response) (model.Response, error) {
+func (f *fakeStore) CreateResponse(ctx context.Context, resp model.Response) (model.Response, error) {
+	if err := ctx.Err(); err != nil { // like a real DB call on a dead context
+		return model.Response{}, err
+	}
 	if f.createErr != nil {
 		return model.Response{}, f.createErr
 	}
@@ -78,7 +81,8 @@ func (f *fakeStore) GetBlock(_ context.Context, _ int64) (model.Block, error) {
 	return f.block, nil
 }
 
-// fakeGen returns a canned reply (streamed as a single delta) or a canned error.
+// fakeGen returns a canned reply (streamed as a single delta) or a canned
+// error; with both set, output is the partial output returned with the error.
 type fakeGen struct {
 	output string
 	err    error
@@ -89,11 +93,10 @@ func (g fakeGen) Generate(context.Context, string, string, string, []llm.Tool) (
 }
 
 func (g fakeGen) GenerateStream(_ context.Context, _, _, _ string, _ []llm.Tool, onDelta func(llm.DeltaKind, string)) (string, error) {
-	if g.err != nil {
-		return "", g.err
+	if g.output != "" {
+		onDelta(llm.DeltaKindText, g.output)
 	}
-	onDelta(llm.DeltaKindText, g.output)
-	return g.output, nil
+	return g.output, g.err
 }
 
 func testService(t *testing.T, st Store, gen Generator) *Service {
@@ -225,6 +228,56 @@ func TestExecuteGenerateError(t *testing.T) {
 	}
 	if len(st.responses) != 0 {
 		t.Errorf("responses saved = %d, want 0", len(st.responses))
+	}
+}
+
+// A model error after output has started keeps the partial output as a
+// response, marked with a trailer and not reparsed into the document.
+func TestExecuteSavesPartialOnError(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		st := newFakeStore()
+		doc, block := testDocBlock()
+		svc := testService(t, st, fakeGen{output: "<story>half a sto", err: errors.New("connection reset")})
+
+		run, err := svc.Prepare(context.Background(), doc, block, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if stream {
+			_, err = svc.ExecuteStream(context.Background(), run, func(llm.DeltaKind, string) {})
+		} else {
+			_, err = svc.Execute(context.Background(), run)
+		}
+		var runErr *Error
+		if !errors.As(err, &runErr) || runErr.Step != StepGenerate {
+			t.Fatalf("stream=%v: err = %v, want Error{StepGenerate}", stream, err)
+		}
+		if len(st.responses) != 1 {
+			t.Fatalf("stream=%v: responses saved = %d, want 1", stream, len(st.responses))
+		}
+		resp := st.responses[0]
+		want := "<story>half a sto\n\n[run failed: connection reset]"
+		if resp.Value != want || resp.BlockID != block.ID || resp.Model != doc.SelectedModel {
+			t.Errorf("stream=%v: saved response = %+v, want value %q", stream, resp, want)
+		}
+		if _, ok := st.docAttrs[doc.ID]["story"]; ok {
+			t.Errorf("stream=%v: partial output was reparsed into the document", stream)
+		}
+	}
+}
+
+// The partial output still saves when the failure is the run context itself
+// ending (e.g. the maxRunDuration deadline): savePartial must not write on it.
+func TestSavePartialAfterContextEnds(t *testing.T) {
+	st := newFakeStore()
+	doc, block := testDocBlock()
+	svc := testService(t, st, fakeGen{})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	svc.savePartial(ctx, Run{Doc: doc, Block: block}, "partial", context.DeadlineExceeded)
+	if len(st.responses) != 1 {
+		t.Fatalf("responses saved = %d, want 1", len(st.responses))
 	}
 }
 
