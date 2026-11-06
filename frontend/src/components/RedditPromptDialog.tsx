@@ -6,11 +6,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Link as MuiLink,
   Stack,
   TextField,
 } from '@mui/material'
 import { useNavigate } from 'react-router'
 import { api } from '../api/client'
+import { postLinkSx } from '../lib/styles'
 import { stripPromptTag } from '../lib/text'
 import { useAsyncAction } from '../lib/useAsyncAction'
 import SubmitButton from './SubmitButton'
@@ -91,6 +93,17 @@ export default function RedditPromptDialog({ open, post, onClose }: RedditPrompt
               multiline
               minRows={3}
             />
+            {post && (
+              <MuiLink
+                href={post.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="overline"
+                sx={{ ...postLinkSx, alignSelf: 'flex-start' }}
+              >
+                View original post ↗
+              </MuiLink>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
