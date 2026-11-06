@@ -10,11 +10,15 @@ CHARLOTTE_CLI_PATH := $(or $(shell command -v charlotte-cli 2>/dev/null),charlot
 GO_LDFLAGS  := -X github.com/farrellm/nisaba/internal/config.charlotteCLIDefault=$(CHARLOTTE_CLI_PATH)
 
 # Pinned dev tools, installed into ./bin by `make tools` and put first on PATH so
-# local runs, git hooks, and CI all use the same versions.
+# local runs, git hooks, and CI all use the same versions. Renovate bumps them via
+# the comments; squawk has none because its sha256s must be updated by hand.
 BIN                   := $(CURDIR)/bin
 export PATH           := $(BIN):$(PATH)
+# renovate: datasource=github-releases depName=golangci/golangci-lint
 GOLANGCI_LINT_VERSION := v2.14.0
+# renovate: datasource=github-releases depName=gitleaks/gitleaks
 GITLEAKS_VERSION      := v8.30.1
+# renovate: datasource=github-releases depName=evilmartians/lefthook
 LEFTHOOK_VERSION      := v2.1.15
 SQUAWK_VERSION        := v2.66.0
 SQUAWK_SHA256_linux-x64    := e7965f8146b53cfa7a4625ceecfea5c6aeb35add39132210aa60b11ae180b9f4
