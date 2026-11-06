@@ -113,6 +113,7 @@ func Routes(d Deps) http.Handler {
 				r.Post("/{id}/import", ImportLegacyDocument(d.Charlotte, st))
 			})
 			r.Get("/reddit/posts", ListRedditPosts(st, d.Reddit))
+			r.Get("/reddit/saved", ListSavedRedditPosts(d.Reddit))
 			r.Get("/reddit/post", GetRedditPost(d.Reddit))
 
 			r.Route("/documents", func(r chi.Router) {

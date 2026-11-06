@@ -60,23 +60,46 @@ func (e *SubmitError) Error() string {
 
 // Post is a trimmed Reddit post.
 type Post struct {
-	Title  string `json:"title"`
-	URL    string `json:"url"`
-	Author string `json:"author"`
+	Title     string `json:"title"`
+	URL       string `json:"url"`
+	Author    string `json:"author"`
+	Subreddit string `json:"subreddit"`
 }
 
 // listing mirrors the shape of Reddit's listing responses (only the fields we
 // use), as served by api.reddit.com.
 type listing struct {
 	Data struct {
+		After    string `json:"after"`
 		Children []struct {
+			// Kind is the thing type: t3 for a post (link), t1 for a comment.
+			Kind string `json:"kind"`
 			Data struct {
 				Title     string `json:"title"`
 				Permalink string `json:"permalink"`
 				Author    string `json:"author"`
+				Subreddit string `json:"subreddit"`
 			} `json:"data"`
 		} `json:"children"`
 	} `json:"data"`
+}
+
+// postsFrom maps a listing's post (t3) children onto Posts with permalinks
+// expanded to full URLs, skipping anything else (e.g. saved comments).
+func postsFrom(l listing) []Post {
+	posts := make([]Post, 0, len(l.Data.Children))
+	for _, child := range l.Data.Children {
+		if child.Kind != "" && child.Kind != "t3" {
+			continue
+		}
+		posts = append(posts, Post{
+			Title:     child.Data.Title,
+			URL:       "https://www.reddit.com" + child.Data.Permalink,
+			Author:    child.Data.Author,
+			Subreddit: child.Data.Subreddit,
+		})
+	}
+	return posts
 }
 
 // Client reads and posts through api.reddit.com as a logged-in user, by
@@ -94,6 +117,7 @@ type Client struct {
 
 	mu       sync.Mutex
 	listings map[string]cachedListing
+	saved    cachedListing
 }
 
 // cachedListing is one subreddit's newest posts and when they stop being fresh.
@@ -201,14 +225,7 @@ func (c *Client) NewestPosts(ctx context.Context, subreddit string) ([]Post, err
 		return nil, fmt.Errorf("%w: %w", ErrBadResponse, err)
 	}
 
-	posts := make([]Post, 0, len(l.Data.Children))
-	for _, child := range l.Data.Children {
-		posts = append(posts, Post{
-			Title:  child.Data.Title,
-			URL:    "https://www.reddit.com" + child.Data.Permalink,
-			Author: child.Data.Author,
-		})
-	}
+	posts := postsFrom(l)
 
 	c.mu.Lock()
 	c.listings[key] = cachedListing{posts: posts, expires: time.Now().Add(listingTTL)}
@@ -241,16 +258,73 @@ func (c *Client) FetchPost(ctx context.Context, rawURL string) (Post, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&listings); err != nil {
 		return Post{}, fmt.Errorf("%w: %w", ErrBadResponse, err)
 	}
-	if len(listings) == 0 || len(listings[0].Data.Children) == 0 {
+	if len(listings) == 0 {
 		return Post{}, ErrNotFound
 	}
+	posts := postsFrom(listings[0])
+	if len(posts) == 0 {
+		return Post{}, ErrNotFound
+	}
+	return posts[0], nil
+}
 
-	data := listings[0].Data.Children[0].Data
-	return Post{
-		Title:  data.Title,
-		URL:    "https://www.reddit.com" + data.Permalink,
-		Author: data.Author,
-	}, nil
+// savedMaxPages bounds SavedPosts' pagination; Reddit caps any listing at
+// 1000 items, which is 10 pages of 100.
+const savedMaxPages = 10
+
+// SavedPosts returns the session user's saved posts (comments are skipped),
+// newest-saved first, paging through the whole listing up to Reddit's
+// 1000-item cap. The result is reused for listingTTL.
+func (c *Client) SavedPosts(ctx context.Context) ([]Post, error) {
+	c.mu.Lock()
+	cached := c.saved
+	c.mu.Unlock()
+	if cached.posts != nil && time.Now().Before(cached.expires) {
+		return cached.posts, nil
+	}
+
+	name, _, err := c.me(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	posts := []Post{}
+	after := ""
+	for range savedMaxPages {
+		q := url.Values{"type": {"links"}, "limit": {"100"}, "raw_json": {"1"}}
+		if after != "" {
+			q.Set("after", after)
+		}
+		endpoint := "https://api.reddit.com/user/" + url.PathEscape(name) + "/saved?" + q.Encode()
+		l, err := c.getListing(ctx, endpoint)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, postsFrom(l)...)
+		after = l.Data.After
+		if after == "" {
+			break
+		}
+	}
+
+	c.mu.Lock()
+	c.saved = cachedListing{posts: posts, expires: time.Now().Add(listingTTL)}
+	c.mu.Unlock()
+	return posts, nil
+}
+
+// getListing GETs endpoint and decodes it as a single listing.
+func (c *Client) getListing(ctx context.Context, endpoint string) (listing, error) {
+	resp, err := c.get(ctx, endpoint)
+	if err != nil {
+		return listing{}, err
+	}
+	defer resp.Body.Close()
+	var l listing
+	if err := json.NewDecoder(resp.Body).Decode(&l); err != nil {
+		return listing{}, fmt.Errorf("%w: %w", ErrBadResponse, err)
+	}
+	return l, nil
 }
 
 // resolveSharePath expands a Reddit share link (…/s/<id>) to its canonical
@@ -282,28 +356,29 @@ func (c *Client) resolveSharePath(ctx context.Context, path string) (string, boo
 	return resolved, true
 }
 
-// modhash fetches the session's modhash, the CSRF token old.reddit requires
-// on state-changing requests. A session Reddit doesn't recognize yields an
-// empty modhash, reported as ErrAuth.
-func (c *Client) modhash(ctx context.Context) (string, error) {
+// me fetches the session user's name and modhash (the CSRF token old.reddit
+// requires on state-changing requests). A session Reddit doesn't recognize
+// yields an empty name/modhash, reported as ErrAuth.
+func (c *Client) me(ctx context.Context) (name, modhash string, err error) {
 	resp, err := c.get(ctx, "https://api.reddit.com/api/me.json")
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	var me struct {
 		Data struct {
+			Name    string `json:"name"`
 			Modhash string `json:"modhash"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&me); err != nil {
-		return "", fmt.Errorf("%w: %w", ErrBadResponse, err)
+		return "", "", fmt.Errorf("%w: %w", ErrBadResponse, err)
 	}
-	if me.Data.Modhash == "" {
-		return "", ErrAuth
+	if me.Data.Name == "" || me.Data.Modhash == "" {
+		return "", "", ErrAuth
 	}
-	return me.Data.Modhash, nil
+	return me.Data.Name, me.Data.Modhash, nil
 }
 
 // SubmitSelfPost publishes a self (text) post to subreddit as the session's
@@ -311,7 +386,7 @@ func (c *Client) modhash(ctx context.Context) (string, error) {
 // URL. Validation failures Reddit reports on a 200 (banned, rate limit,
 // captcha, empty title, …) surface as a *SubmitError.
 func (c *Client) SubmitSelfPost(ctx context.Context, subreddit, title, body string) (postURL string, err error) {
-	uh, err := c.modhash(ctx)
+	_, uh, err := c.me(ctx)
 	if err != nil {
 		return "", err
 	}

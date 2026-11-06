@@ -22,12 +22,14 @@ export interface Document {
   postUrls: string[]
 }
 
-// RedditPost is one newest post from the user's subreddit, as returned by
-// GET /api/reddit/posts. url is the permalink to the Reddit post.
+// RedditPost is one Reddit post, as returned by GET /api/reddit/posts (newest
+// in the user's subreddit), /api/reddit/saved (the account's saved posts) and
+// /api/reddit/post. url is the permalink to the Reddit post.
 export interface RedditPost {
   title: string
   url: string
   author: string
+  subreddit: string
 }
 
 // Response mirrors model.Response — one generated answer attached to a block.

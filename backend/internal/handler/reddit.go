@@ -80,6 +80,31 @@ func ListRedditPosts(st RedditStore, rc *reddit.Client) http.HandlerFunc {
 	}
 }
 
+// ListSavedRedditPosts returns the REDDIT_SESSION account's saved posts
+// (comments skipped) across every subreddit; the frontend filters them.
+func ListSavedRedditPosts(rc *reddit.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := auth.UserIDFrom(r.Context()); !ok {
+			writeError(w, http.StatusUnauthorized, "Not logged in")
+			return
+		}
+		if !rc.Configured() {
+			writeError(w, http.StatusServiceUnavailable, "Reddit integration is not configured")
+			return
+		}
+
+		posts, err := rc.SavedPosts(r.Context())
+		if err != nil {
+			writeRedditError(w, r, err, "Saved posts not found")
+			return
+		}
+		if posts == nil {
+			posts = []reddit.Post{}
+		}
+		writeJSON(w, http.StatusOK, posts)
+	}
+}
+
 // GetRedditPost fetches a single Reddit post by URL via api.reddit.com and returns its title and normalized permalink URL. It lets users
 // import a specific post that isn't in the subreddit's newest listing.
 func GetRedditPost(rc *reddit.Client) http.HandlerFunc {

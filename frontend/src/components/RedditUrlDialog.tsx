@@ -47,7 +47,7 @@ export default function RedditUrlDialog({ open, onClose, onResolved }: RedditUrl
   }
 
   function continueAnyway() {
-    const post = { title: '', url: url.trim(), author: '' }
+    const post = { title: '', url: url.trim(), author: '', subreddit: '' }
     setUrl('')
     setError(null)
     onResolved(post)
