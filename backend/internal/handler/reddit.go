@@ -50,7 +50,7 @@ func writeRedditError(w http.ResponseWriter, r *http.Request, err error, notFoun
 }
 
 // ListRedditPosts fetches the newest posts from the logged-in user's configured
-// subreddit via old.reddit.com (as the REDDIT_SESSION user) and returns their
+// subreddit via api.reddit.com (as the REDDIT_SESSION user) and returns their
 // titles and permalink URLs. Anonymous access is blocked by Reddit, so a session
 // is required.
 func ListRedditPosts(st RedditStore, rc *reddit.Client) http.HandlerFunc {
@@ -80,7 +80,7 @@ func ListRedditPosts(st RedditStore, rc *reddit.Client) http.HandlerFunc {
 	}
 }
 
-// GetRedditPost fetches a single Reddit post by URL via old.reddit.com and returns its title and normalized permalink URL. It lets users
+// GetRedditPost fetches a single Reddit post by URL via api.reddit.com and returns its title and normalized permalink URL. It lets users
 // import a specific post that isn't in the subreddit's newest listing.
 func GetRedditPost(rc *reddit.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

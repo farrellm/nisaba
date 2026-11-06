@@ -1,7 +1,7 @@
 // Package reddit is a minimal Reddit client that reads and submits self posts
-// through old.reddit.com as a logged-in user (a reddit_session cookie) rather
-// than the OAuth Data API. Reddit blocks anonymous JSON access and expects a
-// descriptive User-Agent on every request.
+// through api.reddit.com as a logged-in user (a reddit_session cookie) rather
+// than the OAuth Data API. Reddit blocks anonymous JSON access and old.reddit.com's
+// .json listing endpoints, and expects a descriptive User-Agent on every request.
 package reddit
 
 import (
@@ -66,7 +66,7 @@ type Post struct {
 }
 
 // listing mirrors the shape of Reddit's listing responses (only the fields we
-// use), as served by old.reddit.com's .json endpoints.
+// use), as served by api.reddit.com.
 type listing struct {
 	Data struct {
 		Children []struct {
@@ -79,10 +79,9 @@ type listing struct {
 	} `json:"data"`
 }
 
-// Client reads and posts through old.reddit.com as a logged-in user, by
-// sending that user's reddit_session cookie (the same JSON the old.reddit web
-// UI serves). It caches subreddit listings briefly to keep request volume low,
-// and is safe for concurrent use.
+// Client reads and posts through api.reddit.com as a logged-in user, by
+// sending that user's reddit_session cookie. It caches subreddit listings
+// briefly to keep request volume low, and is safe for concurrent use.
 type Client struct {
 	session string
 
@@ -132,7 +131,7 @@ func (c *Client) authorize(req *http.Request) {
 	req.Header.Set("User-Agent", userAgent)
 }
 
-// get performs a session-authenticated GET against old.reddit.com and maps the
+// get performs a session-authenticated GET against api.reddit.com and maps the
 // non-200 statuses onto the package's sentinel errors. The caller decodes the
 // body and must close it.
 func (c *Client) get(ctx context.Context, endpoint string) (*http.Response, error) {
@@ -152,8 +151,8 @@ func (c *Client) get(ctx context.Context, endpoint string) (*http.Response, erro
 	case code == http.StatusOK:
 		return resp, nil
 	case code >= 300 && code < 400:
-		// A stale session is bounced to the login page; old.reddit redirects
-		// an unknown subreddit to its search page.
+		// A stale session is bounced to the login page; an unknown subreddit
+		// may redirect to the search page.
 		loc := resp.Header.Get("Location")
 		resp.Body.Close()
 		if strings.Contains(loc, "/login") {
@@ -188,8 +187,9 @@ func (c *Client) NewestPosts(ctx context.Context, subreddit string) ([]Post, err
 	}
 
 	// The subreddit is escaped as defense in depth, even though callers
-	// validate it on save.
-	endpoint := "https://old.reddit.com/r/" + url.PathEscape(subreddit) + "/new.json?limit=25"
+	// validate it on save. api.reddit.com serves JSON directly without a
+	// .json suffix (which Reddit's edge security blocks with 403).
+	endpoint := "https://api.reddit.com/r/" + url.PathEscape(subreddit) + "/new?limit=25"
 	resp, err := c.get(ctx, endpoint)
 	if err != nil {
 		return nil, err
@@ -230,7 +230,7 @@ func (c *Client) FetchPost(ctx context.Context, rawURL string) (Post, error) {
 		return Post{}, ErrShareResolve
 	}
 
-	resp, err := c.get(ctx, "https://old.reddit.com"+path+".json?raw_json=1&limit=1")
+	resp, err := c.get(ctx, "https://api.reddit.com"+path+"?raw_json=1&limit=1")
 	if err != nil {
 		return Post{}, err
 	}
@@ -286,7 +286,7 @@ func (c *Client) resolveSharePath(ctx context.Context, path string) (string, boo
 // on state-changing requests. A session Reddit doesn't recognize yields an
 // empty modhash, reported as ErrAuth.
 func (c *Client) modhash(ctx context.Context) (string, error) {
-	resp, err := c.get(ctx, "https://old.reddit.com/api/me.json")
+	resp, err := c.get(ctx, "https://api.reddit.com/api/me.json")
 	if err != nil {
 		return "", err
 	}
@@ -325,7 +325,7 @@ func (c *Client) SubmitSelfPost(ctx context.Context, subreddit, title, body stri
 		"uh":       {uh},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		"https://old.reddit.com/api/submit", strings.NewReader(form.Encode()))
+		"https://api.reddit.com/api/submit", strings.NewReader(form.Encode()))
 	if err != nil {
 		return "", err
 	}
