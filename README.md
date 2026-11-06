@@ -86,6 +86,7 @@ The backend reads configuration from environment variables with development defa
 | `CHARLOTTE_CLI` | absolute path of `charlotte-cli` | Executable behind the Charlotte pages. `make` bakes in the path found on the build-time `PATH`; a build without it (or where it isn't found) falls back to the bare name, resolved on `PATH` at runtime. A missing binary does *not* fail startup |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | *(empty)* | Web Push key pair for run-finished notifications; generate with `go run ./cmd/server -gen-vapid-keys`. Push is disabled unless these and `VAPID_SUBJECT` are set |
 | `VAPID_SUBJECT` | *(empty)* | Contact sent to push services: an `https:` URL (e.g. the app's own) or an e-mail address. Required — Apple rejects placeholder subjects with `403 BadJwtToken` |
+| `REDDIT_SESSION` | *(empty)* | `reddit_session` cookie of a logged-in old.reddit.com session; see [Reddit session](#reddit-session). Reddit endpoints 503 when unset |
 
 ### LLM provider
 
@@ -102,6 +103,20 @@ GoAI reads each key from the environment automatically; you only need the keys f
 ### Run notifications (iPhone)
 
 With the VAPID keys set, each finished run (success or failure) pushes a notification to every device the user has enabled. On iPhone (iOS 16.4+): open Nisaba in Safari, Share → **Add to Home Screen**, launch it from the Home Screen, then turn on **Run notifications** under Settings. Desktop browsers can enable it there directly.
+
+### Reddit session
+
+The Reddit pages read and submit through old.reddit.com as a logged-in user, authenticated by that user's `reddit_session` cookie in `REDDIT_SESSION`. When it is unset, the Reddit endpoints return 503. To set it or refresh it (the cookie expires, and logging out of that browser session revokes it):
+
+1. Log in at <https://old.reddit.com> in a desktop browser as the account Nisaba should post as.
+2. Open DevTools → **Application** (Chrome) / **Storage** (Firefox) → Cookies → `https://old.reddit.com`, and copy the **value** of `reddit_session`.
+3. Put it in `.envrc`, single-quoted so the shell leaves it alone:
+   ```sh
+   export REDDIT_SESSION='…'
+   ```
+4. Reload the environment and restart the backend: `direnv reload` (or re-`source .envrc`) for local dev, or `systemctl --user restart nisaba` for the deployed unit.
+
+**"Reddit rejected the session; refresh REDDIT_SESSION"** (HTTP 502) means Reddit no longer accepts the cookie, usually because it expired or that browser session was logged out. Repeat the steps above with a fresh cookie. Keep that browser session alive afterwards: if you log out of it, the cookie is revoked too.
 
 ## Deployment
 
