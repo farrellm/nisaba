@@ -105,9 +105,10 @@ var models = []Model{
 	{ID: "gemini-3.5-flash-lite", Label: "Gemini 3.5 Flash Lite", Provider: "google", Hidden: true},
 	{ID: "gemini-3.8-flash", Label: "Gemini 3.8 Flash", Provider: "google", Hidden: true},
 	{ID: "gemini-3.1-pro-preview", Label: "Gemini 3.1 Pro", Provider: "google", Hidden: true},
+	{ID: "gemini-4-argon", Label: "Gemini 4 Argon", Provider: "google", Hidden: true},
 	{ID: "z-ai/glm-5.3", Label: "GLM 5.3", Provider: "openrouter"},
 	{ID: "x-ai/grok-4.7", Label: "Grok 4.7", Provider: "openrouter"},
-	{ID: "moonshotai/kimi-k3", Label: "Kimi K3", Provider: "openrouter"},
+	{ID: "moonshotai/kimi-k3.1-pro", Label: "Kimi K3.1 Pro", Provider: "openrouter"},
 	{ID: "deepseek-flash", Label: "DeepSeek Flash", Provider: "deepseek"},
 	{ID: "deepseek-v4-pro", Label: "DeepSeek V4 Pro", Provider: "deepseek"},
 }
