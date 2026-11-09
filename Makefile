@@ -15,11 +15,11 @@ GO_LDFLAGS  := -X github.com/farrellm/nisaba/internal/config.charlotteCLIDefault
 BIN                   := $(CURDIR)/bin
 export PATH           := $(BIN):$(PATH)
 # renovate: datasource=github-releases depName=golangci/golangci-lint
-GOLANGCI_LINT_VERSION := v2.14.0
+GOLANGCI_LINT_VERSION := v2.15.0
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
 GITLEAKS_VERSION      := v8.30.1
 # renovate: datasource=github-releases depName=evilmartians/lefthook
-LEFTHOOK_VERSION      := v2.1.15
+LEFTHOOK_VERSION      := v2.2.2
 SQUAWK_VERSION        := v2.66.0
 SQUAWK_SHA256_linux-x64    := e7965f8146b53cfa7a4625ceecfea5c6aeb35add39132210aa60b11ae180b9f4
 SQUAWK_SHA256_linux-arm64  := 04455267bb895de1568dc24e52eb062b311096ad614c3e15a77cf8a7b3483c2a
