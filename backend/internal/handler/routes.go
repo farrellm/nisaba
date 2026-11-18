@@ -43,11 +43,12 @@ func Routes(d Deps) http.Handler {
 
 	r := chi.NewRouter()
 	// The deployed process binds loopback only and is reached solely through
-	// `tailscale serve` — exactly one trusted hop — so the rightmost
-	// X-Forwarded-For entry (the one tailscaled appends) is the client address
-	// the login limiter below keys on. Earlier entries are client-supplied and
-	// never trusted.
-	r.Use(middleware.ClientIPFromXFF())
+	// `tailscale serve` — exactly one trusted hop, from loopback — so the
+	// rightmost X-Forwarded-For entry (the one tailscaled appends) is the client
+	// address the login limiter below keys on. Earlier entries are
+	// client-supplied and never trusted; a non-loopback peer is itself the
+	// client and its X-Forwarded-For is ignored.
+	r.Use(middleware.ClientIPFromXFF(trustedProxyPrefixes...))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(cors.New(cors.Options{
@@ -150,6 +151,10 @@ func Routes(d Deps) http.Handler {
 
 	return r
 }
+
+// trustedProxyPrefixes are the peers whose X-Forwarded-For entries are trusted:
+// loopback, where tailscale serve connects from.
+var trustedProxyPrefixes = []string{"127.0.0.1/32", "::1/128"}
 
 // keyByClientIP keys the rate limiter on the address ClientIPFromXFF resolved.
 // A request with no usable X-Forwarded-For resolves to "", sharing one bucket

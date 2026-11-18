@@ -13,19 +13,21 @@ import (
 // client can't pick its own bucket by sending a forged header.
 func TestKeyByClientIPIgnoresSpoofedXFF(t *testing.T) {
 	cases := []struct {
-		name, xff, want string
+		name, peer, xff, want string
 	}{
-		{"single hop", "203.0.113.7", "203.0.113.7"},
-		{"spoofed prefix", "198.51.100.1, 203.0.113.7", "203.0.113.7"},
-		{"no header", "", ""},
+		{"single hop", "127.0.0.1:1234", "203.0.113.7", "203.0.113.7"},
+		{"spoofed prefix", "127.0.0.1:1234", "198.51.100.1, 203.0.113.7", "203.0.113.7"},
+		{"no header", "127.0.0.1:1234", "", ""},
+		{"untrusted peer", "192.0.2.9:1234", "203.0.113.7", "192.0.2.9"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var got string
-			h := middleware.ClientIPFromXFF()(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+			h := middleware.ClientIPFromXFF(trustedProxyPrefixes...)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 				got, _ = keyByClientIP(r)
 			}))
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/auth/login", nil)
+			req.RemoteAddr = tc.peer
 			if tc.xff != "" {
 				req.Header.Set("X-Forwarded-For", tc.xff)
 			}
